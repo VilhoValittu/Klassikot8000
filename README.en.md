@@ -71,3 +71,7 @@ Grab the package for your machine from the [releases](https://github.com/VilhoVa
 - **Windows** (`windows-x64`): run `klassikot8000.exe`.
 - **Linux** (`linux-x64`, `linux-arm64`): run `klassikot8000`. The game needs X11 or XWayland, plus the ALSA library for sound; desktop machines usually have these already.
 - **macOS** (`macos-universal`, Intel and Apple Silicon): run `Klassikot8000.app`. The package isn't signed by Apple, so macOS blocks the first launch. Remove the block in Terminal: `xattr -d com.apple.quarantine Klassikot8000.app`.
+
+## License
+
+Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`. In the macOS package, both are in `Klassikot8000.app/Contents/Resources`.

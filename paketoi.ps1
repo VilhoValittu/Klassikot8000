@@ -12,11 +12,17 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error 'Kaannos ei onnistunut, pakettia ei tehty.'
 }
 
+$lisenssit = 'target\THIRD-PARTY-LICENSES.txt'
+python paketointi\lisenssit.py $lisenssit
+if ($LASTEXITCODE -ne 0) {
+    Write-Error 'Lisenssilista ei onnistunut, pakettia ei tehty.'
+}
+
 $exe = 'target\release\klassikot8000.exe'
 $paketti = "dist\klassikot8000-$versio-windows-x64.zip"
 
 New-Item -ItemType Directory -Force dist | Out-Null
-Compress-Archive -Path $exe, 'kielet.txt' -DestinationPath $paketti -CompressionLevel Optimal -Force
+Compress-Archive -Path $exe, 'kielet.txt', 'LICENSE', $lisenssit -DestinationPath $paketti -CompressionLevel Optimal -Force
 
 Write-Host ''
 Write-Host "Paketti: $paketti"

@@ -70,7 +70,8 @@ jobs:
           cargo build --release --locked
           nimi="klassikot8000-$VERSIO-$ALUSTA"
           mkdir -p "dist/$nimi"
-          cp target/release/klassikot8000 kielet.txt "dist/$nimi/"
+          python3 paketointi/lisenssit.py "dist/$nimi/THIRD-PARTY-LICENSES.txt"
+          cp target/release/klassikot8000 kielet.txt LICENSE "dist/$nimi/"
           # Linuxin ohjelmatiedostossa ei voi olla ikonia, joten se tulee mukaan pikakuvaketta varten.
           cp paketointi/ikoni.png "dist/$nimi/klassikot8000.png"
           tar -C dist -czf "dist/$nimi.tar.gz" "$nimi"
@@ -83,7 +84,8 @@ jobs:
           cargo build --release --locked --target aarch64-apple-darwin
           sisalto=dist/Klassikot8000.app/Contents
           mkdir -p "$sisalto/MacOS" "$sisalto/Resources"
-          cp paketointi/ikoni.icns "$sisalto/Resources/"
+          cp paketointi/ikoni.icns LICENSE "$sisalto/Resources/"
+          python3 paketointi/lisenssit.py "$sisalto/Resources/THIRD-PARTY-LICENSES.txt" x86_64-apple-darwin aarch64-apple-darwin
           lipo -create -output "$sisalto/MacOS/klassikot8000" \
             target/x86_64-apple-darwin/release/klassikot8000 \
             target/aarch64-apple-darwin/release/klassikot8000
