@@ -4,7 +4,7 @@
 
 Tylsää? Kymmenen vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
-Pyörii vaikka perunalla. Clauden koodaama, AB:n ideasta.
+Pyörii vaikka perunalla. AB:n OG ideasta.
 
 ## Pelit
 
