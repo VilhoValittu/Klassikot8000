@@ -282,7 +282,7 @@ holdem.banneri = **** TEXAS HOLD'EM ****
 holdem.tervetuloa = Tervetuloa Hold'em-pöytään.
 holdem.ohje_1 = Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi voittaa potin.
 holdem.ohje_2 = Neljä konetta, kaikilla 1000 rahaa. Blindit 10/20 tuplaantuvat 10 jaon välein. Viimeinen rahoissa voittaa.
-holdem.nappain_vuoro = V tarkista tai maksa, K kippaa.
+holdem.nappain_vuoro = V tarkista tai maksa, K skippaa.
 holdem.nappain_korotus = R korota, nuolet ja 1-4 summa.
 holdem.nappain_jatka = Väli: jatka tai uusi jako.
 holdem.sina = Sinä
@@ -323,7 +323,7 @@ holdem.sivu_nuolet = Nuolet: muuta korotus.
 holdem.sivu_aanet = M: äänet päälle/pois.
 holdem.nappi_tarkista = V = Tarkista
 holdem.nappi_maksa = V = Maksa {}
-holdem.nappi_kippaa = K = Kippaa
+holdem.nappi_kippaa = K = Skippaa
 holdem.nappi_korota = R = Korota {}
 holdem.nappi_panosta = R = Panosta {}
 holdem.nappi_pienin = 1 = Pienin korotus
