@@ -28,6 +28,8 @@ pub enum Nettipeli {
     Silmukka,
     Palikka,
     Pasianssi,
+    Spider,
+    Pyramidi,
     Blackjack,
     Holdem,
 }
@@ -42,6 +44,8 @@ impl Nettipeli {
             Nettipeli::Silmukka => "silmukka",
             Nettipeli::Palikka => "palikka",
             Nettipeli::Pasianssi => "pasianssi",
+            Nettipeli::Spider => "spider",
+            Nettipeli::Pyramidi => "pyramidi",
             Nettipeli::Blackjack => "blackjack",
             Nettipeli::Holdem => "holdem",
         }

@@ -19,8 +19,12 @@ pub mod miinaharava;
 pub mod palikka;
 #[path = "pelit/pasianssi/logiikka.rs"]
 pub mod pasianssi;
+#[path = "pelit/pasianssi/pyramidi/logiikka.rs"]
+pub mod pyramidi;
 #[path = "pelit/silmukka/logiikka.rs"]
 pub mod silmukka;
+#[path = "pelit/pasianssi/spider/logiikka.rs"]
+pub mod spider;
 #[path = "pelit/tiilirikko/logiikka.rs"]
 pub mod tiilirikko;
 

@@ -5,6 +5,7 @@ use std::io::{self, Write};
 
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
 use klassikot8000::luvut::{Ruudut, SIVU, Suunta};
+use klassikot8000::pasianssi::Variantti;
 
 use crate::kaynnistin::{Laji, PELIT};
 use crate::yhteinen::kieli::Kieli;
@@ -32,6 +33,8 @@ pub struct Liput {
     pub julkaisut: Option<String>,
     /// Näyttää ilmoituksen tästä versiosta ilman verkkoa.
     pub uusi_versio: Option<String>,
+    /// Pasianssi: laji, ilman tätä Klondike.
+    pub variantti: Option<Variantti>,
     /// Pasianssi: aloittaa pelin ja nostaa pakasta näin monta kertaa.
     pub nostot: Option<u32>,
     /// Pasianssi: aloittaa pelin voitettuna, loppujuhlan tarkistukseen.
@@ -73,7 +76,7 @@ impl Liput {
             Some(Laji::Laivanupotus)
         } else if self.lauta.is_some() || !self.liu_ut.is_empty() {
             Some(Laji::Luvut)
-        } else if self.nostot.is_some() || self.voitto || self.jumissa {
+        } else if self.nostot.is_some() || self.voitto || self.jumissa || self.variantti.is_some() {
             Some(Laji::Pasianssi)
         } else if self.kentta.is_some() {
             Some(Laji::Tiilirikko)
@@ -107,6 +110,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         netti: None,
         julkaisut: None,
         uusi_versio: None,
+        variantti: None,
         nostot: None,
         voitto: false,
         nimi: false,
@@ -158,6 +162,14 @@ pub fn lue_liput() -> Result<Liput, String> {
                     return Err(format!("--select: {arvo}"));
                 }
                 liput.valittu = Some(i);
+            }
+            "--variant" => {
+                liput.variantti = Some(match arvo.as_str() {
+                    "klondike" => Variantti::Klondike,
+                    "spider" => Variantti::Spider,
+                    "pyramidi" => Variantti::Pyramidi,
+                    _ => return Err(format!("--variant: {arvo}")),
+                });
             }
             "--draws" => liput.nostot = Some(arvo.parse().map_err(|_| "--draws: ei luku")?),
             "--win" => liput.voitto = arvo == "1",

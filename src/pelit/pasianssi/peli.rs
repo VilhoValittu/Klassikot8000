@@ -1,7 +1,9 @@
 use klassikot8000::Arpa;
-use klassikot8000::pasianssi::{Kohde, Lahde, Lauta, SARAKKEITA, Vaikeus, aikapisteet};
+use klassikot8000::pasianssi::{Kohde, Lahde, Lauta, SARAKKEITA, Vaikeus, Variantti, aikapisteet};
+use klassikot8000::{pyramidi as pyramidilogiikka, spider as spiderlogiikka};
 
 use super::piirto::{self, Kohta};
+use super::{pyramidi, spider};
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::VILKKU_MS;
@@ -12,17 +14,19 @@ const TUPLAKLIKKAUS_MS: u32 = 400;
 // Pienempi liike on klikkauksen tärinää eikä vetämistä.
 const VETO_RAJA: i32 = 5;
 const VOITTO_VIIVE_MS: u32 = 250;
+pub const VARIANTTEJA: usize = Variantti::KAIKKI.len();
 // Ylärivin kolmas paikka on tyhjä: pakka ja jäte ovat vasemmalla, perustat oikealla.
 const TYHJA_YLASARAKE: usize = 2;
 const PERUSTA_ALKAA: usize = 3;
 
-const EI_KAY: &str = "pasianssi.ei_kay";
-const PAKKA_LOPPU: &str = "pasianssi.pakka_loppu";
+pub(super) const EI_KAY: &str = "pasianssi.ei_kay";
+pub(super) const PAKKA_LOPPU: &str = "pasianssi.pakka_loppu";
 const EI_PERUUTUSTA: &str = "pasianssi.ei_peruutusta";
 const EI_PERUTTAVAA: &str = "pasianssi.ei_peruttavaa";
 const EI_KERATTAVAA: &str = "pasianssi.ei_kerattavaa";
 const JUMISSA: &str = "pasianssi.jumissa";
 const VOITTOVIESTI: &str = "pasianssi.voittoviesti";
+const PYRAMIDI_VOITTOVIESTI: &str = "pyramidi.voittoviesti";
 const SIIRROT_LOPPU: &str = "pasianssi.siirrot_loppu";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,6 +44,8 @@ pub enum Nappi {
     Uusi,
     Peruuta,
     Keraa,
+    /// Spider jakaa ja Pyramidi nostaa. Klondikessa pakkaa klikataan suoraan.
+    Nosta,
     Valikko,
 }
 
@@ -52,23 +58,50 @@ pub struct Kursori {
     pub syvyys: usize,
 }
 
-/// Hiirellä kiinni pidetty kortti tai jono.
+/// Hiirellä kiinni pidetty kortti tai jono. `L` kertoo, mistä se otettiin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Pito {
-    pub lahde: Lahde,
+pub struct Pito<L = Lahde> {
+    pub lahde: L,
     /// Hiiren paikka suhteessa jonon alimman kortin kulmaan.
     pub tartunta: (i32, i32),
     alku: (i32, i32),
     pub liikkui: bool,
 }
 
+impl<L> Pito<L> {
+    /// `kulma` on poimitun kortin vasen yläkulma ja `hiiri` paikka, josta se poimittiin.
+    pub(super) fn new(lahde: L, kulma: (i32, i32), hiiri: (i32, i32)) -> Self {
+        Self {
+            lahde,
+            tartunta: (hiiri.0 - kulma.0, hiiri.1 - kulma.1),
+            alku: hiiri,
+            liikkui: false,
+        }
+    }
+
+    fn seuraa(&mut self, x: i32, y: i32) {
+        if (x - self.alku.0).abs() > VETO_RAJA || (y - self.alku.1).abs() > VETO_RAJA {
+            self.liikkui = true;
+        }
+    }
+}
+
 pub struct Pasianssi {
     pub vaihe: Vaihe,
     pub vaikeus: Vaikeus,
+    /// Valittu laji. Vaihtuu vain alkuruudulla, joten peli ja sen tulos kuuluvat aina tälle.
+    pub variantti: Variantti,
     pub lauta: Lauta,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
+    pub spider: spiderlogiikka::Lauta,
+    pub spider_valittu: Option<spiderlogiikka::Jono>,
+    pub spider_pito: Option<Pito<spiderlogiikka::Jono>>,
+    pub pyramidi: pyramidilogiikka::Lauta,
+    pub pyramidi_valittu: Option<pyramidilogiikka::Paikka>,
+    pub pyramidi_pito: Option<Pito<pyramidilogiikka::Paikka>>,
+    /// Kunkin lajin oma lista, järjestys kuten `Variantti::KAIKKI`.
+    pub parhaat: [Vec<Tulos>; VARIANTTEJA],
+    /// Nettilistat. `None`, kunnes palvelin on vastannut.
+    pub netti_parhaat: [Option<Vec<Tulos>>; VARIANTTEJA],
     /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
     pub lahetys: Option<Tulos>,
     /// Kirjoitettavana oleva nimimerkki.
@@ -98,9 +131,17 @@ impl Pasianssi {
         Self {
             vaihe: Vaihe::Alku,
             vaikeus: Vaikeus::Normaali,
+            variantti: Variantti::Klondike,
             lauta: Lauta::new(Vaikeus::Normaali, &mut arpa),
-            parhaat: Vec::new(),
-            netti_parhaat: None,
+            // Korvataan aloitettaessa, joten nämä eivät saa kuluttaa pelin arpaa.
+            spider: spiderlogiikka::Lauta::new(Vaikeus::Normaali, &mut Arpa::new(siemen)),
+            spider_valittu: None,
+            spider_pito: None,
+            pyramidi: pyramidilogiikka::Lauta::new(Vaikeus::Normaali, &mut Arpa::new(siemen)),
+            pyramidi_valittu: None,
+            pyramidi_pito: None,
+            parhaat: Default::default(),
+            netti_parhaat: Default::default(),
             lahetys: None,
             nimi: String::new(),
             uusi_tulos: false,
@@ -125,9 +166,28 @@ impl Pasianssi {
         }
     }
 
+    /// Valitun lajin paikka tuloslistoissa.
+    pub fn lista_indeksi(&self) -> usize {
+        self.variantti as usize
+    }
+
     /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
     pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
+        let i = self.lista_indeksi();
+        self.netti_parhaat[i].as_deref().unwrap_or(&self.parhaat[i])
+    }
+
+    pub fn netti_vastasi(&self) -> bool {
+        self.netti_parhaat[self.lista_indeksi()].is_some()
+    }
+
+    /// Käynnissä olevan laudan taso.
+    pub fn laudan_vaikeus(&self) -> Vaikeus {
+        match self.variantti {
+            Variantti::Klondike => self.lauta.vaikeus,
+            Variantti::Spider => self.spider.vaikeus,
+            Variantti::Pyramidi => self.pyramidi.vaikeus,
+        }
     }
 
     /// Mitä voitto antaisi juuri nyt. Hävitty peli ei anna mitään.
@@ -135,7 +195,7 @@ impl Pasianssi {
         if self.vaihe == Vaihe::Tappio {
             return 0;
         }
-        aikapisteet(self.lauta.vaikeus, self.peliaika_ms / 1000)
+        aikapisteet(self.laudan_vaikeus(), self.peliaika_ms / 1000)
     }
 
     pub fn edista(&mut self, ms: u32) {
@@ -163,18 +223,27 @@ impl Pasianssi {
     }
 
     pub fn aloita(&mut self) {
-        self.lauta = Lauta::new(self.vaikeus, &mut self.arpa);
+        match self.variantti {
+            Variantti::Klondike => self.lauta = Lauta::new(self.vaikeus, &mut self.arpa),
+            Variantti::Spider => {
+                self.spider = spiderlogiikka::Lauta::new(self.vaikeus, &mut self.arpa);
+            }
+            Variantti::Pyramidi => {
+                self.pyramidi = pyramidilogiikka::Lauta::new(self.vaikeus, &mut self.arpa);
+            }
+        }
         self.vaihe = Vaihe::Pelissa;
         self.peliaika_ms = 0;
         self.viesti.clear();
         self.unohda_poiminta();
+        // Spiderissa ylärivillä ei ole mitään osoitettavaa.
         self.kursori = Kursori {
-            ylarivi: true,
+            ylarivi: self.variantti != Variantti::Spider,
             sarake: 0,
             syvyys: 0,
         };
         self.aanijono.push((Aani::Ovi, 0));
-        if !self.lauta.on_siirtoja() {
+        if !self.laudalla_siirtoja() {
             self.siirrot_loppuivat();
         }
     }
@@ -188,7 +257,53 @@ impl Pasianssi {
     fn unohda_poiminta(&mut self) {
         self.valittu = None;
         self.pito = None;
+        self.spider_valittu = None;
+        self.spider_pito = None;
+        self.pyramidi_valittu = None;
+        self.pyramidi_pito = None;
         self.viime_klikkaus = None;
+    }
+
+    fn on_poiminta(&self) -> bool {
+        self.valittu.is_some()
+            || self.pito.is_some()
+            || self.spider_valittu.is_some()
+            || self.spider_pito.is_some()
+            || self.pyramidi_valittu.is_some()
+            || self.pyramidi_pito.is_some()
+    }
+
+    fn laudalla_siirtoja(&self) -> bool {
+        match self.variantti {
+            Variantti::Klondike => self.lauta.on_siirtoja(),
+            Variantti::Spider => self.spider.on_siirtoja(),
+            Variantti::Pyramidi => self.pyramidi.on_siirtoja(),
+        }
+    }
+
+    fn lauta_voitettu(&self) -> bool {
+        match self.variantti {
+            Variantti::Klondike => self.lauta.on_voitettu(),
+            Variantti::Spider => self.spider.on_voitettu(),
+            Variantti::Pyramidi => self.pyramidi.on_voitettu(),
+        }
+    }
+
+    fn laudalla_hyodyllisia_siirtoja(&self) -> bool {
+        match self.variantti {
+            Variantti::Klondike => self.lauta.on_hyodyllisia_siirtoja(),
+            Variantti::Spider => self.spider.on_hyodyllisia_siirtoja(),
+            // Pyramidissa jokainen jäljellä oleva siirto poistaa kortteja.
+            Variantti::Pyramidi => true,
+        }
+    }
+
+    fn nappi_kohdassa(&self, x: i32, y: i32) -> Option<Nappi> {
+        match self.variantti {
+            Variantti::Klondike => piirto::nappi_pisteesta(x, y),
+            Variantti::Spider => spider::piirto::nappi_pisteesta(x, y),
+            Variantti::Pyramidi => pyramidi::piirto::nappi_pisteesta(x, y),
+        }
     }
 
     /// Kirjaa odottavan tuloksen.
@@ -199,8 +314,9 @@ impl Pasianssi {
         let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.pisteet();
         let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
+        let i = self.lista_indeksi();
+        lisaa_tulos(&mut self.parhaat[i], tulos.clone());
+        if let Some(lista) = &mut self.netti_parhaat[i] {
             lisaa_tulos(lista, tulos.clone());
         }
         self.lahetys = Some(tulos);
@@ -224,7 +340,7 @@ impl Pasianssi {
             return;
         }
         if syote == Syote::Peru {
-            if self.valittu.is_some() || self.pito.is_some() {
+            if self.on_poiminta() {
                 self.unohda_poiminta();
             } else {
                 self.lopeta = true;
@@ -246,6 +362,20 @@ impl Pasianssi {
     }
 
     fn kasittele_alku(&mut self, syote: Syote) {
+        // Ylös ja alas vaihtavat lajia, vasen ja oikea tasoa.
+        let laji = match syote {
+            Syote::Nuoli(muutos, 0) => {
+                let lajit = Variantti::KAIKKI;
+                let i = self.lista_indeksi().saturating_add_signed(muutos as isize);
+                Some(lajit[i.min(lajit.len() - 1)])
+            }
+            Syote::Klikkaus(x, y) => piirto::variantti_pisteesta(x, y),
+            _ => None,
+        };
+        if let Some(laji) = laji {
+            self.variantti = laji;
+            return;
+        }
         let tasot = Vaikeus::KAIKKI;
         let valittu = match syote {
             Syote::Numero(numero) => (numero as usize)
@@ -269,7 +399,7 @@ impl Pasianssi {
         let nappi = match syote {
             Syote::Kirjain('K') => Nappi::Uusi,
             Syote::Kirjain('E') => Nappi::Valikko,
-            Syote::Klikkaus(x, y) => match piirto::nappi_pisteesta(x, y) {
+            Syote::Klikkaus(x, y) => match self.nappi_kohdassa(x, y) {
                 Some(nappi) => nappi,
                 None => return,
             },
@@ -278,20 +408,51 @@ impl Pasianssi {
         match nappi {
             Nappi::Uusi => self.vaihe = Vaihe::Alku,
             Nappi::Valikko => self.lopeta = true,
-            Nappi::Peruuta | Nappi::Keraa => {}
+            Nappi::Peruuta | Nappi::Keraa | Nappi::Nosta => {}
         }
     }
 
     fn kasittele_pelissa(&mut self, syote: Syote) {
+        let laji = self.variantti;
         match syote {
             Syote::Hiiri(x, y) => self.hiiri_liikkuu(x, y),
-            Syote::Klikkaus(x, y) => self.klikkaus(x, y),
-            Syote::Vapautus(x, y) => self.vapautus(x, y),
-            Syote::Nuoli(drivi, dsarake) => self.liikuta_kursoria(drivi, dsarake),
-            Syote::Ammu => self.kursorin_toiminto(),
+            Syote::Klikkaus(x, y) => {
+                self.hiiri = (x, y);
+                self.kursori_nakyy = false;
+                if let Some(nappi) = self.nappi_kohdassa(x, y) {
+                    self.paina(nappi);
+                    return;
+                }
+                match laji {
+                    Variantti::Klondike => self.klikkaus(x, y),
+                    Variantti::Spider => self.spider_klikkaus(x, y),
+                    Variantti::Pyramidi => self.pyramidi_klikkaus(x, y),
+                }
+            }
+            Syote::Vapautus(x, y) => match laji {
+                Variantti::Klondike => self.vapautus(x, y),
+                Variantti::Spider => self.spider_vapautus(x, y),
+                Variantti::Pyramidi => self.pyramidi_vapautus(x, y),
+            },
+            Syote::Nuoli(drivi, dsarake) => {
+                self.kursori_nakyy = true;
+                match laji {
+                    Variantti::Klondike => self.liikuta_kursoria(drivi, dsarake),
+                    Variantti::Spider => self.spider_liikuta_kursoria(drivi, dsarake),
+                    Variantti::Pyramidi => self.pyramidi_liikuta_kursoria(drivi, dsarake),
+                }
+            }
+            Syote::Ammu => {
+                self.kursori_nakyy = true;
+                match laji {
+                    Variantti::Klondike => self.kursorin_toiminto(),
+                    Variantti::Spider => self.spider_kursorin_toiminto(),
+                    Variantti::Pyramidi => self.pyramidi_kursorin_toiminto(),
+                }
+            }
             Syote::Kirjain('N') => self.nosta(),
             Syote::Kirjain('U') => self.paina(Nappi::Peruuta),
-            Syote::Kirjain('A') => self.paina(Nappi::Keraa),
+            Syote::Kirjain('A') if laji == Variantti::Klondike => self.paina(Nappi::Keraa),
             Syote::Kirjain('K') => self.paina(Nappi::Uusi),
             Syote::Kirjain('E') => self.paina(Nappi::Valikko),
             _ => {}
@@ -301,6 +462,7 @@ impl Pasianssi {
     fn paina(&mut self, nappi: Nappi) {
         self.unohda_poiminta();
         match nappi {
+            Nappi::Nosta => self.nosta(),
             Nappi::Uusi => self.vaihe = Vaihe::Alku,
             Nappi::Valikko => self.lopeta = true,
             Nappi::Peruuta => self.peruuta(),
@@ -315,9 +477,17 @@ impl Pasianssi {
     }
 
     fn peruuta(&mut self) {
-        if !self.vaikeus.peruutus_sallittu() {
+        // Spiderissa perua saa aina: neljää maata ei muuten juuri voita.
+        let sallittu = self.variantti == Variantti::Spider || self.vaikeus.peruutus_sallittu();
+        let peruttu = sallittu
+            && match self.variantti {
+                Variantti::Klondike => self.lauta.peruuta(),
+                Variantti::Spider => self.spider.peruuta(),
+                Variantti::Pyramidi => self.pyramidi.peruuta(),
+            };
+        if !sallittu {
             self.virhe(EI_PERUUTUSTA);
-        } else if self.lauta.peruuta() {
+        } else if peruttu {
             self.viesti.clear();
             self.kursori.syvyys = 0;
             self.aanijono.push((Aani::Liuku, 0));
@@ -326,39 +496,56 @@ impl Pasianssi {
         }
     }
 
-    fn nosta(&mut self) {
+    pub(super) fn nosta(&mut self) {
         self.unohda_poiminta();
-        if self.lauta.nosta() {
+        let nostettu = match self.variantti {
+            Variantti::Klondike => self.lauta.nosta(),
+            Variantti::Pyramidi => self.pyramidi.nosta(),
+            Variantti::Spider => return self.spider_jaa(),
+        };
+        if nostettu {
             self.siirto_tehty(Aani::Liuku);
         } else {
             self.virhe(PAKKA_LOPPU);
         }
     }
 
-    fn virhe(&mut self, viesti: &str) {
+    pub(super) fn virhe(&mut self, viesti: &str) {
         self.viesti = kaanna(viesti).to_string();
         self.aanijono.push((Aani::Ahkaisy, 0));
     }
 
     /// Yhteinen loppu kaikille laudan muuttaneille siirroille.
-    fn siirto_tehty(&mut self, aani: Aani) {
+    pub(super) fn siirto_tehty(&mut self, aani: Aani) {
         self.valittu = None;
         self.pito = None;
-        self.kursori.syvyys = 0;
+        self.spider_valittu = None;
+        self.spider_pito = None;
+        self.pyramidi_valittu = None;
+        self.pyramidi_pito = None;
+        // Pyramidissa `syvyys` on osoittimen rivi, joten se saa jäädä paikalleen.
+        if self.variantti != Variantti::Pyramidi {
+            self.kursori.syvyys = 0;
+        }
         self.aanijono.push((aani, 0));
-        if self.lauta.on_voitettu() {
+        if self.lauta_voitettu() {
             self.vaihe = Vaihe::Voitto;
             self.voitto_alku = self.kello_ms;
             let pisteet = self.pisteet();
-            self.viesti = muotoile(VOITTOVIESTI, &[&pisteet]);
+            let viesti = if self.variantti == Variantti::Pyramidi {
+                PYRAMIDI_VOITTOVIESTI
+            } else {
+                VOITTOVIESTI
+            };
+            self.viesti = muotoile(viesti, &[&pisteet]);
             self.aanijono.push((Aani::Voitto, VOITTO_VIIVE_MS));
             if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
             }
-        } else if !self.lauta.on_siirtoja() {
+        } else if !self.laudalla_siirtoja() {
             self.siirrot_loppuivat();
-        } else if self.lauta.on_hyodyllisia_siirtoja() {
+        } else if self.laudalla_hyodyllisia_siirtoja() {
             self.viesti.clear();
         } else {
             self.viesti = kaanna(JUMISSA).to_string();
@@ -381,20 +568,18 @@ impl Pasianssi {
     fn hiiri_liikkuu(&mut self, x: i32, y: i32) {
         self.hiiri = (x, y);
         self.kursori_nakyy = false;
-        if let Some(pito) = &mut self.pito
-            && ((x - pito.alku.0).abs() > VETO_RAJA || (y - pito.alku.1).abs() > VETO_RAJA)
-        {
-            pito.liikkui = true;
+        if let Some(pito) = &mut self.pito {
+            pito.seuraa(x, y);
+        }
+        if let Some(pito) = &mut self.spider_pito {
+            pito.seuraa(x, y);
+        }
+        if let Some(pito) = &mut self.pyramidi_pito {
+            pito.seuraa(x, y);
         }
     }
 
     fn klikkaus(&mut self, x: i32, y: i32) {
-        self.hiiri = (x, y);
-        self.kursori_nakyy = false;
-        if let Some(nappi) = piirto::nappi_pisteesta(x, y) {
-            self.paina(nappi);
-            return;
-        }
         let kohta = piirto::kohta_pisteesta(&self.lauta, x, y);
         let lahde = kohta.and_then(|kohta| self.kohdan_lahde(kohta));
 
@@ -428,12 +613,7 @@ impl Pasianssi {
             (Some(Kohta::Pakka), _) => self.nosta(),
             (_, Some(lahde)) => {
                 let kulma = piirto::kortin_paikka(&self.lauta, lahde);
-                self.pito = Some(Pito {
-                    lahde,
-                    tartunta: (x - kulma.0, y - kulma.1),
-                    alku: (x, y),
-                    liikkui: false,
-                });
+                self.pito = Some(Pito::new(lahde, kulma, (x, y)));
             }
             _ => {}
         }
@@ -473,7 +653,6 @@ impl Pasianssi {
     }
 
     fn liikuta_kursoria(&mut self, drivi: i8, dsarake: i8) {
-        self.kursori_nakyy = true;
         let k = &mut self.kursori;
         if dsarake != 0 {
             k.sarake = k
@@ -526,7 +705,6 @@ impl Pasianssi {
     }
 
     fn kursorin_toiminto(&mut self) {
-        self.kursori_nakyy = true;
         let Some(kohta) = self.kursorin_kohta() else {
             return;
         };
@@ -590,6 +768,33 @@ mod tests {
     fn kortin_keskipiste(peli: &Pasianssi, sarake: usize, kortti: usize) -> (i32, i32) {
         let (x, y) = piirto::kortin_paikka(&peli.lauta, Lahde::Sarake { sarake, kortti });
         (x + 20, y + 20)
+    }
+
+    #[test]
+    fn laji_vaihtuu_alkuruudulla_ja_jokaisella_on_oma_listansa() {
+        let mut peli = Pasianssi::new(1);
+        peli.parhaat[Variantti::Spider as usize] = vec![Tulos {
+            nimi: "S".to_string(),
+            pisteet: 5,
+        }];
+        assert!(peli.nakyva_lista().is_empty());
+        peli.kasittele(Syote::Nuoli(1, 0));
+        assert_eq!(peli.variantti, Variantti::Spider);
+        assert_eq!(peli.nakyva_lista()[0].nimi, "S");
+        peli.kasittele(Syote::Nuoli(1, 0));
+        assert_eq!(peli.variantti, Variantti::Pyramidi);
+        peli.kasittele(Syote::Nuoli(1, 0));
+        assert_eq!(peli.variantti, Variantti::Pyramidi);
+        assert_eq!(peli.vaikeus, Vaikeus::Normaali);
+
+        let (x, y) = piirto::variantin_keskipiste(Variantti::Spider);
+        peli.kasittele(Syote::Klikkaus(x, y));
+        assert_eq!(peli.variantti, Variantti::Spider);
+        assert_eq!(peli.vaihe, Vaihe::Alku);
+        peli.kasittele(Syote::Numero(3));
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Pelissa);
+        assert_eq!(peli.spider.vaikeus, Vaikeus::Vaikea);
     }
 
     #[test]
@@ -778,7 +983,10 @@ mod tests {
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Voitto);
         assert!(peli.uusi_tulos);
-        assert_eq!(peli.parhaat[0].pisteet, pisteet);
+        assert_eq!(
+            peli.parhaat[Variantti::Klondike as usize][0].pisteet,
+            pisteet
+        );
         assert_eq!(peli.lahetys.as_ref().unwrap().nimi, "K");
 
         peli.kasittele(Syote::Kirjain('K'));
@@ -791,7 +999,7 @@ mod tests {
     #[test]
     fn listalle_yltamaton_voitto_ja_keskeytys_eivat_kysy_nimea() {
         let mut peli = pelissa();
-        peli.netti_parhaat = Some(vec![
+        peli.netti_parhaat[Variantti::Klondike as usize] = Some(vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 100_000,

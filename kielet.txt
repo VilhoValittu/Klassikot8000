@@ -25,7 +25,7 @@ valikko.versio = Versio {}
 valikko.uusi_versio = Uusi versio {}: github.com/VilhoValittu/Klassikot8000/releases
 valikko.laivanupotus = Upota vastustajan laivasto.
 valikko.luvut = Yhdistä luvut ja saavuta 2048.
-valikko.pasianssi = Klassinen pasianssi, kolme tasoa.
+valikko.pasianssi = Klondike, Spider tai Pyramidi, kolme tasoa.
 valikko.tiilirikko = Riko tiilet, pidä pallo kentällä.
 valikko.asteroidit = Ammu kivet ennen kuin ne osuvat.
 valikko.silmukka = Kierrä mato itikoiden ympärille.
@@ -110,9 +110,13 @@ luvut.siirto_pisteet = Siirto {}: +{} pistettä!
 luvut.siirto = Siirto {}.
 
 pasianssi.banneri = **** PASIANSSI ****
-pasianssi.tervetuloa = Tervetuloa pelaamaan pasianssia.
+pasianssi.laji = Peli:
+pasianssi.laji_klondike = Klondike
+pasianssi.laji_spider = Spider
+pasianssi.laji_pyramidi = Pyramidi
+pasianssi.nappain_valinta = Ylös/alas: peli. Sivulle: taso.
 pasianssi.ohje_1 = Kokoa kortit maittain ylärivin pinoihin ässästä kuninkaaseen.
-pasianssi.ohje_2 = Sarakkeissa kortit laskevat vuorotellen punaisina ja mustina. Nopea voitto antaa enemmän pisteitä.
+pasianssi.ohje_2 = Sarakkeissa arvot laskevat ja värit vaihtuvat. Nopeus tuo pisteitä.
 pasianssi.nappain_hiiri = Hiiri: vedä, klikkaa, tuplaklikkaa.
 pasianssi.nappain_nuolet = Nuolet + välilyönti: siirrä.
 pasianssi.nappain_kirjaimet = N: nosta, U: peru, A: vie ylös.
@@ -141,6 +145,30 @@ pasianssi.ei_kerattavaa = Ei siirtoja!
 pasianssi.jumissa = Siirrot näyttävät loppuneen. K = uusi peli.
 pasianssi.voittoviesti = Kaikki kortit ovat pakoissa! Pisteet: {}.
 pasianssi.siirrot_loppu = Siirrot loppuivat. K = uusi peli.
+
+spider.ohje_1 = Kokoa saman maan sarjat kuninkaasta ässään. Valmis sarja poistuu.
+spider.ohje_2 = Kortti käy yhtä suuremman päälle. Vain saman maan jono liikkuu.
+spider.nappain_hiiri = Hiiri: vedä tai klikkaa jono.
+spider.nappain_kirjaimet = N: jaa, U: peru.
+spider.kuvaus_helppo = 1 maa, peruutus.
+spider.kuvaus_normaali = 2 maata, peruutus.
+spider.kuvaus_vaikea = 4 maata, peruutus.
+spider.nappi_jaa = N = Jaa
+spider.jakoja = JAKOJA
+spider.ei_jakoa = Täytä tyhjät sarakkeet ennen jakoa.
+
+pyramidi.ohje_1 = Poista parit, joiden summa on 13. Kuningas lähtee yksin.
+pyramidi.ohje_2 = J 11, Q 12, A 1. Kortti vapautuu, kun kaksi päältä on poissa.
+pyramidi.nappain_hiiri = Hiiri: klikkaa kaksi korttia.
+pyramidi.nappain_kirjaimet = N: nosta, U: peru.
+pyramidi.kuvaus_helppo = Vapaa kierto, peruutus.
+pyramidi.kuvaus_normaali = 3 kierrosta, peruutus.
+pyramidi.kuvaus_vaikea = 2 kierrosta, ei perua.
+pyramidi.sivu_hiiri = Hiiri: kaksi korttia.
+pyramidi.sivu_kuningas = K lähtee klikkaamalla.
+pyramidi.nappi_nosta = N = Nosta
+pyramidi.ei_paria = Summa ei ole 13.
+pyramidi.voittoviesti = Pyramidi on purettu! Pisteet: {}.
 
 tiilirikko.banneri = ** LAATAN MURSKAIN **
 tiilirikko.tervetuloa = Tervetuloa Laatan murskaimeen.
@@ -366,7 +394,7 @@ valikko.versio = Version {}
 valikko.uusi_versio = New version {}: github.com/VilhoValittu/Klassikot8000/releases
 valikko.laivanupotus = Sink the enemy fleet.
 valikko.luvut = Merge the numbers and reach 2048.
-valikko.pasianssi = Classic solitaire, three levels.
+valikko.pasianssi = Klondike, Spider or Pyramid, three levels.
 valikko.tiilirikko = Break the bricks, keep the ball up.
 valikko.asteroidit = Shoot the rocks before they hit.
 valikko.silmukka = Coil the worm around mosquitoes.
@@ -451,9 +479,13 @@ luvut.siirto_pisteet = Move {}: +{} points!
 luvut.siirto = Move {}.
 
 pasianssi.banneri = **** SOLITAIRE ****
-pasianssi.tervetuloa = Welcome to Solitaire.
+pasianssi.laji = Game:
+pasianssi.laji_klondike = Klondike
+pasianssi.laji_spider = Spider
+pasianssi.laji_pyramidi = Pyramid
+pasianssi.nappain_valinta = Up/down: game. Left/right: level.
 pasianssi.ohje_1 = Build the top row piles by suit from ace to king.
-pasianssi.ohje_2 = In the columns, cards go down in alternating red and black. A faster win scores higher.
+pasianssi.ohje_2 = Columns go down in alternating colors. A faster win scores higher.
 pasianssi.nappain_hiiri = Mouse: drag, click, double-click.
 pasianssi.nappain_nuolet = Arrows + space: move.
 pasianssi.nappain_kirjaimet = N: draw, U: undo, A: send up.
@@ -482,6 +514,30 @@ pasianssi.ei_kerattavaa = No moves!
 pasianssi.jumissa = Looks like you are out of moves. K = new game.
 pasianssi.voittoviesti = All cards are on the piles! Score: {}.
 pasianssi.siirrot_loppu = Out of moves. K = new game.
+
+spider.ohje_1 = Build same-suit runs from king to ace. Finished runs leave.
+spider.ohje_2 = A card goes on one rank higher. Only same-suit runs move.
+spider.nappain_hiiri = Mouse: drag or click a run.
+spider.nappain_kirjaimet = N: deal, U: undo.
+spider.kuvaus_helppo = 1 suit, undo.
+spider.kuvaus_normaali = 2 suits, undo.
+spider.kuvaus_vaikea = 4 suits, undo.
+spider.nappi_jaa = N = Deal
+spider.jakoja = DEALS
+spider.ei_jakoa = Fill the empty columns before dealing.
+
+pyramidi.ohje_1 = Remove pairs that add up to 13. A king leaves alone.
+pyramidi.ohje_2 = J 11, Q 12, A 1. A card frees up when both above are gone.
+pyramidi.nappain_hiiri = Mouse: click two cards.
+pyramidi.nappain_kirjaimet = N: draw, U: undo.
+pyramidi.kuvaus_helppo = Free passes, undo.
+pyramidi.kuvaus_normaali = 3 passes, undo.
+pyramidi.kuvaus_vaikea = 2 passes, no undo.
+pyramidi.sivu_hiiri = Mouse: two cards.
+pyramidi.sivu_kuningas = Click K to remove it.
+pyramidi.nappi_nosta = N = Draw
+pyramidi.ei_paria = That doesn't add up to 13.
+pyramidi.voittoviesti = The pyramid is gone! Score: {}.
 
 tiilirikko.banneri = ** LAATAN MURSKAIN **
 tiilirikko.tervetuloa = Welcome to Laatan murskain.

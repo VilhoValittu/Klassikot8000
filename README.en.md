@@ -19,7 +19,13 @@ Push the numbers around the board, merge equal ones and chase 2048. One more mov
 *Arrows or mouse.*
 
 ### Solitaire
-The familiar Klondike that has eaten thousands of working days. Three levels: on Easy you draw one card at a time and can undo, on Hard you draw three, get three passes through the stock and can't undo anything. Your score comes from time: the faster you win, the more you get, and harder levels multiply it (normal by two, hard by three).
+Three games under one card, each with its own top list. Your score comes from time: the faster you win, the more you get, and harder levels multiply it (normal by two, hard by three).
+
+**Klondike** is the familiar one that has eaten thousands of working days. On Easy you draw one card at a time and can undo, on Hard you draw three, get three passes through the stock and can't undo anything.
+
+**Spider** deals two decks into ten columns. Build same-suit runs from king to ace and they leave the table. Easy uses one suit, Normal two and Hard four. Undo is always allowed, because four suits are close to unwinnable without it.
+
+**Pyramid** comes apart in pairs: two free cards must add up to 13, and a king leaves alone. The top two cards of the waste pile are in play. On Easy you can recycle the stock freely, on Normal you get three passes, and on Hard two with no undo.
 
 *Mouse, or arrows and space.*
 

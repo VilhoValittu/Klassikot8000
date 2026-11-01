@@ -34,8 +34,12 @@ pub fn sekoitettu(pakkoja: usize, arpa: &mut Arpa) -> Vec<Kortti> {
         .flat_map(|_| Maa::KAIKKI)
         .flat_map(|maa| (1..=KUNINGAS).map(move |arvo| Kortti { maa, arvo }))
         .collect();
+    sekoita(&mut kortit, arpa);
+    kortit
+}
+
+pub fn sekoita(kortit: &mut [Kortti], arpa: &mut Arpa) {
     for i in (1..kortit.len()).rev() {
         kortit.swap(i, arpa.alle(i + 1));
     }
-    kortit
 }

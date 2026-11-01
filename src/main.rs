@@ -34,7 +34,7 @@ use klassikot8000::luvut::Lukulauta;
 #[cfg(debug_assertions)]
 use klassikot8000::miinaharava;
 #[cfg(debug_assertions)]
-use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa};
+use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
 #[cfg(debug_assertions)]
 use klassikot8000::silmukka::{Laji, Otus, Suunta};
 #[cfg(debug_assertions)]
@@ -398,13 +398,16 @@ fn main() -> ExitCode {
                         .find(|taso| taso.nimi() == vaikeus.nimi());
                     peli.vaikeus = taso.unwrap_or(peli.vaikeus);
                 }
+                if let Some(variantti) = liput.variantti {
+                    peli.variantti = variantti;
+                }
                 if liput.nostot.is_some() || liput.voitto || liput.jumissa {
                     peli.kasittele(Syote::Ammu);
                 }
                 for _ in 0..liput.nostot.unwrap_or(0) {
                     peli.kasittele(Syote::Kirjain('N'));
                 }
-                if liput.jumissa {
+                if liput.jumissa && peli.variantti == Variantti::Klondike {
                     // Viimeinen siirto kerää ässän, ja peli toteaa lopun itse.
                     let tila = &mut peli.lauta.tila;
                     tila.pakka.clear();
@@ -433,6 +436,10 @@ fn main() -> ExitCode {
                     peli.lauta.tila.sarakkeet = Default::default();
                     peli.lauta.tila.pakka.clear();
                     peli.lauta.tila.jate.clear();
+                    peli.spider.tila.valmiit = vec![Maa::Pata; klassikot8000::spider::SARJOJA];
+                    peli.spider.tila.sarakkeet = Default::default();
+                    peli.spider.tila.pakka.clear();
+                    peli.pyramidi.tila.rivit = Default::default();
                     peli.vaihe = pasianssi_peli::Vaihe::Voitto;
                     if liput.nimi {
                         peli.vaihe = pasianssi_peli::Vaihe::Nimi;

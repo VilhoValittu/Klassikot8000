@@ -6,7 +6,7 @@ pub mod piirto;
 
 use klassikot8000::laivanupotus::Vaikeus;
 use klassikot8000::miinaharava;
-use klassikot8000::pasianssi;
+use klassikot8000::pasianssi::{self, Variantti};
 
 use self::netti::{Nettipeli, Pyynto, Vastaus};
 use crate::pelit::asteroidit::peli::Asteroidit;
@@ -24,7 +24,7 @@ use crate::pelit::miinaharava::peli::Miinaharava;
 use crate::pelit::miinaharava::piirto::miinamalli;
 use crate::pelit::palikka::peli::Palikkapeli;
 use crate::pelit::palikka::piirto::jalokivi;
-use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
+use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi, VARIANTTEJA};
 use crate::pelit::pasianssi::piirto::korttipinot;
 use crate::pelit::silmukka::peli::Silmukka;
 use crate::pelit::silmukka::piirto::ouroboros;
@@ -40,6 +40,15 @@ use crate::yhteinen::vektori::Tahko;
 /// Valikon mallia ja vilkkua piirretään harvemmin kuin silmukka kiertää: joka toinen
 /// kierros riittää hitaaseen pyörintään ja puolittaa ruudun lähettämisen.
 const VALIKON_ASKEL_MS: u32 = 66;
+
+/// Pasianssin lajin nettilista.
+fn pasianssin_nettipeli(variantti: Variantti) -> Nettipeli {
+    match variantti {
+        Variantti::Klondike => Nettipeli::Pasianssi,
+        Variantti::Spider => Nettipeli::Spider,
+        Variantti::Pyramidi => Nettipeli::Pyramidi,
+    }
+}
 
 /// Kaikki, mistä paikallaan pysyvän näkymän kuva riippuu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -181,13 +190,15 @@ pub struct Kaynnistin {
     netti_asteroidit: Option<Vec<Tulos>>,
     netti_silmukka: Option<Vec<Tulos>>,
     netti_palikka: Option<Vec<Tulos>>,
-    netti_pasianssi: Option<Vec<Tulos>>,
+    /// Pasianssin lajit erikseen, järjestys kuten `Variantti::KAIKKI`.
+    netti_pasianssi: [Option<Vec<Tulos>>; VARIANTTEJA],
     netti_blackjack: Option<Vec<Tulos>>,
     netti_holdem: Option<Vec<Tulos>>,
     /// Uusin julkaistu versio, jos se on uudempi kuin tämä ohjelma.
     uusi_versio: Option<String>,
     vaikeus: Vaikeus,
     pasianssin_vaikeus: pasianssi::Vaikeus,
+    pasianssin_variantti: Variantti,
     miinaharavan_vaikeus: miinaharava::Vaikeus,
     siemen: u64,
 }
@@ -212,12 +223,13 @@ impl Kaynnistin {
             netti_asteroidit: None,
             netti_silmukka: None,
             netti_palikka: None,
-            netti_pasianssi: None,
+            netti_pasianssi: Default::default(),
             netti_blackjack: None,
             netti_holdem: None,
             uusi_versio: None,
             vaikeus: Vaikeus::Normaali,
             pasianssin_vaikeus: pasianssi::Vaikeus::Normaali,
+            pasianssin_variantti: Variantti::Klondike,
             miinaharavan_vaikeus: miinaharava::Vaikeus::Helppo,
             siemen,
         }
@@ -239,7 +251,12 @@ impl Kaynnistin {
             Laji::Asteroidit => Some(&self.tallennus.asteroidien_parhaat),
             Laji::Silmukka => Some(&self.tallennus.silmukan_parhaat),
             Laji::Palikka => Some(&self.tallennus.palikan_parhaat),
-            Laji::Pasianssi => Some(&self.tallennus.pasianssin_parhaat),
+            // Viimeksi valitun lajin lista: sen pelaaja haluaa todennäköisimmin nähdä.
+            Laji::Pasianssi => Some(match self.pasianssin_variantti {
+                Variantti::Klondike => &self.tallennus.pasianssin_parhaat,
+                Variantti::Spider => &self.tallennus.spiderin_parhaat,
+                Variantti::Pyramidi => &self.tallennus.pyramidin_parhaat,
+            }),
             Laji::Blackjack => Some(&self.tallennus.blackjackin_parhaat),
             Laji::Holdem => Some(&self.tallennus.holdemin_parhaat),
             Laji::Laivanupotus | Laji::Miinaharava => None,
@@ -398,10 +415,18 @@ impl Kaynnistin {
             Laji::Pasianssi => {
                 let mut peli = Pasianssi::new(siemen);
                 peli.vaikeus = self.pasianssin_vaikeus;
-                peli.parhaat = self.tallennus.pasianssin_parhaat.clone();
+                peli.variantti = self.pasianssin_variantti;
+                peli.parhaat = [
+                    self.tallennus.pasianssin_parhaat.clone(),
+                    self.tallennus.spiderin_parhaat.clone(),
+                    self.tallennus.pyramidin_parhaat.clone(),
+                ];
                 peli.netti_parhaat = self.netti_pasianssi.clone();
                 peli.aanet_paalla = self.aanet_paalla;
-                self.pyynnot.push(Pyynto::Hae(Nettipeli::Pasianssi));
+                for variantti in Variantti::KAIKKI {
+                    self.pyynnot
+                        .push(Pyynto::Hae(pasianssin_nettipeli(variantti)));
+                }
                 Kaynnissa::Pasianssi(Box::new(peli))
             }
             Laji::Tiilirikko => {
@@ -478,6 +503,8 @@ impl Kaynnistin {
             (Nettipeli::Silmukka, &tallennus.silmukan_jono),
             (Nettipeli::Palikka, &tallennus.palikan_jono),
             (Nettipeli::Pasianssi, &tallennus.pasianssin_jono),
+            (Nettipeli::Spider, &tallennus.spiderin_jono),
+            (Nettipeli::Pyramidi, &tallennus.pyramidin_jono),
             (Nettipeli::Blackjack, &tallennus.blackjackin_jono),
             (Nettipeli::Holdem, &tallennus.holdemin_jono),
         ] {
@@ -521,11 +548,19 @@ impl Kaynnistin {
                 }
                 self.netti_palikka = Some(lista);
             }
-            Vastaus::Lista(Nettipeli::Pasianssi, lista) => {
+            Vastaus::Lista(
+                netti @ (Nettipeli::Pasianssi | Nettipeli::Spider | Nettipeli::Pyramidi),
+                lista,
+            ) => {
+                let variantti = match netti {
+                    Nettipeli::Spider => Variantti::Spider,
+                    Nettipeli::Pyramidi => Variantti::Pyramidi,
+                    _ => Variantti::Klondike,
+                };
                 if let Some(Kaynnissa::Pasianssi(peli)) = &mut self.peli {
-                    peli.netti_parhaat = Some(lista.clone());
+                    peli.netti_parhaat[variantti as usize] = Some(lista.clone());
                 }
-                self.netti_pasianssi = Some(lista);
+                self.netti_pasianssi[variantti as usize] = Some(lista);
             }
             Vastaus::Lista(Nettipeli::Blackjack, lista) => {
                 if let Some(Kaynnissa::Blackjack(peli)) = &mut self.peli {
@@ -547,6 +582,8 @@ impl Kaynnistin {
                     Nettipeli::Silmukka => &mut self.tallennus.silmukan_jono,
                     Nettipeli::Palikka => &mut self.tallennus.palikan_jono,
                     Nettipeli::Pasianssi => &mut self.tallennus.pasianssin_jono,
+                    Nettipeli::Spider => &mut self.tallennus.spiderin_jono,
+                    Nettipeli::Pyramidi => &mut self.tallennus.pyramidin_jono,
                     Nettipeli::Blackjack => &mut self.tallennus.blackjackin_jono,
                     Nettipeli::Holdem => &mut self.tallennus.holdemin_jono,
                 };
@@ -612,12 +649,20 @@ impl Kaynnistin {
                 }
             }
             Some(Kaynnissa::Pasianssi(peli)) => {
-                self.tallennus.pasianssin_parhaat = peli.parhaat.clone();
+                let [klondike, spider, pyramidi] = peli.parhaat.clone();
+                self.tallennus.pasianssin_parhaat = klondike;
+                self.tallennus.spiderin_parhaat = spider;
+                self.tallennus.pyramidin_parhaat = pyramidi;
                 self.netti_pasianssi = peli.netti_parhaat.clone();
                 if let Some(tulos) = peli.lahetys.take() {
-                    lisaa_tulos(&mut self.tallennus.pasianssin_jono, tulos.clone());
+                    let jono = match peli.variantti {
+                        Variantti::Klondike => &mut self.tallennus.pasianssin_jono,
+                        Variantti::Spider => &mut self.tallennus.spiderin_jono,
+                        Variantti::Pyramidi => &mut self.tallennus.pyramidin_jono,
+                    };
+                    lisaa_tulos(jono, tulos.clone());
                     self.pyynnot
-                        .push(Pyynto::Laheta(Nettipeli::Pasianssi, tulos));
+                        .push(Pyynto::Laheta(pasianssin_nettipeli(peli.variantti), tulos));
                 }
             }
             Some(Kaynnissa::Blackjack(peli)) => {
@@ -779,6 +824,7 @@ impl Kaynnistin {
                 peli.kasittele(syote);
                 self.aanet_paalla = peli.aanet_paalla;
                 self.pasianssin_vaikeus = peli.vaikeus;
+                self.pasianssin_variantti = peli.variantti;
                 peli.lopeta
             }
             Some(Kaynnissa::Tiilirikko(peli)) => {
@@ -1202,6 +1248,14 @@ mod tests {
                 &uusi.tallennus.pasianssin_parhaat,
                 &uusi.tallennus.pasianssin_jono,
             ),
+            Nettipeli::Spider => (
+                &uusi.tallennus.spiderin_parhaat,
+                &uusi.tallennus.spiderin_jono,
+            ),
+            Nettipeli::Pyramidi => (
+                &uusi.tallennus.pyramidin_parhaat,
+                &uusi.tallennus.pyramidin_jono,
+            ),
             Nettipeli::Blackjack => (
                 &uusi.tallennus.blackjackin_parhaat,
                 &uusi.tallennus.blackjackin_jono,
@@ -1231,6 +1285,64 @@ mod tests {
             Nettipeli::Pasianssi,
             pasianssi::aikapisteet(pasianssi::Vaikeus::Normaali, 300),
         );
+    }
+
+    #[test]
+    fn spiderin_ja_pyramidin_tulokset_menevat_omille_listoilleen() {
+        for (variantti, netti) in [
+            (Variantti::Spider, Nettipeli::Spider),
+            (Variantti::Pyramidi, Nettipeli::Pyramidi),
+        ] {
+            let mut k = Kaynnistin::new(1);
+            k.kaynnista(Laji::Pasianssi);
+            for haettava in [Nettipeli::Pasianssi, Nettipeli::Spider, Nettipeli::Pyramidi] {
+                assert!(k.pyynnot.contains(&Pyynto::Hae(haettava)));
+            }
+            k.pyynnot.clear();
+            let Some(Kaynnissa::Pasianssi(peli)) = &mut k.peli else {
+                panic!("pasianssi ei ole käynnissä");
+            };
+            peli.variantti = variantti;
+            peli.aloita();
+            peli.peliaika_ms = 300_000;
+            peli.vaihe = pasianssi_peli::Vaihe::Nimi;
+            tarkista_korttipelin_tulos(
+                &mut k,
+                netti,
+                pasianssi::aikapisteet(pasianssi::Vaikeus::Normaali, 300),
+            );
+            assert!(k.tallennus.pasianssin_parhaat.is_empty());
+        }
+    }
+
+    #[test]
+    fn valikko_nayttaa_viimeksi_valitun_lajin_listan_ja_nettilista_menee_lajille() {
+        let mut k = Kaynnistin::new(1);
+        k.tallennus.spiderin_parhaat = vec![Tulos {
+            nimi: "S".to_string(),
+            pisteet: 9,
+        }];
+        k.valitse(
+            PELIT
+                .iter()
+                .position(|kortti| kortti.laji == Laji::Pasianssi)
+                .unwrap(),
+        );
+        assert!(k.valitun_parhaat().unwrap().is_empty());
+        k.kaynnista(Laji::Pasianssi);
+        k.kasittele(Syote::Nuoli(1, 0));
+        let lista = vec![Tulos {
+            nimi: "NETTI".to_string(),
+            pisteet: 7,
+        }];
+        k.vastaanota(Vastaus::Lista(Nettipeli::Spider, lista.clone()));
+        let Some(Kaynnissa::Pasianssi(peli)) = &k.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        assert_eq!(peli.nakyva_lista(), &lista[..]);
+        assert!(peli.netti_parhaat[Variantti::Klondike as usize].is_none());
+        k.kasittele(Syote::Peru);
+        assert_eq!(k.valitun_parhaat().unwrap()[0].nimi, "S");
     }
 
     #[test]

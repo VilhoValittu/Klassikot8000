@@ -2,7 +2,7 @@
 //! pelilauta piirretään suoraan täysikokoiselle ruudulle.
 
 use klassikot8000::pasianssi::{
-    KUNINGAS, Kohde, Lahde, Lauta, MAITA, Maa, SARAKKEITA, Sarake, Vaikeus,
+    KUNINGAS, Kohde, Kortti, Lahde, Lauta, MAITA, Maa, SARAKKEITA, Sarake, Vaikeus, Variantti,
 };
 
 use super::peli::{Nappi, Pasianssi, Vaihe};
@@ -22,6 +22,8 @@ const PERUSTA_ALKAA: usize = 3;
 const JATE_SARAKE: i32 = 1;
 
 const SIVU_X: i32 = SARAKE_X + SARAKKEITA as i32 * SARAKE_ASKEL + 6;
+#[cfg(test)]
+pub const SIVU_ALKAA: i32 = SIVU_X - 12;
 const SIVU_L: i32 = RUUDUN_LEVEYS as i32 - 24 - SIVU_X;
 const SIVU_TEKSTI_X: i32 = SIVU_X + 18;
 const SIVU_MERKKEJA: usize = 22;
@@ -48,8 +50,9 @@ const NAPIT: [(Nappi, &str); 4] = [
     (Nappi::Valikko, "yhteinen.valikkoon"),
 ];
 
-// Alkuruudun tasovalinta samoilla mitoilla kuin laivanupotuksessa.
+// Alkuruudun tasovalinta samoilla mitoilla kuin laivanupotuksessa, lajivalinta sen yläpuolella.
 const TASO_Y: i32 = ALOITUS_Y - NAPPI_K - 6;
+const VARIANTTI_Y: i32 = TASO_Y - NAPPI_K - 6;
 const TASO_X: i32 = 48 + 6 * MERKKI;
 const TASO_VALI: i32 = 12;
 const TASOT: [(Vaikeus, &str, i32); 3] = [
@@ -66,23 +69,70 @@ const TASOT: [(Vaikeus, &str, i32); 3] = [
     ),
 ];
 
+const VARIANTIT: [(Variantti, &str, i32); 3] = [
+    (Variantti::Klondike, "pasianssi.laji_klondike", TASO_X),
+    (
+        Variantti::Spider,
+        "pasianssi.laji_spider",
+        TASO_X + 8 * MERKKI + 24 + TASO_VALI,
+    ),
+    (
+        Variantti::Pyramidi,
+        "pasianssi.laji_pyramidi",
+        TASO_X + 14 * MERKKI + 48 + 2 * TASO_VALI,
+    ),
+];
+
 const VOITTOTEKSTI: &str = "yhteinen.voitit";
 const TAPPIOTEKSTI: &str = "pasianssi.tappio";
 const VOITTO_KORTTI_VALI_MS: u32 = 110;
 const VOITTO_JALKIA: u32 = 6;
 const VOITTO_JALKI_MS: u32 = 45;
 
-const ALKU_OSAT: [&str; 3] = [
-    "pasianssi.tervetuloa",
-    "pasianssi.ohje_1",
-    "pasianssi.ohje_2",
-];
-const ALKU_RIVIT: [&str; 4] = [
+const ALKU_OSAT: [&str; 2] = ["pasianssi.ohje_1", "pasianssi.ohje_2"];
+const ALKU_RIVIT: [&str; 5] = [
+    "pasianssi.nappain_valinta",
     "pasianssi.nappain_hiiri",
     "pasianssi.nappain_nuolet",
     "pasianssi.nappain_kirjaimet",
     "pasianssi.nappain_muut",
 ];
+const SPIDER_OSAT: [&str; 2] = ["spider.ohje_1", "spider.ohje_2"];
+const SPIDER_RIVIT: [&str; 5] = [
+    "pasianssi.nappain_valinta",
+    "spider.nappain_hiiri",
+    "pasianssi.nappain_nuolet",
+    "spider.nappain_kirjaimet",
+    "pasianssi.nappain_muut",
+];
+const PYRAMIDI_OSAT: [&str; 2] = ["pyramidi.ohje_1", "pyramidi.ohje_2"];
+const PYRAMIDI_RIVIT: [&str; 5] = [
+    "pasianssi.nappain_valinta",
+    "pyramidi.nappain_hiiri",
+    "pasianssi.nappain_nuolet",
+    "pyramidi.nappain_kirjaimet",
+    "pasianssi.nappain_muut",
+];
+
+/// Kuvaus kertoo, mitä valittu taso tarkoittaa juuri tässä lajissa.
+fn tason_kuvaus(variantti: Variantti, vaikeus: Vaikeus) -> &'static str {
+    match (variantti, vaikeus) {
+        (Variantti::Klondike, Vaikeus::Helppo) => "pasianssi.kuvaus_helppo",
+        (Variantti::Klondike, Vaikeus::Normaali) => "pasianssi.kuvaus_normaali",
+        (Variantti::Klondike, Vaikeus::Vaikea) => "pasianssi.kuvaus_vaikea",
+        (Variantti::Spider, Vaikeus::Helppo) => "spider.kuvaus_helppo",
+        (Variantti::Spider, Vaikeus::Normaali) => "spider.kuvaus_normaali",
+        (Variantti::Spider, Vaikeus::Vaikea) => "spider.kuvaus_vaikea",
+        (Variantti::Pyramidi, Vaikeus::Helppo) => "pyramidi.kuvaus_helppo",
+        (Variantti::Pyramidi, Vaikeus::Normaali) => "pyramidi.kuvaus_normaali",
+        (Variantti::Pyramidi, Vaikeus::Vaikea) => "pyramidi.kuvaus_vaikea",
+    }
+}
+
+fn lajin_nimi(variantti: Variantti) -> &'static str {
+    let (_, avain, _) = VARIANTIT[variantti as usize];
+    kaanna(avain)
+}
 
 fn vaikeuden_nimi(vaikeus: Vaikeus) -> &'static str {
     kaanna(match vaikeus {
@@ -180,12 +230,17 @@ pub fn vedetyn_keskipiste(x: i32, y: i32) -> (i32, i32) {
 }
 
 pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
+    nappi_listasta(&NAPIT, x, y)
+}
+
+/// Sivupaneelin nappi. Kullakin lajilla on oma listansa samoilla paikoilla.
+pub fn nappi_listasta(napit: &[(Nappi, &str)], x: i32, y: i32) -> Option<Nappi> {
     let i = (y - NAPIT_Y).div_euclid(NAPPI_ASKEL);
     let sisalla = (y - NAPIT_Y).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
-    if !sisalla || !(0..NAPIT.len() as i32).contains(&i) {
+    if !sisalla || !(0..napit.len() as i32).contains(&i) {
         return None;
     }
-    let (nappi, teksti) = NAPIT[i as usize];
+    let (nappi, teksti) = napit[i as usize];
     (SIVU_TEKSTI_X..SIVU_TEKSTI_X + napin_leveys(teksti))
         .contains(&x)
         .then_some(nappi)
@@ -198,6 +253,16 @@ pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
             (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
         })
         .map(|&(vaikeus, ..)| vaikeus)
+}
+
+pub fn variantti_pisteesta(x: i32, y: i32) -> Option<Variantti> {
+    VARIANTIT
+        .iter()
+        .find(|&&(_, teksti, nx)| {
+            (nx..nx + napin_leveys(teksti)).contains(&x)
+                && (VARIANTTI_Y..VARIANTTI_Y + NAPPI_K).contains(&y)
+        })
+        .map(|&(variantti, ..)| variantti)
 }
 
 /// Pelilaudan näkymässä äänikytkin on täyden ruudun oikeassa laidassa.
@@ -217,12 +282,38 @@ pub fn vaikeuden_keskipiste(vaikeus: Vaikeus) -> (i32, i32) {
 }
 
 #[cfg(test)]
+pub fn variantin_keskipiste(variantti: Variantti) -> (i32, i32) {
+    let (_, teksti, x) = VARIANTIT[variantti as usize];
+    (x + napin_leveys(teksti) / 2, VARIANTTI_Y + NAPPI_K / 2)
+}
+
+#[cfg(test)]
 pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let i = NAPIT.iter().position(|n| n.0 == nappi).unwrap() as i32;
-    (
-        SIVU_TEKSTI_X + napin_leveys(NAPIT[0].1) / 2,
-        NAPIT_Y + i * NAPPI_ASKEL + NAPPI_K / 2,
-    )
+    napin_keskipiste_listasta(&NAPIT, nappi)
+}
+
+#[cfg(test)]
+pub fn napin_keskipiste_listasta(napit: &[(Nappi, &str)], nappi: Nappi) -> (i32, i32) {
+    let i = napit.iter().position(|n| n.0 == nappi).unwrap() as i32;
+    (SIVU_TEKSTI_X + 12, NAPIT_Y + i * NAPPI_ASKEL + NAPPI_K / 2)
+}
+
+/// Sivupaneelin ohjeet ja napit mahtuvat tilaansa millä tahansa kielellä.
+#[cfg(test)]
+pub fn sivu_mahtuu(ohjeet: &[&str], napit: &[(Nappi, &str)]) {
+    use crate::yhteinen::kieli::kaikilla_kielilla;
+    let tila = SIVU_L - 36;
+    assert!(SIVU_OHJE_Y + ohjeet.len() as i32 * RIVIN_KORKEUS <= NAPIT_Y);
+    assert!(NAPIT_Y + napit.len() as i32 * NAPPI_ASKEL < RUUDUN_KORKEUS as i32);
+    kaikilla_kielilla(|| {
+        for avain in ohjeet {
+            let rivi = kaanna(avain);
+            assert!(rivi.chars().count() <= SIVU_MERKKEJA, "{rivi}");
+        }
+        for &(_, teksti) in napit {
+            assert!(napin_leveys(teksti) <= tila, "{teksti}");
+        }
+    });
 }
 
 #[cfg(test)]
@@ -241,7 +332,7 @@ pub fn korttipinot() -> Vec<Tahko> {
     tahkot
 }
 
-fn kesto(ms: u32) -> String {
+pub fn kesto(ms: u32) -> String {
     let sekunnit = ms / 1000;
     format!("{}:{:02}", sekunnit / 60, sekunnit % 60)
 }
@@ -269,16 +360,29 @@ impl Piirtaja<'_> {
     fn pasianssi_alkuruutu(&mut self, peli: &Pasianssi) {
         let vaikeus = peli.vaikeus;
         self.maisema(kaanna("pasianssi.banneri"), &korttipinot());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+        let otsikko = listan_otsikko(peli.netti_vastasi());
         self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
-        let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
-        let kuvaus = match vaikeus {
-            Vaikeus::Helppo => "pasianssi.kuvaus_helppo",
-            Vaikeus::Normaali => "pasianssi.kuvaus_normaali",
-            Vaikeus::Vaikea => "pasianssi.kuvaus_vaikea",
+        let (osat, rivit): (&[&str], &[&str]) = match peli.variantti {
+            Variantti::Klondike => (&ALKU_OSAT, &ALKU_RIVIT),
+            Variantti::Spider => (&SPIDER_OSAT, &SPIDER_RIVIT),
+            Variantti::Pyramidi => (&PYRAMIDI_OSAT, &PYRAMIDI_RIVIT),
         };
-        self.teksti(48, y, kaanna(kuvaus), KELTAINEN);
+        let y = self.alkuohje(osat, rivit) + RIVIN_KORKEUS / 2;
+        self.teksti(
+            48,
+            y,
+            kaanna(tason_kuvaus(peli.variantti, vaikeus)),
+            KELTAINEN,
+        );
 
+        self.teksti(48, VARIANTTI_Y + 3, kaanna("pasianssi.laji"), KELTAINEN);
+        for (laji, teksti, x) in VARIANTIT {
+            if laji == peli.variantti {
+                self.nappi(x, VARIANTTI_Y, teksti, WB_ORANSSI, MUSTA);
+            } else {
+                self.nappi(x, VARIANTTI_Y, teksti, VALKOINEN, WB_SININEN);
+            }
+        }
         self.teksti(48, TASO_Y + 3, kaanna("yhteinen.taso"), KELTAINEN);
         for (taso, teksti, x) in TASOT {
             if taso == vaikeus {
@@ -292,9 +396,34 @@ impl Piirtaja<'_> {
 
     fn pasianssi_nakyma(&mut self, peli: &Pasianssi) {
         self.pelitausta();
-        let nimi = kaanna("peli.pasianssi").to_uppercase();
-        self.otsikkopalkki(&nimi, vaikeuden_nimi(peli.lauta.vaikeus));
+        let nimi = format!(
+            "{} - {}",
+            kaanna("peli.pasianssi"),
+            lajin_nimi(peli.variantti)
+        )
+        .to_uppercase();
+        self.otsikkopalkki(&nimi, vaikeuden_nimi(peli.laudan_vaikeus()));
 
+        match peli.variantti {
+            Variantti::Klondike => self.klondike_lauta(peli),
+            Variantti::Spider => self.spider_lauta(peli),
+            Variantti::Pyramidi => self.pyramidi_lauta(peli),
+        }
+        match peli.vaihe {
+            Vaihe::Voitto => {
+                self.pasianssi_juhla(peli);
+                self.pasianssi_loppupalkki(VOITTOTEKSTI);
+            }
+            Vaihe::Nimi => {
+                self.pasianssi_juhla(peli);
+                self.nimi_ikkuna(peli.pisteet(), &peli.nimi);
+            }
+            Vaihe::Tappio => self.pasianssi_loppupalkki(TAPPIOTEKSTI),
+            Vaihe::Alku | Vaihe::Pelissa => {}
+        }
+    }
+
+    fn klondike_lauta(&mut self, peli: &Pasianssi) {
         self.pasianssi_ylarivi(peli);
         for sarake in 0..SARAKKEITA {
             self.pasianssi_sarake(peli, sarake);
@@ -310,18 +439,6 @@ impl Piirtaja<'_> {
             for (i, &kortti) in kortit.iter().enumerate() {
                 self.pelikortti(x, y + i as i32 * NAKYVA_ASKEL, kortti);
             }
-        }
-        match peli.vaihe {
-            Vaihe::Voitto => {
-                self.pasianssi_juhla(peli);
-                self.pasianssi_loppupalkki(VOITTOTEKSTI);
-            }
-            Vaihe::Nimi => {
-                self.pasianssi_juhla(peli);
-                self.nimi_ikkuna(peli.pisteet(), &peli.nimi);
-            }
-            Vaihe::Tappio => self.pasianssi_loppupalkki(TAPPIOTEKSTI),
-            Vaihe::Alku | Vaihe::Pelissa => {}
         }
     }
 
@@ -442,7 +559,7 @@ impl Piirtaja<'_> {
         self.korostus(x, y, korkeus, KELTAINEN);
     }
 
-    fn korostus(&mut self, x: i32, y: i32, korkeus: i32, vari: u32) {
+    pub fn korostus(&mut self, x: i32, y: i32, korkeus: i32, vari: u32) {
         for i in 0..3 {
             self.k
                 .kehys(x - i, y - i, KORTTI_L + 2 * i, korkeus + 2 * i, vari);
@@ -451,21 +568,32 @@ impl Piirtaja<'_> {
 
     fn pasianssi_sivu(&mut self, peli: &Pasianssi) {
         let tila = &peli.lauta.tila;
-        self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
         let kierros = match peli.lauta.vaikeus.kierroksia() {
             Some(kierroksia) => format!("{}/{kierroksia}", peli.lauta.kierros()),
             None => peli.lauta.kierros().to_string(),
         };
-        for (i, (otsikko, arvo)) in [
+        let tilastot = [
             (kaanna("yhteinen.pisteet"), peli.pisteet().to_string()),
             (kaanna("yhteinen.siirrot"), tila.siirrot.to_string()),
             (kaanna("pasianssi.aika"), kesto(peli.peliaika_ms)),
             (kaanna("pasianssi.kierros"), kierros),
             (kaanna("pasianssi.pakassa"), tila.pakka.len().to_string()),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        ];
+        let peruutus = peli.lauta.vaikeus.peruutus_sallittu();
+        self.sivupaneeli(peli, tilastot, &SIVU_OHJEET, &NAPIT, peruutus);
+    }
+
+    /// Klondiken ja Pyramidin yhteinen sivupaneeli.
+    pub fn sivupaneeli(
+        &mut self,
+        peli: &Pasianssi,
+        tilastot: [(&str, String); 5],
+        ohjeet: &[&str],
+        napit: &[(Nappi, &str)],
+        peruutus: bool,
+    ) {
+        self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
+        for (i, (otsikko, arvo)) in tilastot.into_iter().enumerate() {
             let y = YLARIVI_Y + i as i32 * TILASTO_ASKEL;
             self.suurteksti(SIVU_TEKSTI_X, y, otsikko, OTSIKKO, KELTAINEN, false);
             self.suurteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
@@ -479,17 +607,16 @@ impl Piirtaja<'_> {
         }
 
         let mut y = SIVU_OHJE_Y;
-        for rivi in SIVU_OHJEET {
+        for rivi in ohjeet {
             self.teksti(SIVU_TEKSTI_X, y, kaanna(rivi), HUTI);
             y += RIVIN_KORKEUS;
         }
 
-        for (i, (nappi, teksti)) in NAPIT.into_iter().enumerate() {
+        for (i, &(nappi, teksti)) in napit.iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let kaytossa = peli.vaihe == Vaihe::Pelissa
                 || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
-            let kaytossa =
-                kaytossa && (nappi != Nappi::Peruuta || peli.lauta.vaikeus.peruutus_sallittu());
+            let kaytossa = kaytossa && (nappi != Nappi::Peruuta || peruutus);
             let vari = if kaytossa { WB_SININEN } else { KANSI };
             self.nappi(SIVU_TEKSTI_X, y, teksti, VALKOINEN, vari);
         }
@@ -498,16 +625,31 @@ impl Piirtaja<'_> {
     /// Klassinen loppu: kortit pomppivat perustoilta ruudun yli ja jättävät jäljen.
     fn pasianssi_juhla(&mut self, peli: &Pasianssi) {
         let kulunut = self.kello.saturating_sub(peli.voitto_alku);
-        for maa in 0..MAITA {
-            for (arvo, &kortti) in peli.lauta.tila.perustat[maa].iter().enumerate().rev() {
-                let jarjestys = (KUNINGAS as u32 - 1 - arvo as u32) * MAITA as u32 + maa as u32;
+        // Spiderissa kortteja on tuplasti, mutta neljä sarjaa riittää juhlaan ja pitää kuorman samana.
+        let maat: [Maa; MAITA] = std::array::from_fn(|i| match peli.variantti {
+            Variantti::Spider => peli
+                .spider
+                .tila
+                .valmiit
+                .get(i)
+                .copied()
+                .unwrap_or(Maa::KAIKKI[i]),
+            Variantti::Klondike | Variantti::Pyramidi => Maa::KAIKKI[i],
+        });
+        for (i, &kortin_maa) in maat.iter().enumerate() {
+            for kortin_arvo in (1..=KUNINGAS).rev() {
+                let kortti = Kortti {
+                    maa: kortin_maa,
+                    arvo: kortin_arvo,
+                };
+                let jarjestys = (KUNINGAS - kortin_arvo) as u32 * MAITA as u32 + i as u32;
                 let alku = jarjestys * VOITTO_KORTTI_VALI_MS;
                 for jalki in (0..VOITTO_JALKIA).rev() {
                     let viive = jalki * VOITTO_JALKI_MS;
                     let Some(aika) = kulunut.checked_sub(alku + viive) else {
                         continue;
                     };
-                    let (x, y) = juhlapaikka(maa, jarjestys, aika);
+                    let (x, y) = juhlapaikka(i, jarjestys, aika);
                     if x + KORTTI_L > 0 && x < RUUDUN_LEVEYS as i32 {
                         self.pelikortti(x, y, kortti);
                     }
@@ -549,7 +691,6 @@ mod tests {
     use super::*;
     use crate::yhteinen::kieli::kaikilla_kielilla;
     use klassikot8000::Arpa;
-    use klassikot8000::pasianssi::Kortti;
 
     #[test]
     fn kortit_mahtuvat_ruudulle_pisimmassakin_sarakkeessa() {
@@ -564,16 +705,9 @@ mod tests {
 
     #[test]
     fn sivun_tekstit_mahtuvat_paneeliin() {
-        let tila = SIVU_L - 36;
-        assert!(SIVU_MERKKEJA as i32 * MERKKI <= tila);
+        assert!(SIVU_MERKKEJA as i32 * MERKKI <= SIVU_L - 36);
+        sivu_mahtuu(&SIVU_OHJEET, &NAPIT);
         kaikilla_kielilla(|| {
-            for avain in SIVU_OHJEET {
-                let rivi = kaanna(avain);
-                assert!(rivi.chars().count() <= SIVU_MERKKEJA, "{rivi}");
-            }
-            for (_, teksti) in NAPIT {
-                assert!(napin_leveys(teksti) <= tila);
-            }
             // Viesti rivitetään sivupalkkiin, jossa on tilaa neljälle riville.
             for avain in [
                 "pasianssi.ei_kay",
@@ -584,24 +718,48 @@ mod tests {
                 "pasianssi.jumissa",
                 "pasianssi.voittoviesti",
                 "pasianssi.siirrot_loppu",
+                "pyramidi.voittoviesti",
+                "pyramidi.ei_paria",
             ] {
                 assert!(rivita(kaanna(avain), SIVU_MERKKEJA).len() <= 4, "{avain}");
             }
             for pari in TASOT.windows(2) {
                 assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
             }
-            for avain in [
-                "pasianssi.kuvaus_helppo",
-                "pasianssi.kuvaus_normaali",
-                "pasianssi.kuvaus_vaikea",
-            ] {
-                assert!(kaanna(avain).chars().count() <= 36, "{avain}");
+            for pari in VARIANTIT.windows(2) {
+                assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
             }
+            let (_, viimeinen, x) = VARIANTIT[VARIANTIT.len() - 1];
+            assert!(x + napin_leveys(viimeinen) < LEVEYS as i32);
+            for laji in Variantti::KAIKKI {
+                for taso in Vaikeus::KAIKKI {
+                    let kuvaus = kaanna(tason_kuvaus(laji, taso));
+                    assert!(kuvaus.chars().count() <= 36, "{kuvaus}");
+                }
+            }
+            assert!(kaanna("pasianssi.laji").chars().count() as i32 * MERKKI < TASO_X - 48);
         });
         // Vaikeustason kuvaus tulee näppäinohjeiden jälkeen.
-        let mut rivit = ALKU_RIVIT.to_vec();
-        rivit.extend(["pasianssi.kuvaus_normaali", "pasianssi.kuvaus_normaali"]);
-        alkuohje_mahtuu(&ALKU_OSAT, &rivit, TASO_Y);
+        for (osat, rivit) in [
+            (&ALKU_OSAT, &ALKU_RIVIT),
+            (&SPIDER_OSAT, &SPIDER_RIVIT),
+            (&PYRAMIDI_OSAT, &PYRAMIDI_RIVIT),
+        ] {
+            let mut rivit = rivit.to_vec();
+            rivit.extend(["pasianssi.kuvaus_normaali", "pasianssi.kuvaus_normaali"]);
+            alkuohje_mahtuu(osat, &rivit, VARIANTTI_Y);
+        }
+    }
+
+    #[test]
+    fn lajinappi_loytyy_ja_taso_pysyy_erillaan() {
+        for laji in Variantti::KAIKKI {
+            let (x, y) = variantin_keskipiste(laji);
+            assert_eq!(variantti_pisteesta(x, y), Some(laji));
+            assert_eq!(vaikeus_pisteesta(x, y), None);
+        }
+        let (x, y) = vaikeuden_keskipiste(Vaikeus::Vaikea);
+        assert_eq!(variantti_pisteesta(x, y), None);
     }
 
     #[test]
@@ -658,15 +816,23 @@ mod tests {
     fn koko_peli_piirtyy_kaatumatta() {
         let mut ruutu = vec![0; RUUDUN_LEVEYS * RUUDUN_KORKEUS];
         let mut klassinen = vec![0; LEVEYS * KORKEUS];
-        for vaikeus in Vaikeus::KAIKKI {
+        for (vaikeus, laji) in Vaikeus::KAIKKI
+            .into_iter()
+            .flat_map(|v| Variantti::KAIKKI.map(|l| (v, l)))
+        {
             let mut peli = Pasianssi::new(3);
             peli.vaikeus = vaikeus;
+            peli.variantti = laji;
             piirra_alku(&peli, &mut klassinen);
             peli.aloita();
             peli.kursori_nakyy = true;
-            for _ in 0..30 {
+            // Uudet lajit riittää käydä läpi lyhyesti: Spiderin pakkakin loppuu viidessä jaossa.
+            let nostoja = if laji == Variantti::Klondike { 30 } else { 6 };
+            for _ in 0..nostoja {
                 peli.lauta.nosta();
                 peli.lauta.keraa();
+                peli.spider.jaa();
+                peli.pyramidi.nosta();
                 piirra(&peli, &mut ruutu);
             }
             peli.vaihe = Vaihe::Voitto;

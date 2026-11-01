@@ -65,6 +65,19 @@ impl Vaikeus {
     }
 }
 
+/// Pasianssin laji. Jokaisella on oma tuloslistansa.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Variantti {
+    Klondike,
+    Spider,
+    Pyramidi,
+}
+
+impl Variantti {
+    pub const KAIKKI: [Variantti; 3] =
+        [Variantti::Klondike, Variantti::Spider, Variantti::Pyramidi];
+}
+
 /// Voitosta saatava tulos: mitä nopeammin, sitä enemmän. Voitto antaa aina jotain.
 pub fn aikapisteet(vaikeus: Vaikeus, sekunnit: u32) -> u32 {
     AIKAKATTO_S.saturating_sub(sekunnit).max(1) * vaikeus.kerroin()

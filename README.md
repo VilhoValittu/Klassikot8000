@@ -22,7 +22,13 @@ Työnnä lukuja laudalla, yhdistä samat ja tavoittele 2048:aa. Vielä yksi siir
 
 ### Pasianssi
 
-Se tuttu Klondike, jonka kanssa on kulutettu tuhansia työpäiviä. Kolme vaikeustasoa: helpolla nostat kortin kerrallaan ja saat perua, vaikealla nostat kolme, pakan saa käydä läpi kolmesti eikä mitään voi perua. Pisteet tulevat ajasta: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
+Kolme peliä saman kortin alla, ja jokaisella on oma top-listansa. Pisteet tulevat ajasta: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
+
+**Klondike** on se tuttu, jonka kanssa on kulutettu tuhansia työpäiviä. Helpolla nostat kortin kerrallaan ja saat perua, vaikealla nostat kolme, pakan saa käydä läpi kolmesti eikä mitään voi perua.
+
+**Spider** jaetaan kahdesta pakasta kymmeneen sarakkeeseen. Kokoa saman maan sarjat kuninkaasta ässään, niin ne poistuvat pöydältä. Helpolla kortteja on yhtä maata, normaalilla kahta ja vaikealla neljää. Perua saa aina, koska neljää maata ei muuten juuri voita.
+
+**Pyramidi** puretaan pareittain: kahden vapaan kortin summan on oltava 13, ja kuningas lähtee yksin. Jätepinon kaksi päällimmäistä korttia ovat pelattavissa. Helpolla pakkaa saa kierrättää vapaasti, normaalilla käydä läpi kolmesti, ja vaikealla kahdesti ilman peruutusta.
 
 *Hiiri tai nuolet ja välilyönti.*
 

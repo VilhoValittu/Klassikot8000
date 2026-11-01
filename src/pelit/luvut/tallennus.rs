@@ -65,6 +65,14 @@ pub struct Tallennus {
     pub pasianssin_parhaat: Vec<Tulos>,
     /// Pasianssin tulokset, jotka eivät ole vielä päässeet nettilistalle.
     pub pasianssin_jono: Vec<Tulos>,
+    /// Spiderin top 3, järjestys kuten `parhaat`.
+    pub spiderin_parhaat: Vec<Tulos>,
+    /// Spiderin tulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub spiderin_jono: Vec<Tulos>,
+    /// Pyramidin top 3, järjestys kuten `parhaat`.
+    pub pyramidin_parhaat: Vec<Tulos>,
+    /// Pyramidin tulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub pyramidin_jono: Vec<Tulos>,
     /// Blackjackin top 3, järjestys kuten `parhaat`.
     pub blackjackin_parhaat: Vec<Tulos>,
     /// Blackjackin tulokset, jotka eivät ole vielä päässeet nettilistalle.
@@ -153,6 +161,18 @@ impl Tallennus {
         for tulos in &self.pasianssin_jono {
             teksti += &format!("pasianssijono {} {}\n", tulos.pisteet, tulos.nimi);
         }
+        for tulos in &self.spiderin_parhaat {
+            teksti += &format!("spidertop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.spiderin_jono {
+            teksti += &format!("spiderjono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.pyramidin_parhaat {
+            teksti += &format!("pyramiditop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.pyramidin_jono {
+            teksti += &format!("pyramidijono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
         for tulos in &self.blackjackin_parhaat {
             teksti += &format!("blackjacktop {} {}\n", tulos.pisteet, tulos.nimi);
         }
@@ -192,6 +212,8 @@ impl Tallennus {
         let (mut silmukan_parhaat, mut silmukan_jono) = (Vec::new(), Vec::new());
         let (mut palikan_parhaat, mut palikan_jono) = (Vec::new(), Vec::new());
         let (mut pasianssin_parhaat, mut pasianssin_jono) = (Vec::new(), Vec::new());
+        let (mut spiderin_parhaat, mut spiderin_jono) = (Vec::new(), Vec::new());
+        let (mut pyramidin_parhaat, mut pyramidin_jono) = (Vec::new(), Vec::new());
         let (mut blackjackin_parhaat, mut blackjackin_jono) = (Vec::new(), Vec::new());
         let (mut holdemin_parhaat, mut holdemin_jono) = (Vec::new(), Vec::new());
         let (mut tiilirikko, mut asteroidit, mut silmukka, mut palikka) = (None, None, None, None);
@@ -266,6 +288,26 @@ impl Tallennus {
                         lisaa_tulos(&mut pasianssin_jono, tulos);
                     }
                 }
+                Some(("spidertop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut spiderin_parhaat, tulos);
+                    }
+                }
+                Some(("spiderjono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut spiderin_jono, tulos);
+                    }
+                }
+                Some(("pyramiditop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut pyramidin_parhaat, tulos);
+                    }
+                }
+                Some(("pyramidijono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut pyramidin_jono, tulos);
+                    }
+                }
                 Some(("blackjacktop", arvo)) => {
                     if let Some(tulos) = tulos_tekstista(arvo) {
                         lisaa_tulos(&mut blackjackin_parhaat, tulos);
@@ -327,6 +369,10 @@ impl Tallennus {
             palikan_jono,
             pasianssin_parhaat,
             pasianssin_jono,
+            spiderin_parhaat,
+            spiderin_jono,
+            pyramidin_parhaat,
+            pyramidin_jono,
             blackjackin_parhaat,
             blackjackin_jono,
             holdemin_parhaat,
@@ -448,6 +494,22 @@ mod tests {
                 nimi: "KORTTI".to_string(),
                 pisteet: 6600,
             }],
+            spiderin_parhaat: vec![Tulos {
+                nimi: "VERKKO".to_string(),
+                pisteet: 5400,
+            }],
+            spiderin_jono: vec![Tulos {
+                nimi: "VERKKO".to_string(),
+                pisteet: 5400,
+            }],
+            pyramidin_parhaat: vec![Tulos {
+                nimi: "FARAO".to_string(),
+                pisteet: 3300,
+            }],
+            pyramidin_jono: vec![Tulos {
+                nimi: "FARAO".to_string(),
+                pisteet: 3300,
+            }],
             blackjackin_parhaat: vec![Tulos {
                 nimi: "KORTTI".to_string(),
                 pisteet: 120,
@@ -493,6 +555,10 @@ mod tests {
             palikan_jono: Vec::new(),
             pasianssin_parhaat: Vec::new(),
             pasianssin_jono: Vec::new(),
+            spiderin_parhaat: Vec::new(),
+            spiderin_jono: Vec::new(),
+            pyramidin_parhaat: Vec::new(),
+            pyramidin_jono: Vec::new(),
             blackjackin_parhaat: Vec::new(),
             blackjackin_jono: Vec::new(),
             holdemin_parhaat: Vec::new(),
