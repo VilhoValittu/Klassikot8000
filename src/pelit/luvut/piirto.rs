@@ -222,7 +222,7 @@ impl Piirtaja<'_> {
         self.luku_paneeli(luvut);
     }
 
-    /// Lauta on samaa aaltoilevaa vettä kuin laivanupotuksessa.
+    /// Lauta on tummaa liukuväriä, ja jokaisella ruudulla on oma kuoppansa.
     fn luku_lauta(&mut self) {
         self.k.liukulaatikko(
             RUUDUT_X,

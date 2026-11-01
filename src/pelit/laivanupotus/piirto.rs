@@ -1,4 +1,4 @@
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::PI;
 use std::sync::LazyLock;
 
 use klassikot8000::laivanupotus::{KOKO, Laiva, Laivasto, Laukaustulos, Ruutu, SARAKKEET, Vaikeus};
@@ -22,34 +22,23 @@ const TILASTO_PALKKI_X: i32 = 14 * MERKKI;
 const TEHOSTE_KESTO_MS: f32 = super::peli::TEHOSTE_KESTO_MS as f32;
 const MERKINTA: (i32, i32, i32) = (12, 18, 18);
 
-// Vesi on neljä valmiiksi laskettua ruutua, jotka vaihtuvat hitaasti kuin kuvioanimaatio.
-const VEDEN_RUUTUJA: usize = 4;
-const VEDEN_TAHTI_MS: u32 = 320;
+// Vesi on paikallaan pysyvä valmiiksi laskettu kuva, jotta laivat ja merkit erottuvat rauhassa.
 const LAUDAN_RIVEJA: i32 = LAUDAN_KOKO / 3;
 const SOLUN_RIVEJA: i32 = SOLU / 3;
 
-fn vesikuva(vaihe: f32) -> Rasteri {
+static VESI_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
     let n = LAUDAN_RIVEJA as usize;
     Rasteri::luo(n, n, |x, y| {
-        let (fx, fy) = (x as f32, y as f32);
         let t = y as f32 / LAUDAN_RIVEJA as f32;
-        let mut vari = liukuvari(&[0x1450B0, 0x0C2C80], t, x, y);
-        let aalto = (fx * 0.42 + fy * 1.3 + vaihe).sin() + (fx * 0.17 - fy * 0.55 - vaihe).sin();
-        if aalto > 1.55 {
-            vari = 0x60A8F0;
-        } else if aalto > 1.15 {
-            vari = 0x2C70D0;
-        }
+        let vari = liukuvari(&[0x1450B0, 0x0C2C80], t, x, y);
         // Ruudukko on pisteviiva, jotta se ei syö pieniä soluja.
         if (x % SOLUN_RIVEJA == 0 || y % SOLUN_RIVEJA == 0) && (x + y) % 2 == 0 {
-            vari = sekoita_liuku(vari, 0xA0C8FF, 0.45);
+            sekoita_liuku(vari, 0xA0C8FF, 0.45)
+        } else {
+            vari
         }
-        vari
     })
-}
-
-static VESI_KUVAT: LazyLock<[Rasteri; VEDEN_RUUTUJA]> =
-    LazyLock::new(|| std::array::from_fn(|i| vesikuva(i as f32 / VEDEN_RUUTUJA as f32 * TAU)));
+});
 
 const OHJE: &str = "laivanupotus.ohje";
 const AMMUIT_JO: &str = "laivanupotus.ammuit_jo";
@@ -273,8 +262,7 @@ impl Piirtaja<'_> {
             self.suurteksti(tx, y, &numero, MERKINTA, REUNA, false);
         }
 
-        let vesi = (self.kello / VEDEN_TAHTI_MS) as usize % VEDEN_RUUTUJA;
-        VESI_KUVAT[vesi].piirra(&mut self.k, x0, LAUTA_Y);
+        VESI_KUVA.piirra(&mut self.k, x0, LAUTA_Y);
         if omalle {
             for laiva in laivasto.laivat() {
                 self.laiva(x0, laiva);
