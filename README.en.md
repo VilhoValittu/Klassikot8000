@@ -2,7 +2,7 @@
 
 [Suomeksi](README.md) | **English**
 
-Bored? Ten old-school games in one small window, dressed up in C64 and Amiga style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
+Bored? Ten old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
 Runs even on a potato.
 

@@ -1,11 +1,13 @@
 use std::f32::consts::{PI, TAU};
+use std::sync::LazyLock;
 
 use klassikot8000::laivanupotus::{KOKO, Laiva, Laivasto, Laukaustulos, Ruutu, SARAKKEET, Vaikeus};
 
 use super::peli::{Peli, TULOS_VIIVE_MS, Tehoste, Vaihe, laivan_nimi};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::vektori::{self, Kangas, kehapiste};
+use crate::yhteinen::rasteri::{Rasteri, liukuvari};
+use crate::yhteinen::vektori::{self, Kangas, sekoita_liuku, tummenna, vaalenna};
 
 const SOLU: i32 = 33;
 const LAUDAN_KOKO: i32 = SOLU * KOKO as i32;
@@ -19,6 +21,35 @@ const TILASTO_PALKKI_X: i32 = 14 * MERKKI;
 
 const TEHOSTE_KESTO_MS: f32 = super::peli::TEHOSTE_KESTO_MS as f32;
 const MERKINTA: (i32, i32, i32) = (12, 18, 18);
+
+// Vesi on neljä valmiiksi laskettua ruutua, jotka vaihtuvat hitaasti kuin kuvioanimaatio.
+const VEDEN_RUUTUJA: usize = 4;
+const VEDEN_TAHTI_MS: u32 = 320;
+const LAUDAN_RIVEJA: i32 = LAUDAN_KOKO / 3;
+const SOLUN_RIVEJA: i32 = SOLU / 3;
+
+fn vesikuva(vaihe: f32) -> Rasteri {
+    let n = LAUDAN_RIVEJA as usize;
+    Rasteri::luo(n, n, |x, y| {
+        let (fx, fy) = (x as f32, y as f32);
+        let t = y as f32 / LAUDAN_RIVEJA as f32;
+        let mut vari = liukuvari(&[0x1450B0, 0x0C2C80], t, x, y);
+        let aalto = (fx * 0.42 + fy * 1.3 + vaihe).sin() + (fx * 0.17 - fy * 0.55 - vaihe).sin();
+        if aalto > 1.55 {
+            vari = 0x60A8F0;
+        } else if aalto > 1.15 {
+            vari = 0x2C70D0;
+        }
+        // Ruudukko on pisteviiva, jotta se ei syö pieniä soluja.
+        if (x % SOLUN_RIVEJA == 0 || y % SOLUN_RIVEJA == 0) && (x + y) % 2 == 0 {
+            vari = sekoita_liuku(vari, 0xA0C8FF, 0.45);
+        }
+        vari
+    })
+}
+
+static VESI_KUVAT: LazyLock<[Rasteri; VEDEN_RUUTUJA]> =
+    LazyLock::new(|| std::array::from_fn(|i| vesikuva(i as f32 / VEDEN_RUUTUJA as f32 * TAU)));
 
 const OHJE: &str = "laivanupotus.ohje";
 const AMMUIT_JO: &str = "laivanupotus.ammuit_jo";
@@ -171,13 +202,10 @@ impl Piirtaja<'_> {
     }
 
     fn pelinakyma(&mut self, peli: &Peli) {
-        self.liuku(0, KORKEUS as i32, TAUSTA_TUMMA, TAUSTA);
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.pelitausta();
         self.otsikkopalkki(kaanna("peli.laivanupotus"), vaikeuden_nimi(peli.vaikeus));
 
-        self.vektoriteksti(
+        self.suurteksti(
             VASTUSTAJA_X,
             OTSIKKO_Y,
             kaanna("laivanupotus.vastustajan_lauta"),
@@ -186,7 +214,7 @@ impl Piirtaja<'_> {
             false,
         );
         let oma_lauta = kaanna("laivanupotus.oma_lauta");
-        self.vektoriteksti(OMA_X, OTSIKKO_Y, oma_lauta, OTSIKKO, VALKOINEN, false);
+        self.suurteksti(OMA_X, OTSIKKO_Y, oma_lauta, OTSIKKO, VALKOINEN, false);
         self.lauta(VASTUSTAJA_X, &peli.vastustaja, false, peli);
         self.lauta(OMA_X, &peli.oma, true, peli);
         if peli.vaihe == Vaihe::Ammunta {
@@ -225,8 +253,7 @@ impl Piirtaja<'_> {
             }
             for i in 0..laiva.ruudut.maara() as i32 {
                 let pala_x = x + TILASTO_PALKKI_X + i * PALKIN_PALA;
-                self.k
-                    .laatikko(pala_x, y + 3, PALKIN_PALA - 3, 15, pala_vari);
+                self.pala(pala_x, y + 3, PALKIN_PALA - 3, 15, pala_vari);
             }
             y += RIVIN_KORKEUS;
         }
@@ -237,29 +264,17 @@ impl Piirtaja<'_> {
             let x = x0 + i as i32 * SOLU + 10;
             let mut puskuri = [0; 4];
             let merkki = kirjain.encode_utf8(&mut puskuri);
-            self.vektoriteksti(x, LAUTA_Y - 22, merkki, MERKINTA, REUNA, false);
+            self.suurteksti(x, LAUTA_Y - 22, merkki, MERKINTA, REUNA, false);
         }
         for rivi in 0..KOKO {
             let y = LAUTA_Y + rivi as i32 * SOLU + 7;
             let tx = if rivi == 9 { x0 - 39 } else { x0 - 21 };
             let numero = (rivi + 1).to_string();
-            self.vektoriteksti(tx, y, &numero, MERKINTA, REUNA, false);
+            self.suurteksti(tx, y, &numero, MERKINTA, REUNA, false);
         }
 
-        self.k.laatikko(x0, LAUTA_Y, LAUDAN_KOKO, LAUDAN_KOKO, VESI);
-        self.aallot(x0);
-        for i in 0..=KOKO as i32 {
-            let viiva = x0 + i * SOLU;
-            let rivi = LAUTA_Y + i * SOLU;
-            self.k.laatikko(
-                viiva.min(x0 + LAUDAN_KOKO),
-                LAUTA_Y,
-                1,
-                LAUDAN_KOKO + 1,
-                RUUDUKKO,
-            );
-            self.k.laatikko(x0, rivi, LAUDAN_KOKO + 1, 1, RUUDUKKO);
-        }
+        let vesi = (self.kello / VEDEN_TAHTI_MS) as usize % VEDEN_RUUTUJA;
+        VESI_KUVAT[vesi].piirra(&mut self.k, x0, LAUTA_Y);
         if omalle {
             for laiva in laivasto.laivat() {
                 self.laiva(x0, laiva);
@@ -283,24 +298,7 @@ impl Piirtaja<'_> {
                 }
             }
         }
-        self.k
-            .kehys(x0 - 1, LAUTA_Y - 1, LAUDAN_KOKO + 3, LAUDAN_KOKO + 3, REUNA);
-    }
-
-    /// Hitaat aaltoviivat elävöittävät vettä peittämättä merkintöjä.
-    fn aallot(&mut self, x0: i32) {
-        const VALI: i32 = 33;
-        for rivi in 0..KOKO as i32 {
-            let y = LAUTA_Y + rivi * SOLU + SOLU / 2;
-            let vaihe = self.kello as f32 * 0.0025 + rivi as f32 * 1.4;
-            let mut pisteet = [(0, 0); 11];
-            for (i, piste) in pisteet.iter_mut().enumerate() {
-                let x = i as i32 * VALI;
-                let korkeus = (vaihe + i as f32 * 0.9).sin() * 3.5;
-                *piste = (x0 + x, y + korkeus as i32);
-            }
-            self.k.murtoviiva(&pisteet, AALTO);
-        }
+        self.upotus(x0, LAUTA_Y, LAUDAN_KOKO, LAUDAN_KOKO);
     }
 
     /// Laiva ylhäältä: suippo keula, kansirakenne ja tykkitornit joka ruudussa.
@@ -341,10 +339,18 @@ impl Piirtaja<'_> {
             p(pituus - 18, 11),
             p(3, 8),
         ];
-        self.k.monikulmio(&runko, RUNKO);
-        for (i, &a) in runko.iter().enumerate() {
-            self.k.viiva(a, runko[(i + 1) % runko.len()], LAIVA_REUNA);
-        }
+        // Tumma ääriviiva, valoisa kansi ja varjoinen laita.
+        self.k.monikulmio(&runko, tummenna(RUNKO, 0.75));
+        let sisa = [
+            p(6, -6),
+            p(pituus - 20, -8),
+            p(pituus - 8, 0),
+            p(pituus - 20, 8),
+            p(6, 6),
+        ];
+        self.k.monikulmio(&sisa, RUNKO);
+        let valo = [p(6, -6), p(pituus - 20, -8), p(pituus - 8, 0), p(6, 0)];
+        self.k.monikulmio(&valo, KANSI);
         let kansi = pituus / 3;
         let rakenne = [
             p(kansi, -4),
@@ -353,9 +359,14 @@ impl Piirtaja<'_> {
             p(kansi, 4),
         ];
         self.k.monikulmio(&rakenne, TORNI);
+        // Jokaisessa ruudussa on tykkitorni, jonka putki osoittaa keulaan.
         for osa in 0..laiva.ruudut.maara() as i32 {
-            let keski = p(osa * SOLU + SOLU / 2, 0);
-            self.k.ympyra(keski, 4.0, LAIVA_REUNA);
+            let u = osa * SOLU + SOLU / 2;
+            let (tx, ty) = p(u, 0);
+            self.k.viiva(p(u, 0), p(u + 12, 0), 0x303848);
+            self.k
+                .laatikko(tx / 3 * 3 - 3, ty / 3 * 3 - 3, 9, 9, 0x303848);
+            self.k.laatikko(tx / 3 * 3, ty / 3 * 3, 3, 3, LAIVA_REUNA);
         }
     }
 
@@ -365,19 +376,24 @@ impl Piirtaja<'_> {
             let x = x0 + ruutu.sarake as i32 * SOLU + 1;
             let y = LAUTA_Y + ruutu.rivi as i32 * SOLU + 1;
             self.k.laatikko(x, y, SOLU - 1, SOLU - 1, OSUMA_TUMMA);
-            // liekki väpättää, mutta eri ruudut eri tahtiin
-            let tahti = self.kello / 110 + ruutu.rivi as u32 * 7 + ruutu.sarake as u32 * 3;
-            for i in 0..8 {
-                let kulma = i as f32 / 8.0 * TAU + 0.2;
-                let sade = 8.0 + ((tahti + i) % 3) as f32 * 3.0;
-                let kaari = kehapiste(keski, sade, kulma);
-                let vari = if i % 2 == 0 { KELTAINEN } else { WB_ORANSSI };
-                self.k.viiva(keski, kaari, vari);
+            // Liekki väpättää, mutta eri ruudut eri tahtiin.
+            let tahti = self.kello / 130 + ruutu.rivi as u32 * 7 + ruutu.sarake as u32 * 3;
+            for i in 0..5 {
+                let rivi = i as i32 * 6;
+                let levein = [15, 12, 9, 6, 3][i as usize];
+                let huojunta = ((tahti + i) % 3) as i32 * 3 - 3;
+                let kx = keski.0 + huojunta / 2;
+                let y = keski.1 + 12 - rivi;
+                self.k.laatikko(kx - levein, y, 2 * levein, 6, OSUMA);
+                self.k
+                    .laatikko(kx - levein * 2 / 3, y, levein * 4 / 3, 6, WB_ORANSSI);
+                self.k
+                    .laatikko(kx - levein / 3, y, levein * 2 / 3, 6, KELTAINEN);
             }
-            self.k.laatikko(keski.0 - 1, keski.1 - 1, 3, 3, VALKOINEN);
         } else {
-            self.k.ympyra(keski, 9.0, HUTI);
-            self.k.laatikko(keski.0 - 1, keski.1 - 1, 3, 3, HUTI);
+            self.k.ympyra(keski, 9.0, vaalenna(HUTI, 0.3));
+            self.k
+                .laatikko(keski.0 / 3 * 3, keski.1 / 3 * 3, 3, 3, VALKOINEN);
         }
     }
 
@@ -390,9 +406,9 @@ impl Piirtaja<'_> {
         for (sx, sy) in [(-1, -1), (1, -1), (1, 1), (-1, 1)] {
             let nurkka = (cx + sx * sade, cy + sy * sade);
             self.k
-                .paksu_viiva(nurkka, (nurkka.0 - sx * kulma, nurkka.1), vari);
+                .viiva(nurkka, (nurkka.0 - sx * kulma, nurkka.1), vari);
             self.k
-                .paksu_viiva(nurkka, (nurkka.0, nurkka.1 - sy * kulma), vari);
+                .viiva(nurkka, (nurkka.0, nurkka.1 - sy * kulma), vari);
         }
         let sisa = 5 + (self.kello / 150 % 3) as i32 * 2;
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -436,9 +452,8 @@ impl Piirtaja<'_> {
             (x as i32, (y - (t * PI).sin() * 90.0) as i32)
         };
         let karki = paikka(t);
-        self.k
-            .paksu_viiva(paikka((t - 0.18).max(0.0)), karki, KELTAINEN);
-        self.k.laatikko(karki.0 - 1, karki.1 - 1, 3, 3, VALKOINEN);
+        self.k.viiva(paikka((t - 0.18).max(0.0)), karki, WB_ORANSSI);
+        self.k.kiiltopallo(karki, 7, 0x708090);
     }
 
     fn roiske(&mut self, keski: (i32, i32), ika: f32) {
@@ -452,9 +467,7 @@ impl Piirtaja<'_> {
     }
 
     fn paneeli(&mut self, peli: &Peli) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
 
         let vastaus_kesken = peli.vastaus_kesken();
         let mut y = PANEELI_RIVI_Y;
@@ -481,7 +494,7 @@ impl Piirtaja<'_> {
                     TAPPIO
                 };
                 let y = alarivi - RIVIN_KORKEUS - 2;
-                self.vektoriteksti(TEKSTI_X, y, kaanna(teksti), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, y, kaanna(teksti), TULOS, KELTAINEN, true);
                 self.napit();
             }
             Vaihe::Voitto | Vaihe::Tappio | Vaihe::Alku => {}

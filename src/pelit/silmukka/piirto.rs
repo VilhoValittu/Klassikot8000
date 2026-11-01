@@ -1,6 +1,7 @@
 //! Silmukan näkymät.
 
 use std::f32::consts::{FRAC_PI_2, TAU};
+use std::sync::OnceLock;
 
 use klassikot8000::silmukka::{
     self, Ennuste, Herkku, KULLAN_KESTO_MS, KUORIUTUMINEN_MS, Laji, Niitty, Otus, RIVEJA, Ruutu,
@@ -12,7 +13,8 @@ use super::peli::{
 };
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::vektori::{Kangas, Tahko, kehapiste, kuutio, tahko4};
+use crate::yhteinen::rasteri::{Rasteri, ditteroi, kohina};
+use crate::yhteinen::vektori::{Kangas, Tahko, kehapiste, kuutio, tahko4, vaalenna};
 
 const RUUTU: i32 = 24;
 const KENTTA_X: i32 = 30;
@@ -35,8 +37,34 @@ const NIITYT: [(u32, u32); 6] = [
     (0x4C2A2C, 0x202E22),
     (0x2A3A48, 0x18362A),
 ];
-const NIITYN_KAISTOJA: i32 = 22;
-const RUUDUN_VAALENNUS: f32 = 0.035;
+const RUUDUN_VAALENNUS: f32 = 0.07;
+// Tärisevä kenttä paljastaa reunansa, joten kuvassa on varaa joka puolella.
+const NIITYN_VARA: i32 = 3;
+
+/// Tason niitty valmiiksi laskettuna: ruudutus, ditteröity liuku ja heinätuppaat.
+fn niittykuva((yla, ala): (u32, u32)) -> Rasteri {
+    let sivu = RUUTU / 3;
+    let leveys = KENTTA_L / 3 + 2 * NIITYN_VARA;
+    let korkeus = KENTTA_K / 3 + 2 * NIITYN_VARA;
+    Rasteri::luo(leveys as usize, korkeus as usize, move |x, y| {
+        let (kx, ky) = (x - NIITYN_VARA, y - NIITYN_VARA);
+        let osuus = (ky.max(0) as f32 / (KENTTA_K / 3) as f32).min(1.0);
+        let pohja = ditteroi(x, y, yla, ala, osuus);
+        let ruutu = (kx.div_euclid(sivu) + ky.div_euclid(sivu)).rem_euclid(2) == 0;
+        let vari = if ruutu {
+            sekoita(pohja, VALKOINEN, RUUDUN_VAALENNUS)
+        } else {
+            pohja
+        };
+        match kohina(x / 2, y) {
+            n if n > 0.985 => sekoita(vari, MATO_A, 0.35),
+            n if n > 0.96 => sekoita(vari, MATO_A, 0.15),
+            _ => vari,
+        }
+    })
+}
+
+static NIITTY_KUVAT: [OnceLock<Rasteri>; NIITYT.len()] = [const { OnceLock::new() }; NIITYT.len()];
 
 const MATO_TUMMA: u32 = 0x0B3A1E;
 const MATO_A: u32 = 0x35C25A;
@@ -214,11 +242,8 @@ pub fn piirra(peli: &Silmukka, kuva: &mut [u32]) {
     p.aanikytkin(peli.aanet_paalla);
 }
 
-fn pallo(k: &mut Kangas, (x, y): (i32, i32), sade: i32, vari: u32) {
-    for dy in -sade..=sade {
-        let leveys = ((sade * sade - dy * dy) as f32).sqrt() as i32;
-        k.laatikko(x - leveys, y + dy, 2 * leveys + 1, 1, vari);
-    }
+fn pallo(k: &mut Kangas, keski: (i32, i32), sade: i32, vari: u32) {
+    k.kiekko(keski, sade, vari);
 }
 
 impl Piirtaja<'_> {
@@ -283,21 +308,10 @@ impl Piirtaja<'_> {
     }
 
     fn niitty(&mut self, o: (i32, i32), taso: u32) {
-        let (yla, ala) = NIITYT[(taso as usize - 1) % NIITYT.len()];
-        let kaistan_k = KENTTA_K / NIITYN_KAISTOJA;
-        for rivi in -1..=RIVEJA {
-            let osuus = (rivi.max(0) as f32 / (RIVEJA - 1) as f32).min(1.0);
-            let vari = sekoita(yla, ala, osuus);
-            let vaalea = sekoita(vari, VALKOINEN, RUUDUN_VAALENNUS);
-            let y = o.1 + rivi * kaistan_k;
-            self.k.laatikko(KENTTA_X - 8, y, KENTTA_L + 16, RUUTU, vari);
-            for sarake in 0..SARAKKEITA {
-                if (rivi + sarake).rem_euclid(2) == 0 {
-                    let x = o.0 + sarake * RUUTU;
-                    self.k.laatikko(x, y, RUUTU, RUUTU, vaalea);
-                }
-            }
-        }
+        let i = (taso as usize - 1) % NIITYT.len();
+        let kuva = NIITTY_KUVAT[i].get_or_init(|| niittykuva(NIITYT[i]));
+        let vara = NIITYN_VARA * 3;
+        kuva.piirra(&mut self.k, o.0 - vara, o.1 - vara);
     }
 
     /// Tuleva silmukka: sisus sykkii ja kulkematon matka näkyy pisteinä, joten pelaaja
@@ -419,7 +433,8 @@ impl Piirtaja<'_> {
         for (i, &nivel) in nivelet.iter().enumerate().skip(1).step_by(2) {
             if n - 1 - i >= HANNAN_KAPENEMINEN {
                 let (x, y) = keski(o, nivel);
-                self.k.laatikko(x - 3, y - 4, 3, 2, MATO_KIILTO);
+                self.k.piste(x - 3, y - 5, MATO_KIILTO);
+                self.k.piste(x + 3, y - 2, vaalenna(MATO_B, 0.3));
             }
         }
         self.paa(o, lauta, nivelet[0]);
@@ -429,13 +444,13 @@ impl Piirtaja<'_> {
         let keskipiste = keski(o, nivel);
         let (dx, dy) = lauta.suunta.siirto();
         let (dx, dy) = (dx as f32, dy as f32);
-        pallo(&mut self.k, keskipiste, PAAN_SADE + 2, MATO_TUMMA);
-        pallo(&mut self.k, keskipiste, PAAN_SADE, MATO_B);
+        pallo(&mut self.k, keskipiste, PAAN_SADE + 3, MATO_TUMMA);
+        self.k.kiiltopallo(keskipiste, PAAN_SADE, MATO_B);
 
         if !lauta.ohi && self.kello % KIELEN_JAKSO_MS < KIELEN_KESTO_MS {
             let kanta = siirra(keskipiste, dx * 11.0, dy * 11.0);
             let karki = siirra(kanta, dx * 7.0, dy * 7.0);
-            self.k.paksu_viiva(kanta, karki, OMENAN_VARI);
+            self.k.viiva(kanta, karki, OMENAN_VARI);
             self.k.viiva(
                 karki,
                 siirra(karki, dx * 3.0 + dy * 3.0, dy * 3.0 + dx * 3.0),
@@ -506,10 +521,9 @@ impl Piirtaja<'_> {
     }
 
     fn omena(&mut self, (x, y): (i32, i32), vari: u32) {
-        pallo(&mut self.k, (x, y + 1), 8, varjo(vari));
-        pallo(&mut self.k, (x, y), 7, vari);
-        self.k.laatikko(x - 4, y - 4, 3, 3, VALKOINEN);
-        self.k.paksu_viiva((x, y - 7), (x + 1, y - 11), VARSI);
+        pallo(&mut self.k, (x + 2, y + 3), 8, varjo(MUSTA));
+        self.k.kiiltopallo((x, y), 9, vari);
+        self.k.viiva((x, y - 7), (x + 1, y - 11), VARSI);
         self.k
             .monikulmio(&[(x + 1, y - 9), (x + 7, y - 12), (x + 5, y - 7)], LEHTI);
     }
@@ -627,31 +641,13 @@ impl Piirtaja<'_> {
         } else {
             VALKOINEN
         };
-        self.vektoriteksti(x + 3, y + 3, teksti, SUURI, TAUSTA_TUMMA, true);
-        // Kaksi kerrosta tekee ohuesta vektorifontista juhlavan paksun.
-        self.vektoriteksti(x + 2, y, teksti, SUURI, vari, true);
-        self.vektoriteksti(x, y, teksti, SUURI, vari, true);
+        self.suurteksti(x, y, teksti, SUURI, vari, true);
     }
 
     /// Tärisevä kenttä saa ylittää rajansa, joten ympäristö maalataan vasta sen jälkeen.
     fn silmukan_kehys(&mut self) {
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        let ala = KENTTA_Y + KENTTA_K;
-        self.k.laatikko(0, 0, l, KENTTA_Y, TAUSTA);
-        self.k.laatikko(0, ala, l, k - ala, TAUSTA);
-        self.k.laatikko(0, KENTTA_Y, KENTTA_X, KENTTA_K, TAUSTA);
-        let oikea = KENTTA_X + KENTTA_L;
-        self.k
-            .laatikko(oikea, KENTTA_Y, l - oikea, KENTTA_K, TAUSTA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
-        self.k.kehys(
-            KENTTA_X - 1,
-            KENTTA_Y - 1,
-            KENTTA_L + 2,
-            KENTTA_K + 2,
-            REUNA,
-        );
+        self.tausta_kentan_ympari(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
+        self.upotus(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
     }
 
     fn silmukan_tilasto(&mut self, peli: &Silmukka) {
@@ -666,8 +662,8 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = KENTTA_Y + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
-            self.vektoriteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
         self.parhaat_lista(
             SARAKE_X,
@@ -680,9 +676,7 @@ impl Piirtaja<'_> {
     }
 
     fn silmukan_paneeli(&mut self, peli: &Silmukka) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -690,11 +684,11 @@ impl Piirtaja<'_> {
         match peli.vaihe {
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
             Vaihe::Tauko => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
                 self.teksti(TEKSTI_X, alarivi, kaanna(TAUON_OHJE), HUTI);
             }
             Vaihe::Tappio => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {
                     self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }
@@ -716,7 +710,7 @@ fn varjo(vari: u32) -> u32 {
 const _: () = {
     assert!(silmukka::ALKUPITUUS > HANNAN_KAPENEMINEN);
     assert!(PURKU_MS < VALAHDYS_MS);
-    assert!(KEHU_MS > 0 && NIITYN_KAISTOJA == RIVEJA);
+    assert!(KEHU_MS > 0);
 };
 
 #[cfg(test)]

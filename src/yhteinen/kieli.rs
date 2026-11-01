@@ -135,7 +135,6 @@ mod tests {
     use super::*;
     use crate::yhteinen::piirto::{LEVEYS, SUURI};
     use crate::yhteinen::tulokset::{NIMEN_PITUUS, tulos_tekstista};
-    use crate::yhteinen::vektorifontti;
 
     fn upotetut() -> [Taulu; 2] {
         rakenna(None)
@@ -204,13 +203,6 @@ mod tests {
                 for merkki in teksti.chars() {
                     let tunnettu = matches!(merkki, ' '..='z' | 'Ä' | 'Ö' | 'ä' | 'ö');
                     assert!(tunnettu, "{avain}: {merkki}");
-                }
-                // Versaalit otsikot piirretään vektorifontilla.
-                if teksti.to_uppercase() == teksti {
-                    for merkki in teksti.chars().filter(|&m| m != ' ') {
-                        let kuvio = vektorifontti::kuvio(merkki);
-                        assert!(!kuvio.is_empty(), "{avain}: {merkki}");
-                    }
                 }
             }
         }

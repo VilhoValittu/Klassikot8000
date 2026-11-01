@@ -224,10 +224,7 @@ pub fn piirra(peli: &Blackjack, ruutu: &mut [u32]) {
 
 impl Piirtaja<'_> {
     fn bj_poyta(&mut self, peli: &Blackjack) {
-        let (l, k) = (RUUDUN_LEVEYS as i32, RUUDUN_KORKEUS as i32);
-        self.liuku(0, k, TAUSTA_TUMMA, TAUSTA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.pelitausta();
         self.otsikkopalkki(&kaanna("peli.blackjack").to_uppercase(), "");
 
         self.bj_jakaja(peli);
@@ -246,8 +243,7 @@ impl Piirtaja<'_> {
         let (x, askel, _) = kaden_asettelu(kasia, 0, 2);
         for i in 0..2 {
             let kortti_x = x + i * askel;
-            self.k.laatikko(kortti_x, y, KORTTI_L, KORTTI_K, VESI);
-            self.k.kehys(kortti_x, y, KORTTI_L, KORTTI_K, RUUDUKKO);
+            self.korttipaikka(kortti_x, y);
         }
     }
 
@@ -267,7 +263,7 @@ impl Piirtaja<'_> {
         };
         let keski = POYTA_X + POYTA_L / 2;
         let x = keski - otsikko.chars().count() as i32 * OTSIKKO.2 / 2;
-        self.vektoriteksti(x, JAKAJA_OTSIKKO_Y, &otsikko, OTSIKKO, KELTAINEN, true);
+        self.suurteksti(x, JAKAJA_OTSIKKO_Y, &otsikko, OTSIKKO, KELTAINEN, true);
 
         if kortit.is_empty() {
             return self.bj_tyhjat_paikat(1, JAKAJA_Y);
@@ -288,15 +284,12 @@ impl Piirtaja<'_> {
             let teksti = kaanna("blackjack.rahat_loppu");
             let leveys = teksti.chars().count() as i32 * OTSIKKO.2;
             let x = POYTA_X + (POYTA_L - leveys) / 2;
-            self.k
-                .laatikko(x - 18, SAANTO_Y - 8, leveys + 36, 34, WB_SININEN);
-            self.k
-                .kehys(x - 18, SAANTO_Y - 8, leveys + 36, 34, VALKOINEN);
-            self.vektoriteksti(x, SAANTO_Y - 2, teksti, OTSIKKO, KELTAINEN, true);
+            self.ikkuna(x - 18, SAANTO_Y - 12, leveys + 36, 42);
+            self.suurteksti(x, SAANTO_Y - 2, teksti, OTSIKKO, KELTAINEN, true);
         } else {
             let teksti = kaanna("blackjack.saanto");
             let x = POYTA_X + (POYTA_L - teksti.chars().count() as i32 * MERKKI) / 2;
-            self.teksti(x, SAANTO_Y, teksti, REUNA);
+            self.teksti(x, SAANTO_Y, teksti, VALKOINEN);
         }
     }
 
@@ -310,10 +303,10 @@ impl Piirtaja<'_> {
         let keski = POYTA_X + i as i32 * leveys + leveys / 2;
         let summa = summateksti(&kasi.kortit);
         let summa_x = keski - summa.chars().count() as i32 * OTSIKKO.2 / 2;
-        self.vektoriteksti(summa_x, KASI_OTSIKKO_Y, &summa, OTSIKKO, VALKOINEN, true);
+        self.suurteksti(summa_x, KASI_OTSIKKO_Y, &summa, OTSIKKO, VALKOINEN, true);
         let (rivi, vari) = kaden_rivi(kasi);
         let rivi_x = keski - rivi.chars().count() as i32 * TULOS.2 / 2;
-        self.vektoriteksti(rivi_x, KASI_TULOS_Y, &rivi, TULOS, vari, false);
+        self.suurteksti(rivi_x, KASI_TULOS_Y, &rivi, TULOS, vari, false);
 
         for (j, &kortti) in kasi.kortit.iter().enumerate() {
             let j = j as i32;
@@ -336,6 +329,7 @@ impl Piirtaja<'_> {
 
     fn bj_sivu(&mut self, peli: &Blackjack) {
         let poyta = &peli.poyta;
+        self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
         let panostus = peli.vaihe == Vaihe::Pelissa && poyta.vuoro == Vuoro::Panostus;
         // Pelatessa näkyy pöydän koko panos, tuplaukset, halkaisut ja vakuutus mukaan lukien.
         let panos = if panostus {
@@ -347,14 +341,12 @@ impl Piirtaja<'_> {
             (RAHAT_Y, "blackjack.rahat", poyta.rahat),
             (PANOS_Y, "blackjack.panos", panos),
         ] {
-            self.vektoriteksti(SIVU_TEKSTI_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SIVU_TEKSTI_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
             let arvo = raha(arvo);
-            self.vektoriteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
-        self.k
-            .laatikko(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, WB_SININEN);
-        self.k.kehys(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, VALKOINEN);
+        self.ikkuna(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K);
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);

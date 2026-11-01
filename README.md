@@ -2,7 +2,7 @@
 
 **Suomeksi** | [English](README.en.md)
 
-Tylsää? Kymmenen vanhan liiton peliä yhdessä pienessä ikkunassa, C64- ja Amiga-henkisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Tylsää? Kymmenen vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
 Pyörii vaikka perunalla. Clauden koodaama, AB:n ideasta.
 

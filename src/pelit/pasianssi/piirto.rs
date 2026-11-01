@@ -288,10 +288,7 @@ impl Piirtaja<'_> {
     }
 
     fn pasianssi_nakyma(&mut self, peli: &Pasianssi) {
-        let (l, k) = (RUUDUN_LEVEYS as i32, RUUDUN_KORKEUS as i32);
-        self.liuku(0, k, TAUSTA_TUMMA, TAUSTA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.pelitausta();
         let nimi = kaanna("peli.pasianssi").to_uppercase();
         self.otsikkopalkki(&nimi, vaikeuden_nimi(peli.lauta.vaikeus));
 
@@ -332,8 +329,7 @@ impl Piirtaja<'_> {
             self.korttipaikka(pakka_x, YLARIVI_Y);
             if peli.lauta.voi_kierrattaa() {
                 let (kx, ky) = (pakka_x + KORTTI_L / 2, YLARIVI_Y + KORTTI_K / 2);
-                self.k.ympyra((kx, ky), 30.0, REUNA);
-                self.k.ympyra((kx, ky), 29.0, REUNA);
+                self.k.ympyra((kx, ky), 30.0, TORNI);
             }
         } else {
             self.kortin_tausta(pakka_x, YLARIVI_Y);
@@ -371,7 +367,7 @@ impl Piirtaja<'_> {
                 None => {
                     self.korttipaikka(x, YLARIVI_Y);
                     let keski = (x + KORTTI_L / 2, YLARIVI_Y + KORTTI_K / 2);
-                    self.maakuvio(Maa::KAIKKI[perusta], keski, 36.0, AALTO);
+                    self.himmea_maa(Maa::KAIKKI[perusta], keski);
                 }
             }
             if peli.valittu == Some(lahde) {
@@ -443,13 +439,9 @@ impl Piirtaja<'_> {
         }
     }
 
-    fn korttipaikka(&mut self, x: i32, y: i32) {
-        self.k.laatikko(x, y, KORTTI_L, KORTTI_K, VESI);
-        self.k.kehys(x, y, KORTTI_L, KORTTI_K, RUUDUKKO);
-    }
-
     fn pasianssi_sivu(&mut self, peli: &Pasianssi) {
         let tila = &peli.lauta.tila;
+        self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
         let kierros = match peli.lauta.vaikeus.kierroksia() {
             Some(kierroksia) => format!("{}/{kierroksia}", peli.lauta.kierros()),
             None => peli.lauta.kierros().to_string(),
@@ -465,13 +457,11 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = YLARIVI_Y + i as i32 * TILASTO_ASKEL;
-            self.vektoriteksti(SIVU_TEKSTI_X, y, otsikko, OTSIKKO, KELTAINEN, false);
-            self.vektoriteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SIVU_TEKSTI_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
-        self.k
-            .laatikko(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, WB_SININEN);
-        self.k.kehys(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, VALKOINEN);
+        self.ikkuna(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K);
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
@@ -522,9 +512,8 @@ impl Piirtaja<'_> {
         let teksti = kaanna(avain);
         let y = RUUDUN_KORKEUS as i32 - 84;
         let leveys = teksti.chars().count() as i32 * OTSIKKO.2 + 36;
-        self.k.laatikko(SARAKE_X, y, leveys, 48, WB_SININEN);
-        self.k.kehys(SARAKE_X, y, leveys, 48, VALKOINEN);
-        self.vektoriteksti(SARAKE_X + 18, y + 13, teksti, OTSIKKO, KELTAINEN, true);
+        self.ikkuna(SARAKE_X, y, leveys, 48);
+        self.suurteksti(SARAKE_X + 18, y + 13, teksti, OTSIKKO, KELTAINEN, true);
     }
 }
 

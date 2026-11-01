@@ -1,5 +1,7 @@
 //! Käynnistimen näkymä: pelikortit ja ohjeet.
 
+use std::sync::LazyLock;
+
 use super::netti::VERSIO;
 use super::{Kaynnissa, Kaynnistin, PELIT};
 use crate::pelit::{
@@ -8,6 +10,7 @@ use crate::pelit::{
 };
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
+use crate::yhteinen::rasteri::Rasteri;
 use crate::yhteinen::tulokset::Tulos;
 use crate::yhteinen::vektori::{Kangas, Tahko};
 
@@ -21,21 +24,21 @@ const KORTTI_K: i32 = 72;
 const KORTTI_ASKEL: i32 = KORTTI_K + 8;
 const KORTIN_NUMERO_X: i32 = 60;
 const KORTIN_NIMI: (i32, i32, i32) = (24, 36, 32);
-const KORTIN_NIMEN_PAKSUUS: i32 = 3;
 const KORTIN_VARJO: i32 = 6;
 
 const OTSIKKO_KOKO: (i32, i32, i32) = (60, 88, 78);
 const OTSIKKO_Y: i32 = 48;
-const OTSIKON_PAKSUUS: i32 = 4;
-const OTSIKON_VARJO: i32 = 5;
 
-// Meri ei vyöry: muuten koko alaosa vaihtuisi joka ruudussa, vaikka katsoja seuraa mallia.
-const MAISEMA: Maisema = Maisema {
-    horisontti: 520,
-    ala_y: ALAPALKKI_Y,
-    katoamis_x: MALLI_X,
-    vyory: false,
-};
+// Tausta lasketaan kerran, ja se pysyy paikallaan katsojan seuratessa mallia.
+const HORISONTTI_RIVI: i32 = 130;
+static MAISEMA: LazyLock<Rasteri> = LazyLock::new(|| {
+    maisemakuva(
+        RUUDUN_LEVEYS / 4,
+        ALAPALKKI_Y as usize / 4,
+        HORISONTTI_RIVI,
+        MALLI_X / 4,
+    )
+});
 const MALLI_X: i32 = 1336;
 const MALLI_Y: i32 = 460;
 const MALLIN_KOKO: f32 = 76.0;
@@ -165,7 +168,7 @@ pub fn piirra(kaynnistin: &Kaynnistin, kehys: &mut Kehys) {
 
 impl Piirtaja<'_> {
     fn valikko(&mut self, kaynnistin: &Kaynnistin) {
-        self.maisematausta(MAISEMA);
+        MAISEMA.piirra(&mut self.k, 0, 0);
         let ika = kaynnistin.kello_ms.saturating_sub(kaynnistin.valittu_ms);
         self.valikon_malli(&kaynnistin.malli, ika);
         self.valikon_otsikko(kaanna("valikko.banneri"));
@@ -193,16 +196,12 @@ impl Piirtaja<'_> {
             self.kello as f32 * LAIVAN_KIERTO,
             (MALLI_X, MALLI_Y + keinunta as i32),
             MALLIN_KOKO * (MALLIN_ALKUKOKO + (1.0 - MALLIN_ALKUKOKO) * kasvu),
-            LAIVA_REUNA,
         );
     }
 
     fn valikon_otsikko(&mut self, teksti: &str) {
         let x = (RUUTU_L - teksti.chars().count() as i32 * OTSIKKO_KOKO.2) / 2;
-        let varjo = OTSIKON_VARJO;
-        let (koko, paksuus) = (OTSIKKO_KOKO, OTSIKON_PAKSUUS);
-        self.levea_vektoriteksti(x + varjo, OTSIKKO_Y + varjo, teksti, koko, paksuus, TAUSTA);
-        self.levea_vektoriteksti(x, OTSIKKO_Y, teksti, koko, paksuus, KELTAINEN);
+        self.suurteksti(x, OTSIKKO_Y, teksti, OTSIKKO_KOKO, KELTAINEN, true);
     }
 
     fn versioilmoitus(&mut self, versio: &str) {
@@ -210,8 +209,7 @@ impl Piirtaja<'_> {
         let leveys = teksti.chars().count() as i32 * MERKKI;
         let x = (RUUTU_L - leveys) / 2;
         let (reuna_x, reuna_l) = (x - ILMOITUS_SISENNYS, leveys + 2 * ILMOITUS_SISENNYS);
-        self.k
-            .laatikko(reuna_x, ILMOITUS_Y, reuna_l, ILMOITUS_K, KELTAINEN);
+        self.nappitausta(reuna_x, ILMOITUS_Y, reuna_l, ILMOITUS_K, KELTAINEN);
         let y = ILMOITUS_Y + (ILMOITUS_K - MERKKI) / 2;
         self.teksti(x, y, &teksti, MUSTA);
     }
@@ -227,7 +225,7 @@ impl Piirtaja<'_> {
                 KORTTI_K,
                 MUSTA,
             );
-            self.k.laatikko(KORTTI_X, y, KORTTI_L, KORTTI_K, WB_ORANSSI);
+            self.nappitausta(KORTTI_X, y, KORTTI_L, KORTTI_K, WB_ORANSSI);
             self.k.monikulmio(
                 &[
                     (KORTTI_X + 20, keski_y - 18),
@@ -238,32 +236,22 @@ impl Piirtaja<'_> {
             );
             (MUSTA, MUSTA)
         } else {
-            self.k
-                .laatikko(KORTTI_X, y, KORTTI_L, KORTTI_K, TAUSTA_TUMMA);
-            self.k.kehys(KORTTI_X, y, KORTTI_L, KORTTI_K, REUNA);
+            self.ikkuna(KORTTI_X, y, KORTTI_L, KORTTI_K);
             (KELTAINEN, VALKOINEN)
         };
-        let (koko, paksuus) = (KORTIN_NIMI, KORTIN_NIMEN_PAKSUUS);
+        let koko = KORTIN_NIMI;
         let teksti_y = keski_y - koko.1 / 2;
         let x = KORTTI_X + KORTIN_NUMERO_X;
         // Kymmenes kortti on nolla, kuten numerorivillä.
         let numero = ((i + 1) % 10).to_string();
-        self.levea_vektoriteksti(x, teksti_y, &numero, koko, paksuus, numero_vari);
+        self.suurteksti(x, teksti_y, &numero, koko, numero_vari, true);
         let nimi = kaanna(PELIT[i].nimi).to_uppercase();
-        self.levea_vektoriteksti(x + 2 * koko.2, teksti_y, &nimi, koko, paksuus, nimi_vari);
+        self.suurteksti(x + 2 * koko.2, teksti_y, &nimi, koko, nimi_vari, true);
     }
 
     /// Kuvaus keskellä paneelia. Jos pelillä on tuloksia, ne vievät paneelin oikean laidan.
     fn kuvauspaneeli(&mut self, kuvaus: &str, parhaat: Option<&[Tulos]>) {
-        self.k.laatikko(
-            PANEELI_X,
-            PANEELI_YLA,
-            PANEELI_L,
-            PANEELI_KORKEUS,
-            TAUSTA_TUMMA,
-        );
-        self.k
-            .kehys(PANEELI_X, PANEELI_YLA, PANEELI_L, PANEELI_KORKEUS, REUNA);
+        self.ikkuna(PANEELI_X, PANEELI_YLA, PANEELI_L, PANEELI_KORKEUS);
         let merkkeja = if let Some(parhaat) = parhaat {
             let x = PANEELI_X + PANEELI_L - PANEELI_SISENNYS - LISTA_L;
             let y = PANEELI_YLA + LISTA_Y;
@@ -284,13 +272,12 @@ impl Piirtaja<'_> {
 
     fn ohjepalkki(&mut self, ohje: &str) {
         let korkeus = RUUDUN_KORKEUS as i32 - ALAPALKKI_Y;
-        self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, korkeus, TAUSTA);
-        self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, 3, REUNA);
+        self.ikkuna(0, ALAPALKKI_Y, RUUTU_L, korkeus);
         self.teksti_koossa(OHJE_X, OHJE_RIVI_Y, ohje, TEKSTIN_KERROIN, VALKOINEN);
         if self.vilkku() {
             let x = OHJE_X + ohje.chars().count() as i32 * SUURI_MERKKI;
             self.k
-                .laatikko(x, OHJE_RIVI_Y, SUURI_MERKKI, SUURI_MERKKI, REUNA);
+                .laatikko(x, OHJE_RIVI_Y, SUURI_MERKKI, SUURI_MERKKI, KELTAINEN);
         }
     }
 }

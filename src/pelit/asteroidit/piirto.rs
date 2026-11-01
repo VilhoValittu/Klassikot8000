@@ -1,11 +1,14 @@
 //! Asteroidien näkymät.
 
+use std::sync::LazyLock;
+
 use klassikot8000::asteroidit::{self, Alus, Kivi, Lautanen, Piste};
 
 use super::peli::{Asteroidit, Nappi, RAJAHDYS_MS, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::vektori::{Kangas, Tahko, tahko4};
+use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari};
+use crate::yhteinen::vektori::{Kangas, Tahko, sekoita_liuku, tahko4, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
 pub const KENTTA_Y: i32 = 48;
@@ -17,8 +20,31 @@ const PARHAAT_Y: i32 = KENTTA_Y + 4 * TILASTON_ASKEL + 12;
 const PARHAAT_L: i32 = LEVEYS as i32 - 12 - SARAKE_X;
 // Kapeaan sarakkeeseen mahtuu sijoitus, kahdeksan merkin nimi ja kuusinumeroiset pisteet.
 const PARHAAT_KOKO: (i32, i32, i32) = (10, 15, 13);
-const AVARUUS: u32 = 0x03051A;
-const TAHTIA: u32 = 50;
+const KIVEN_VARI: u32 = 0x8C7868;
+const ALUKSEN_VARI: u32 = 0xE8ECF8;
+
+/// Avaruus: tumma liuku, violetti kaasusumu ja kolmen kirkkauden tähdet.
+static AVARUUS_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
+    let (l, k) = (KENTTA_L / 3, KENTTA_K / 3);
+    Rasteri::luo(l as usize, k as usize, move |x, y| {
+        let (fx, fy) = (x as f32, y as f32);
+        let sumu = (fx * 0.021 + fy * 0.013).sin()
+            + (fx * 0.009 - fy * 0.027 + 1.3).sin()
+            + (fx * 0.047 + fy * 0.031 + 0.7).sin() * 0.5;
+        let vari = liukuvari(
+            &[0x02030E, 0x0A0830, 0x2C1458, 0x5A1C70],
+            (sumu + 0.6) / 3.0,
+            x,
+            y,
+        );
+        match kohina(x, y) {
+            n if n > 0.9985 => 0xFFFFFF,
+            n if n > 0.994 => 0xA0B8F0,
+            n if n > 0.98 => sekoita_liuku(vari, 0x8090D0, 0.5),
+            _ => vari,
+        }
+    })
+});
 const SUOJAN_VILKKU_MS: u32 = 120;
 const LIEKIN_VILKKU_MS: u32 = 80;
 
@@ -156,26 +182,12 @@ impl Piirtaja<'_> {
     }
 
     fn asteroidi_nakyma(&mut self, peli: &Asteroidit) {
-        self.k
-            .laatikko(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K, AVARUUS);
-        self.avaruuden_tahdet();
+        AVARUUS_KUVA.piirra(&mut self.k, KENTTA_X, KENTTA_Y);
         self.kappaleet(peli);
         self.kentan_kehys();
         self.otsikkopalkki(&kaanna("peli.asteroidit").to_uppercase(), "");
         self.asteroidi_tilasto(peli);
         self.asteroidi_paneeli(peli);
-    }
-
-    fn avaruuden_tahdet(&mut self) {
-        // kiinteä siemen: tähdet pysyvät paikoillaan ruudusta toiseen
-        let mut siemen = 0x51ABu32;
-        for _ in 0..TAHTIA {
-            siemen = siemen.wrapping_mul(0x9E37_79B1).rotate_left(11);
-            let x = (siemen >> 8) as i32 % KENTTA_L;
-            let y = (siemen >> 4 & 0xFFF) as i32 % KENTTA_K;
-            let vari = sekoita(AVARUUS, VALKOINEN, 0.45);
-            self.k.piste(KENTTA_X + x, KENTTA_Y + y, vari);
-        }
     }
 
     fn kappaleet(&mut self, peli: &Asteroidit) {
@@ -187,10 +199,17 @@ impl Piirtaja<'_> {
             self.lautanen(lautanen);
         }
         for ammus in &lauta.ammukset {
-            let vari = if ammus.oma { VALKOINEN } else { WB_ORANSSI };
-            let x = KENTTA_X + ammus.paikka.0 as i32;
-            let y = KENTTA_Y + ammus.paikka.1 as i32;
-            self.k.laatikko(x - 1, y - 1, 3, 3, vari);
+            let (hehku, ydin) = if ammus.oma {
+                (HUTI, VALKOINEN)
+            } else {
+                (OSUMA, KELTAINEN)
+            };
+            let keski = (
+                KENTTA_X + ammus.paikka.0 as i32,
+                KENTTA_Y + ammus.paikka.1 as i32,
+            );
+            self.k.kiekko(keski, 5, hehku);
+            self.k.kiekko(keski, 2, ydin);
         }
         if peli.alus_nakyy() {
             let suojassa = lauta.suoja_ms > 0;
@@ -213,14 +232,31 @@ impl Piirtaja<'_> {
         let sade = kivi.koko.sade();
         for keski in kopiot(kivi.paikka, sade) {
             let kulma = |i: usize| i as f32 / muoto.len() as f32 * std::f32::consts::TAU;
-            for (i, &osuus) in muoto.iter().enumerate() {
-                let j = (i + 1) % muoto.len();
-                let piste = |kohta: usize, osuus: f32| {
-                    let (sin, cos) = kulma(kohta).sin_cos();
-                    ruudulle(keski, kivi.kulma, (cos * sade * osuus, sin * sade * osuus))
-                };
-                self.k
-                    .paksu_viiva(piste(i, osuus), piste(j, muoto[j]), TORNI);
+            let piste = |kohta: usize, osuus: f32, siirto: (i32, i32)| {
+                let (sin, cos) = kulma(kohta).sin_cos();
+                let (x, y) = ruudulle(keski, kivi.kulma, (cos * sade * osuus, sin * sade * osuus));
+                (x + siirto.0, y + siirto.1)
+            };
+            // Kerrokset hahmottavat pallomaisen kiven: valo tulee aina samasta suunnasta,
+            // vaikka kivi pyörii, joten valoisa puoli ei kierrä sen mukana.
+            let s = (sade * 0.14) as i32;
+            for (kerroin, siirto, vari) in [
+                (1.0, (0, 0), tummenna(KIVEN_VARI, 0.75)),
+                (0.86, (-s / 2, -s / 2), tummenna(KIVEN_VARI, 0.25)),
+                (0.62, (-s, -s), KIVEN_VARI),
+                (0.3, (-2 * s, -2 * s), vaalenna(KIVEN_VARI, 0.4)),
+            ] {
+                let mut kulmat = [(0, 0); 10];
+                for (i, kohta) in kulmat.iter_mut().enumerate() {
+                    *kohta = piste(i, muoto[i] * kerroin, siirto);
+                }
+                self.k.monikulmio(&kulmat, vari);
+            }
+            // Kraatterit pyörivät kiven mukana.
+            for (kohta, osuus) in [(1, 0.45), (6, 0.5)] {
+                let kraatteri = piste(kohta, osuus, (0, 0));
+                let koko = (sade * 0.14) as i32;
+                self.k.kiekko(kraatteri, koko, tummenna(KIVEN_VARI, 0.55));
             }
         }
     }
@@ -232,58 +268,50 @@ impl Piirtaja<'_> {
             KENTTA_Y + lautanen.paikka.1 as i32,
         );
         let piste = |(x, y): Piste| (keski.0 + (x * sade) as i32, keski.1 + (y * sade) as i32);
-        for (i, &kohta) in LAUTASEN_MUOTO.iter().enumerate() {
-            let seuraava = LAUTASEN_MUOTO[(i + 1) % LAUTASEN_MUOTO.len()];
-            self.k.paksu_viiva(piste(kohta), piste(seuraava), HUTI);
+        let kulmat = LAUTASEN_MUOTO.map(piste);
+        self.k.monikulmio(&kulmat, tummenna(HUTI, 0.3));
+        self.k
+            .viiva(piste((-1.0, 0.0)), piste((1.0, 0.0)), vaalenna(HUTI, 0.5));
+        // Kupu ja vilkkuvat valot alakyljessä.
+        self.k
+            .kiekko(piste((0.0, -0.32)), (sade * 0.28) as i32, 0xF0F8FF);
+        for (i, x) in [-0.55, 0.0, 0.55].into_iter().enumerate() {
+            let paalla = (self.kello / 200 + i as u32).is_multiple_of(2);
+            let vari = if paalla { KELTAINEN } else { OSUMA };
+            self.k.piste(piste((x, 0.2)).0, piste((x, 0.2)).1, vari);
         }
-        self.k.viiva(piste((-1.0, 0.0)), piste((1.0, 0.0)), HUTI);
     }
 
     fn alus(&mut self, alus: &Alus, tyontaa: bool) {
         for keski in kopiot(alus.paikka, 20.0) {
-            self.aluksen_kuva(keski, alus.kulma, KELTAINEN);
             if tyontaa && (self.kello / LIEKIN_VILKKU_MS).is_multiple_of(2) {
-                for pari in LIEKKI.windows(2) {
-                    self.k.paksu_viiva(
-                        ruudulle(keski, alus.kulma, pari[0]),
-                        ruudulle(keski, alus.kulma, pari[1]),
-                        WB_ORANSSI,
-                    );
-                }
+                let liekki = LIEKKI.map(|piste| ruudulle(keski, alus.kulma, piste));
+                self.k.monikulmio(&liekki, WB_ORANSSI);
+                let ydin = LIEKKI.map(|(x, y)| ruudulle(keski, alus.kulma, (x + 3.0, y / 2.0)));
+                self.k.monikulmio(&ydin, KELTAINEN);
             }
+            self.aluksen_kuva(keski, alus.kulma, ALUKSEN_VARI);
         }
     }
 
     fn aluksen_kuva(&mut self, keski: (i32, i32), kulma: f32, vari: u32) {
-        for (i, &kohta) in ALUKSEN_MUOTO.iter().enumerate() {
-            let seuraava = ALUKSEN_MUOTO[(i + 1) % ALUKSEN_MUOTO.len()];
-            self.k.paksu_viiva(
-                ruudulle(keski, kulma, kohta),
-                ruudulle(keski, kulma, seuraava),
-                vari,
-            );
+        let piste = |p: Piste| ruudulle(keski, kulma, p);
+        let ulko = ALUKSEN_MUOTO.map(|(x, y)| piste((x * 1.3, y * 1.3)));
+        self.k.monikulmio(&ulko, tummenna(vari, 0.8));
+        self.k.monikulmio(&ALUKSEN_MUOTO.map(piste), vari);
+        // Punaiset siivenkärjet ja sininen ohjaamo.
+        for siipi in [(-8.0, 6.0), (-8.0, -6.0)] {
+            let (x, y) = piste(siipi);
+            self.k.piste(x, y, OSUMA);
         }
+        let (x, y) = piste((3.0, 0.0));
+        self.k.piste(x, y, 0x2858D8);
     }
 
     /// Kappaleet saavat piirtyä kentän yli, joten sen ympäristö maalataan vasta niiden jälkeen.
     fn kentan_kehys(&mut self) {
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        let ala = KENTTA_Y + KENTTA_K;
-        self.k.laatikko(0, 0, l, KENTTA_Y, TAUSTA);
-        self.k.laatikko(0, ala, l, k - ala, TAUSTA);
-        self.k.laatikko(0, KENTTA_Y, KENTTA_X, KENTTA_K, TAUSTA);
-        let oikea = KENTTA_X + KENTTA_L;
-        self.k
-            .laatikko(oikea, KENTTA_Y, l - oikea, KENTTA_K, TAUSTA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
-        self.k.kehys(
-            KENTTA_X - 1,
-            KENTTA_Y - 1,
-            KENTTA_L + 2,
-            KENTTA_K + 2,
-            REUNA,
-        );
+        self.tausta_kentan_ympari(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
+        self.upotus(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
     }
 
     fn asteroidi_tilasto(&mut self, peli: &Asteroidit) {
@@ -298,12 +326,12 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = KENTTA_Y + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
-            self.vektoriteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
         let y = KENTTA_Y + 3 * TILASTON_ASKEL;
-        self.vektoriteksti(
+        self.suurteksti(
             SARAKE_X,
             y,
             kaanna("asteroidit.alukset"),
@@ -328,9 +356,7 @@ impl Piirtaja<'_> {
     }
 
     fn asteroidi_paneeli(&mut self, peli: &Asteroidit) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -338,11 +364,11 @@ impl Piirtaja<'_> {
         match peli.vaihe {
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
             Vaihe::Tauko => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
                 self.teksti(TEKSTI_X, alarivi, kaanna(TAUON_OHJE), HUTI);
             }
             Vaihe::Tappio => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {
                     self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }

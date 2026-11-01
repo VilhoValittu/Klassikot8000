@@ -1,9 +1,144 @@
 use std::f32::consts::TAU;
+use std::sync::LazyLock;
 
+use super::fontti;
 use super::kieli::kaanna;
+use super::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
 use super::tulokset::{PARHAITA, Tulos};
-use super::vektori::{self, Kangas, kehapiste, varjosta};
-use super::{fontti, vektorifontti};
+use super::vektori::{self, Kangas, kehapiste, sekoita_liuku, tummenna, vaalenna};
+
+/// Maisema konepikseleinä: `horisontti` on vedenrajan rivi ja `aurinko_x` sarake, jonka
+/// kohdalla aurinko laskee ja johon meren ruudut katoavat.
+pub fn maisemakuva(leveys: usize, korkeus: usize, horisontti: i32, aurinko_x: i32) -> Rasteri {
+    const TAIVAS: [u32; 6] = [0x0A0630, 0x1C1058, 0x4A1C80, 0xA82C88, 0xF0587C, 0xFFA868];
+    const MERI: [u32; 4] = [0x503C9C, 0x1C2A80, 0x0C1450, 0x060A28];
+    let auringon_sade = horisontti * 3 / 8;
+    let auringon_y = horisontti - auringon_sade / 3;
+    let kaukainen = |x: i32| {
+        let x = x as f32;
+        horisontti as f32 * (0.17 + 0.05 * (x * 0.031).sin() + 0.035 * (x * 0.083 + 1.0).sin())
+    };
+    let lahin = |x: i32| {
+        let x = x as f32;
+        horisontti as f32
+            * (0.06 + 0.05 * (x * 0.047 + 2.0).sin() + 0.025 * (x * 0.13).sin()).max(0.01)
+    };
+    Rasteri::luo(leveys, korkeus, |x, y| {
+        if y >= horisontti {
+            let t = (y - horisontti) as f32 / (korkeus as i32 - horisontti) as f32;
+            let etaisyys = 1.0 / (t + 0.06);
+            let u = ((x - aurinko_x) as f32 * etaisyys * 0.09).floor() as i32;
+            let v = (etaisyys * 2.4).floor() as i32;
+            let mut vari = liukuvari(&MERI, t, x, y);
+            if (u + v).rem_euclid(2) == 0 {
+                vari = sekoita_liuku(vari, 0x5078E0, 0.16 * (1.0 - t));
+            }
+            // Auringon heijastus väpättää rivi riviltä.
+            let leveys = auringon_sade as f32 * (0.75 - 0.45 * t);
+            let vapina = (y as f32 * 1.7).sin() * leveys * 0.4;
+            if ((x - aurinko_x) as f32 + vapina).abs() < leveys && (y % 2 == 0 || t < 0.2) {
+                vari = sekoita_liuku(vari, 0xFFB070, 0.75 - 0.5 * t);
+            }
+            return vari;
+        }
+        let t = y as f32 / horisontti as f32;
+        let mut vari = liukuvari(&TAIVAS, t, x, y);
+        if t < 0.55 && kohina(x, y) > 0.992 {
+            vari = sekoita_liuku(vari, 0xFFFFFF, 0.5 + kohina(y, x) * 0.5);
+        }
+        // Ohuet pilvet, jotka valaistuvat horisonttia kohti.
+        let pilvi = (x as f32 * 0.04 + y as f32 * 0.9).sin() + (x as f32 * 0.013 - y as f32).sin();
+        if t > 0.35 && pilvi > 1.35 {
+            vari = sekoita_liuku(vari, 0xFFC8A0, 0.35);
+        }
+        let (dx, dy) = (x - aurinko_x, y - auringon_y);
+        if dx * dx + dy * dy < auringon_sade * auringon_sade {
+            let osuus = (dy + auringon_sade) as f32 / (2 * auringon_sade) as f32;
+            vari = liukuvari(&[0xFFF8B0, 0xFFD048, 0xFF6878], osuus, x, y);
+            // Auringon alaosan raidat levenevät alaspäin.
+            let raita = dy - auringon_sade / 4;
+            if raita > 0 && raita % 5 < 1 + raita * 2 / auringon_sade {
+                vari = liukuvari(&TAIVAS, t, x, y);
+            }
+        }
+        let korkeus_nyt = (horisontti - y) as f32;
+        if korkeus_nyt < kaukainen(x) {
+            let harja = kaukainen(x) - korkeus_nyt;
+            vari = if harja < 1.5 {
+                0xB060B8
+            } else {
+                ditteroi(x, y, 0x5A2C90, 0x40207C, (harja / 12.0).min(1.0))
+            };
+        }
+        if korkeus_nyt < lahin(x) {
+            let harja = lahin(x) - korkeus_nyt;
+            vari = if harja < 1.5 {
+                0x5848A0
+            } else {
+                ditteroi(x, y, 0x241860, 0x180F48, (harja / 8.0).min(1.0))
+            };
+        }
+        vari
+    })
+}
+
+/// Pelinäkymien tausta: tummansininen timanttikuvio, joka vaalenee alaspäin.
+static PELITAUSTA: LazyLock<Rasteri> = LazyLock::new(|| {
+    const RUUTU: i32 = 16;
+    Rasteri::luo(LEVEYS / 3, KORKEUS / 3, |x, y| {
+        let t = y as f32 / (KORKEUS / 3) as f32;
+        let vari = liukuvari(&[TAUSTA_TUMMA, TAUSTA], t, x, y);
+        let (dx, dy) = (
+            (x.rem_euclid(RUUTU) - RUUTU / 2).abs(),
+            (y.rem_euclid(RUUTU) - RUUTU / 2).abs(),
+        );
+        match dx + dy {
+            6 => sekoita_liuku(vari, 0x5068D8, 0.28),
+            7 => sekoita_liuku(vari, 0x000000, 0.25),
+            _ => vari,
+        }
+    })
+});
+
+/// Alalaidan viesti-ikkuna valmiiksi laskettuna: lähes joka pelinäkymässä, joka ruudussa.
+static PANEELIKUVA: LazyLock<Rasteri> = LazyLock::new(|| {
+    let (l, k) = (LEVEYS - 12, PANEELI_K as usize);
+    let mut kuva = vec![0; l * k];
+    Piirtaja {
+        k: Kangas::kokoinen(&mut kuva, l, k),
+        kello: 0,
+    }
+    .ikkuna(0, 0, l as i32, k as i32);
+    Rasteri::kuvasta(&kuva, l, 3)
+});
+
+static ALKUMAISEMA: LazyLock<Rasteri> = LazyLock::new(|| {
+    maisemakuva(
+        LEVEYS / 3,
+        MAISEMA_ALA_Y as usize / 3,
+        HORISONTTI_Y / 3,
+        LEVEYS as i32 / 6,
+    )
+});
+
+/// Korttipöytien vihreä verka, joka tummenee reunoja kohti.
+static VERKA: LazyLock<Rasteri> = LazyLock::new(|| {
+    let (l, k) = (RUUDUN_LEVEYS / 4, RUUDUN_KORKEUS / 4);
+    let (keski_x, keski_y) = (l as f32 * 0.36, k as f32 * 0.5);
+    Rasteri::luo(l, k, |x, y| {
+        let (dx, dy) = (
+            (x as f32 - keski_x) / l as f32,
+            (y as f32 - keski_y) / k as f32,
+        );
+        let t = (dx * dx * 2.2 + dy * dy * 2.4).sqrt() * 1.25;
+        let vari = liukuvari(&[0x1C8050, 0x106440, 0x07402C, 0x042418], t, x, y);
+        if kohina(x, y) > 0.88 {
+            sekoita_liuku(vari, 0x000000, 0.12)
+        } else {
+            vari
+        }
+    })
+});
 
 /// Sivupalkkiin mahtuu yhdeksän merkkiä.
 pub fn listan_otsikko(netti: bool) -> &'static str {
@@ -18,7 +153,7 @@ pub const LEVEYS: usize = 960;
 pub const KORKEUS: usize = 768;
 
 /// Ikkunan todellinen koko. `LEVEYS` ja `KORKEUS` ovat klassisten näkymien kuva, joka
-/// skaalataan ruudun korkuiseksi keskelle; laidat jäävät C64:n reunaväriin.
+/// skaalataan ruudun korkuiseksi keskelle; laidoille jää tumma palkki kuten television reunoille.
 pub const RUUDUN_LEVEYS: usize = 1920;
 pub const RUUDUN_KORKEUS: usize = 1080;
 // Suhde 1080 / 768 = 45 / 32.
@@ -27,36 +162,37 @@ const SKAALA_NIMITTAJA: usize = 32;
 const SKAALATTU_LEVEYS: usize = LEVEYS * SKAALA_OSOITTAJA / SKAALA_NIMITTAJA;
 const SKAALATTU_X: usize = (RUUDUN_LEVEYS - SKAALATTU_LEVEYS) / 2;
 
-// Paletti: C64:n siniset ja Amiga Workbench 1.3:n käyttöliittymävärit.
-pub const REUNA: u32 = 0x7C70DA;
-pub const TAUSTA: u32 = 0x352879;
+// Paletti: SNES- ja Mega Drive -pelien tyydyttyneet siniset, kulta ja violettiin taittuvat varjot.
+pub const PALKKI: u32 = 0x07041A;
+pub const REUNA: u32 = 0x8C84F0;
+pub const TAUSTA: u32 = 0x2C2070;
 pub const TAUSTA_TUMMA: u32 = 0x120A38;
 pub const VESI: u32 = 0x0B1650;
-pub const AALTO: u32 = 0x24408C;
-pub const RUUDUKKO: u32 = 0x3A62B8;
 pub const VALKOINEN: u32 = 0xFFFFFF;
 pub const MUSTA: u32 = 0x000000;
-pub const WB_SININEN: u32 = 0x0055AA;
+pub const WB_SININEN: u32 = 0x0848B8;
 pub const WB_ORANSSI: u32 = 0xFF8800;
 pub const RUNKO: u32 = 0x5C6B78;
 pub const KANSI: u32 = 0x8A98A4;
 pub const TORNI: u32 = 0xC8D2DA;
 pub const LAIVA_REUNA: u32 = 0xE8F4FF;
-pub const OSUMA: u32 = 0xB53A2E;
+pub const OSUMA: u32 = 0xC8382A;
 pub const OSUMA_TUMMA: u32 = 0x4A0E0A;
-pub const HUTI: u32 = 0x6ABFC6;
-pub const KELTAINEN: u32 = 0xEEEE77;
-pub const TAIVAS_YLA: u32 = 0x0A0626;
+pub const HUTI: u32 = 0x78D8E0;
+pub const KELTAINEN: u32 = 0xFFE860;
 pub const TAIVAS_ALA: u32 = 0xD8508C;
-pub const MERI_YLA: u32 = 0x18206E;
-pub const MERI_ALA: u32 = 0x05081E;
-pub const MERI_VIIVA: u32 = 0x4FA8E0;
+pub const LAVENTELI: u32 = 0xC8D0FF;
+const IKKUNA_YLA: u32 = 0x2848C8;
+const IKKUNA_ALA: u32 = 0x0C1468;
+const IKKUNA_REUNA: u32 = 0xD8E4FF;
+const IKKUNA_VARJO: u32 = 0x8090C8;
+const ULKOVIIVA: u32 = 0x0A0420;
 
 pub const MERKKI: i32 = 3 * fontti::LEVEYS;
 pub const RIVIN_KORKEUS: i32 = 24;
 pub const PALKIN_PALA: i32 = 18;
 pub const PANEELI_Y: i32 = 603;
-pub const PANEELI_K: i32 = 156;
+pub const PANEELI_K: i32 = 162;
 pub const PANEELI_RIVI_Y: i32 = PANEELI_Y + 9;
 pub const PANEELI_RIVEJA: usize = 6;
 pub const TEKSTI_X: i32 = 24;
@@ -72,7 +208,6 @@ pub const AANI_X: i32 = LEVEYS as i32 - 12 - AANI_L;
 const AANI_Y: i32 = 6;
 const AANI_K: i32 = 30;
 
-const KAISTOJA: i32 = 16;
 pub const VILKKU_MS: u32 = 400;
 
 // Alkuruutujen viimeinen rivi: "Paina välilyöntiä..."
@@ -85,18 +220,15 @@ const MAISEMA_REUNA: i32 = 24;
 const HORISONTTI_Y: i32 = 195;
 const MAISEMA_ALA_Y: i32 = 348;
 pub const OHJE_Y: i32 = 360;
-const MERI_RIVEJA: i32 = 10;
-const MERI_SARAKKEITA: i32 = 14;
 pub const LAIVAN_KIERTO: f32 = 0.0006;
 const LAIVAN_KOKO: f32 = 33.0;
-const ALKUMAISEMA: Maisema = Maisema {
-    horisontti: HORISONTTI_Y,
-    ala_y: MAISEMA_ALA_Y,
-    katoamis_x: LEVEYS as i32 / 2,
-    vyory: true,
-};
+// Meri aaltoilee rivikohtaisella siirrolla, kuten SNES:n HDMA-tehosteissa.
+const AALLON_NOPEUS: f32 = 0.002;
+const AALLON_ASKEL_MS: u32 = 120;
+const AALLON_TIHEYS: f32 = 0.45;
+const AALLON_LAAJUUS: f32 = 2.5;
 
-// (merkin leveys, merkin korkeus, askel) vektorifontille
+// (merkin leveys, merkin korkeus, askel) suurtekstille
 pub const SUURI: (i32, i32, i32) = (30, 45, 39);
 pub const OTSIKKO: (i32, i32, i32) = (15, 21, 21);
 pub const TULOS: (i32, i32, i32) = (12, 18, 18);
@@ -178,7 +310,7 @@ impl Kehys {
             }
             edellinen = Some(lahde_y);
             let kohde = &mut self.ruutu[rivi..rivi + RUUDUN_LEVEYS];
-            kohde.fill(REUNA);
+            kohde.fill(PALKKI);
             let lahde = &self.kuva[lahde_y * LEVEYS..(lahde_y + 1) * LEVEYS];
             for (pikseli, &x) in kohde[SKAALATTU_X..].iter_mut().zip(&lahde_x) {
                 *pikseli = lahde[x as usize];
@@ -274,7 +406,7 @@ impl Ikkunakuva {
         if kaikki {
             self.koko = koko;
             self.pikselit.clear();
-            self.pikselit.resize(ikkuna_l * ikkuna_k, REUNA);
+            self.pikselit.resize(ikkuna_l * ikkuna_k, PALKKI);
             self.sarakkeet = (0..sovitus.l)
                 .map(|x| lahdevali(x, sovitus.l, RUUDUN_LEVEYS))
                 .collect();
@@ -389,17 +521,6 @@ pub fn sekoita(a: u32, b: u32, osuus: f32) -> u32 {
     kanava(16) | kanava(8) | kanava(0)
 }
 
-/// Maiseman mitat piirtoalustalla.
-#[derive(Clone, Copy)]
-pub struct Maisema {
-    pub horisontti: i32,
-    pub ala_y: i32,
-    /// Vaakasuora kohta, johon meren viivat katoavat.
-    pub katoamis_x: i32,
-    /// Vyöryvä meri muuttaa jokaisen meririvin joka ruudussa.
-    pub vyory: bool,
-}
-
 pub struct Piirtaja<'a> {
     pub k: Kangas<'a>,
     pub kello: u32,
@@ -410,55 +531,26 @@ impl Piirtaja<'_> {
         (self.kello / VILKKU_MS).is_multiple_of(2)
     }
 
-    /// Bittikarttateksti kolminkertaisena: 40 merkkiä riville kuten C64:ssä.
+    /// Bittikarttateksti kolminkertaisena: 40 merkkiä riville.
     pub fn teksti(&mut self, x: i32, y: i32, teksti: &str, vari: u32) {
         self.teksti_koossa(x, y, teksti, 3, vari);
     }
 
     /// Bittikarttateksti `kerroin`-kertaisena.
     pub fn teksti_koossa(&mut self, x: i32, y: i32, teksti: &str, kerroin: i32, vari: u32) {
-        for (i, merkki) in teksti.chars().enumerate() {
-            let vasen = x + i as i32 * kerroin * fontti::LEVEYS;
-            for (rivi, bitit) in fontti::kuvio(merkki).iter().enumerate() {
-                for sarake in 0..8 {
-                    if bitit >> sarake & 1 != 0 {
-                        let (px, py) = (vasen + sarake * kerroin, y + rivi as i32 * kerroin);
-                        self.k.laatikko(px, py, kerroin, kerroin, vari);
-                    }
-                }
-            }
-        }
+        self.merkit(
+            x,
+            y,
+            teksti,
+            (kerroin, kerroin, kerroin * fontti::LEVEYS),
+            vari,
+            false,
+        );
     }
 
-    /// Vektoriteksti `paksuus` pikselin viivalla, isoihin otsikoihin.
-    pub fn levea_vektoriteksti(
-        &mut self,
-        x: i32,
-        y: i32,
-        teksti: &str,
-        koko: (i32, i32, i32),
-        paksuus: i32,
-        vari: u32,
-    ) {
-        for (i, merkki) in teksti.chars().enumerate() {
-            let vasen = x + i as i32 * koko.2;
-            for osa in vektorifontti::kuvio(merkki) {
-                for pari in osa.windows(2) {
-                    let piste = |(px, py): (i8, i8)| {
-                        (
-                            vasen + px as i32 * koko.0 / vektorifontti::LEVEYS,
-                            y + py as i32 * koko.1 / vektorifontti::KORKEUS,
-                        )
-                    };
-                    self.k
-                        .levea_viiva(piste(pari[0]), piste(pari[1]), paksuus, vari);
-                }
-            }
-        }
-    }
-
-    /// Vektoriteksti. `koko` on (merkin leveys, korkeus, askel) pikseleinä.
-    pub fn vektoriteksti(
+    /// Suurempi kirjasin otsikoille ja lukemille. `koko` on (merkin leveys, korkeus, askel)
+    /// pikseleinä, `paksu` lisää tumman ääriviivan.
+    pub fn suurteksti(
         &mut self,
         x: i32,
         y: i32,
@@ -467,83 +559,221 @@ impl Piirtaja<'_> {
         vari: u32,
         paksu: bool,
     ) {
+        let pikseli = |mitta: i32| ((mitta as f32 / 7.0).round() as i32).max(1);
+        self.merkit(
+            x,
+            y,
+            teksti,
+            (pikseli(koko.0), pikseli(koko.1), koko.2),
+            vari,
+            paksu,
+        );
+    }
+
+    /// Vaaleat merkit saavat varjon ja liukuvärin ylhäältä alas; tummat ovat vaalealla
+    /// pohjalla, joten ne piirtyvät tasaisina.
+    fn merkit(
+        &mut self,
+        x: i32,
+        y: i32,
+        teksti: &str,
+        (pl, pk, askel): (i32, i32, i32),
+        vari: u32,
+        aariviiva: bool,
+    ) {
+        let vaalea = on_vaalea(vari);
+        let rivivarit: [u32; 8] = std::array::from_fn(|rivi| {
+            if !vaalea {
+                return vari;
+            }
+            match rivi {
+                0 | 1 => vaalenna(vari, 0.55),
+                2 => vaalenna(vari, 0.25),
+                3 | 4 => vari,
+                5 => tummenna(vari, 0.1),
+                _ => tummenna(vari, 0.22),
+            }
+        });
+        let varjot: &[(i32, i32)] = match (vaalea, aariviiva) {
+            (false, _) => &[],
+            // Rivit ovat tiheässä, joten leipätekstin varjo menee vain sivulle.
+            (true, false) => &[(1, 0)],
+            (true, true) => &[(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1)],
+        };
+        for &(dx, dy) in varjot {
+            self.kuviot(x + dx * pl, y + dy * pk, teksti, (pl, pk, askel), |_| {
+                ULKOVIIVA
+            });
+        }
+        self.kuviot(x, y, teksti, (pl, pk, askel), |rivi| rivivarit[rivi]);
+    }
+
+    fn kuviot(
+        &mut self,
+        x: i32,
+        y: i32,
+        teksti: &str,
+        (pl, pk, askel): (i32, i32, i32),
+        vari: impl Fn(usize) -> u32,
+    ) {
         for (i, merkki) in teksti.chars().enumerate() {
-            let vasen = x + i as i32 * koko.2;
-            for osa in vektorifontti::kuvio(merkki) {
-                for pari in osa.windows(2) {
-                    let piste = |(px, py): (i8, i8)| {
-                        (
-                            vasen + px as i32 * koko.0 / vektorifontti::LEVEYS,
-                            y + py as i32 * koko.1 / vektorifontti::KORKEUS,
-                        )
-                    };
-                    let (a, b) = (piste(pari[0]), piste(pari[1]));
-                    if paksu {
-                        self.k.paksu_viiva(a, b, vari);
-                    } else {
-                        self.k.viiva(a, b, vari);
+            let vasen = x + i as i32 * askel;
+            for (rivi, bitit) in fontti::kuvio(merkki).iter().enumerate() {
+                let py = y + rivi as i32 * pk;
+                for sarake in 0..8 {
+                    if bitit >> sarake & 1 != 0 {
+                        self.k.laatikko(vasen + sarake * pl, py, pl, pk, vari(rivi));
                     }
                 }
             }
         }
     }
 
-    /// Amigan copper-palkkien tapaan väri vaihtuu kaistoittain.
-    pub fn liuku(&mut self, y0: i32, y1: i32, yla: u32, ala: u32) {
-        let kaistan_k = ((y1 - y0) / KAISTOJA).max(1);
-        let mut y = y0;
-        while y < y1 {
-            let osuus = (y - y0) as f32 / (y1 - y0) as f32;
-            let vari = sekoita(yla, ala, osuus);
-            self.k
-                .laatikko(0, y, self.k.leveys as i32, kaistan_k.min(y1 - y), vari);
-            y += kaistan_k;
+    /// Pelinäkymien yhteinen tausta. Korttipöydillä on täysi ruutu ja vihreä verka.
+    pub fn pelitausta(&mut self) {
+        if self.k.leveys > LEVEYS {
+            VERKA.piirra(&mut self.k, 0, 0);
+        } else {
+            PELITAUSTA.piirra(&mut self.k, 0, 0);
         }
     }
 
-    /// Alkuruudun ja käynnistimen yhteinen tausta: maisema, otsikko ja C64:n reuna.
+    /// Tausta muualle kuin kentälle, jonka yli kappaleet saavat ulottua. Mitat pikseleinä.
+    /// Alalaidan viesti-ikkuna peittää oman alueensa, joten sen alle tulevat vain reunat.
+    pub fn tausta_kentan_ympari(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        let p = self.k.pikseli;
+        let cu = p as usize;
+        let alue = (
+            x as usize / cu,
+            y as usize / cu,
+            l as usize / cu,
+            k as usize / cu,
+        );
+        let paneeli = (PANEELI_Y / p) as usize;
+        let ala = ((PANEELI_Y + PANEELI_K) / p) as usize;
+        let (leveys, korkeus) = (LEVEYS / cu, KORKEUS / cu);
+        let reuna = (6 / p) as usize;
+        let tausta = &*PELITAUSTA;
+        tausta.piirra_paitsi(&mut self.k, alue, paneeli);
+        tausta.piirra_alue(
+            &mut self.k,
+            0,
+            PANEELI_Y,
+            (0, paneeli, reuna, ala - paneeli),
+        );
+        let oikea = leveys - reuna;
+        let oikea_x = oikea as i32 * p;
+        tausta.piirra_alue(
+            &mut self.k,
+            oikea_x,
+            PANEELI_Y,
+            (oikea, paneeli, reuna, ala - paneeli),
+        );
+        tausta.piirra_alue(
+            &mut self.k,
+            0,
+            ala as i32 * p,
+            (0, ala, leveys, korkeus - ala),
+        );
+    }
+
+    /// Alkuruudun tausta: maisema, otsikko, ikkuna tekstille ja malli edessä.
     pub fn maisema(&mut self, otsikko: &str, malli: &[vektori::Tahko]) {
-        self.maisematausta(ALKUMAISEMA);
+        self.pelitausta();
+        self.alkumaisema();
         let keinunta = (self.kello as f32 * 0.002).sin() * 3.0;
         self.k.malli(
             malli,
             self.kello as f32 * LAIVAN_KIERTO,
             (LEVEYS as i32 / 2, HORISONTTI_Y + 33 + keinunta as i32),
             LAIVAN_KOKO,
-            LAIVA_REUNA,
         );
         self.maiseman_otsikko(otsikko);
 
-        // C64:n leveä reuna rajaa maiseman ja tekstin
         let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.k.laatikko(0, 0, l, MAISEMA_REUNA, REUNA);
-        self.k
-            .laatikko(0, k - MAISEMA_REUNA, l, MAISEMA_REUNA, REUNA);
-        self.k.laatikko(0, 0, MAISEMA_REUNA, k, REUNA);
-        self.k
-            .laatikko(l - MAISEMA_REUNA, 0, MAISEMA_REUNA, k, REUNA);
-        self.k.laatikko(
+        let leveys = l - 2 * MAISEMA_REUNA;
+        self.upotus(
             MAISEMA_REUNA,
-            MAISEMA_ALA_Y,
-            l - 2 * MAISEMA_REUNA,
-            k - MAISEMA_ALA_Y - MAISEMA_REUNA,
-            TAUSTA,
+            MAISEMA_REUNA,
+            leveys,
+            MAISEMA_ALA_Y - MAISEMA_REUNA,
         );
-        self.k.laatikko(
+        let ikkuna_y = MAISEMA_ALA_Y + 3;
+        self.ikkuna(
             MAISEMA_REUNA,
-            MAISEMA_ALA_Y,
-            l - 2 * MAISEMA_REUNA,
-            2,
-            REUNA,
+            ikkuna_y,
+            leveys,
+            k - ikkuna_y - MAISEMA_REUNA,
         );
     }
 
-    /// Taivas, tähdet ja meri. Kuva voi olla mitä tahansa klassisen kuvan monikertaa.
-    pub fn maisematausta(&mut self, maisema: Maisema) {
-        self.liuku(0, maisema.horisontti, TAIVAS_YLA, TAIVAS_ALA);
-        self.tahdet(maisema.horisontti);
-        self.liuku(maisema.horisontti, maisema.ala_y, MERI_YLA, MERI_ALA);
-        self.meriruudukko(maisema);
+    /// Taivas pysyy paikallaan ja vedenpinnan rivit aaltoilevat sivusuunnassa.
+    fn alkumaisema(&mut self) {
+        let p = self.k.pikseli;
+        let reuna = (MAISEMA_REUNA / p) as usize;
+        let horisontti = (HORISONTTI_Y / p) as usize;
+        let kuva = &*ALKUMAISEMA;
+        let leveys = LEVEYS / 3 - 2 * reuna;
+        // Aalto etenee askelin: harvemmin vaihtuvat rivit keventävät venytystä.
+        let vaihe = (self.kello / AALLON_ASKEL_MS * AALLON_ASKEL_MS) as f32 * AALLON_NOPEUS;
+        for rivi in reuna..kuva.korkeus() {
+            let siirto = if rivi < horisontti {
+                0
+            } else {
+                let syvyys = (rivi - horisontti) as f32 / (kuva.korkeus() - horisontti) as f32;
+                let aalto = (vaihe + rivi as f32 * AALLON_TIHEYS).sin();
+                (aalto * AALLON_LAAJUUS * (0.3 + syvyys)).round() as i32
+            };
+            let alku = (reuna as i32 + siirto) as usize;
+            let lahde = &kuva.rivi(rivi)[alku..alku + leveys];
+            self.k.karkea_rivi(MAISEMA_REUNA, rivi as i32 * p, lahde);
+        }
+    }
+
+    /// SNES-roolipelien tapainen ikkuna: pyöristetyt kulmat, vaalea kehys ja sininen liuku.
+    pub fn ikkuna(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        let p = self.k.pikseli;
+        self.pyorea(x, y, l, k, ULKOVIIVA);
+        self.pyorea(x + p, y + p, l - 2 * p, k - 2 * p, IKKUNA_REUNA);
+        self.k
+            .laatikko(x + 2 * p, y + k - 2 * p - p, l - 4 * p, p, IKKUNA_VARJO);
+        self.k.liukulaatikko(
+            x + 2 * p,
+            y + 2 * p,
+            l - 4 * p,
+            k - 4 * p - p,
+            IKKUNA_YLA,
+            IKKUNA_ALA,
+        );
+    }
+
+    /// Pelinäkymien alalaidan viesti-ikkuna.
+    pub fn paneelin_tausta(&mut self) {
+        PANEELIKUVA.piirra(&mut self.k, 6, PANEELI_Y);
+    }
+
+    pub fn tausta_alue(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        let p = self.k.pikseli;
+        let (ax, ay) = ((x / p) as usize, (y / p) as usize);
+        let alue = (ax, ay, (l / p) as usize, (k / p) as usize);
+        PELITAUSTA.piirra_alue(&mut self.k, x, y, alue);
+    }
+
+    fn pyorea(&mut self, x: i32, y: i32, l: i32, k: i32, vari: u32) {
+        let p = self.k.pikseli;
+        self.k.laatikko(x + p, y, l - 2 * p, k, vari);
+        self.k.laatikko(x, y + p, l, k - 2 * p, vari);
+    }
+
+    /// Upotettu reuna kentän tai kuvan ympärille: valo tulee vasemmalta ylhäältä.
+    pub fn upotus(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        let p = self.k.pikseli;
+        let (ulko_x, ulko_y) = (x - p, y - p);
+        let (ulko_l, ulko_k) = (l + 2 * p, k + 2 * p);
+        self.k.laatikko(ulko_x, ulko_y, ulko_l, p, ULKOVIIVA);
+        self.k.laatikko(ulko_x, ulko_y, p, ulko_k, ULKOVIIVA);
+        self.k.laatikko(ulko_x, y + k, ulko_l, p, 0x7C88D8);
+        self.k.laatikko(x + l, ulko_y, p, ulko_k, 0x7C88D8);
     }
 
     /// Alkuruudun ohjeet: `osat` rivitetään, `rivit` ovat näppäinohjeita. Palauttaa seuraavan vapaan rivin.
@@ -551,7 +781,7 @@ impl Piirtaja<'_> {
         let mut y = OHJE_Y;
         for osa in osat {
             for rivi in rivita(kaanna(osa), ALKU_MERKKEJA) {
-                self.teksti(48, y, rivi, REUNA);
+                self.teksti(48, y, rivi, LAVENTELI);
                 y += RIVIN_KORKEUS;
             }
         }
@@ -565,75 +795,32 @@ impl Piirtaja<'_> {
 
     pub fn aloituskehote(&mut self, avain: &str) {
         let teksti = kaanna(avain);
-        self.teksti(48, ALOITUS_Y, teksti, REUNA);
+        self.teksti(48, ALOITUS_Y, teksti, KELTAINEN);
         if self.vilkku() {
             let x = 48 + teksti.chars().count() as i32 * MERKKI;
-            self.k.laatikko(x, ALOITUS_Y, MERKKI, MERKKI, REUNA);
-        }
-    }
-
-    /// Klassisen kuvan pikselin koko tällä kankaalla.
-    fn kerroin(&self) -> i32 {
-        (self.k.leveys / LEVEYS) as i32
-    }
-
-    fn tahdet(&mut self, horisontti: i32) {
-        let kerroin = self.kerroin();
-        let leveys = self.k.leveys as i32;
-        // kiinteä siemen: tähdet pysyvät paikoillaan ruudusta toiseen
-        let mut siemen = 0x2F6Eu32;
-        for _ in 0..60 * kerroin {
-            siemen = siemen.wrapping_mul(0x9E37_79B1).rotate_left(11);
-            let x = (siemen >> 8) as i32 % leveys;
-            let y = (siemen & 0xFF) as i32 * (horisontti - 45) / 256;
-            let vari = sekoita(TAIVAS_YLA, VALKOINEN, 0.8);
-            self.k.laatikko(x, y, kerroin, kerroin, vari);
-        }
-    }
-
-    /// Perspektiiviruudukko, jonka vaakaviivat vyöryvät tarvittaessa katsojaa kohti.
-    fn meriruudukko(&mut self, maisema: Maisema) {
-        let kerroin = self.kerroin();
-        let korkeus = (maisema.ala_y - maisema.horisontti) as f32;
-        let vaihe = if maisema.vyory {
-            (self.kello % 1600) as f32 / 1600.0
-        } else {
-            0.0
-        };
-        for i in 0..MERI_RIVEJA {
-            let t = (i as f32 + vaihe) / MERI_RIVEJA as f32;
-            let y = maisema.horisontti + (korkeus * t * t) as i32;
-            let vari = sekoita(MERI_YLA, MERI_VIIVA, 0.25 + 0.75 * t);
-            self.k.laatikko(0, y, self.k.leveys as i32, kerroin, vari);
-        }
-        let keski = maisema.katoamis_x;
-        for i in -MERI_SARAKKEITA..=MERI_SARAKKEITA {
-            self.k.levea_viiva(
-                (keski + i * 12 * kerroin, maisema.horisontti),
-                (keski + i * 135 * kerroin, maisema.ala_y),
-                kerroin,
-                sekoita(MERI_YLA, MERI_VIIVA, 0.55),
-            );
+            self.k.laatikko(x, ALOITUS_Y, MERKKI, MERKKI, KELTAINEN);
         }
     }
 
     pub fn maiseman_otsikko(&mut self, teksti: &str) {
         let x = (LEVEYS as i32 - teksti.chars().count() as i32 * SUURI.2) / 2;
-        self.vektoriteksti(x + 3, 48, teksti, SUURI, TAUSTA, true);
-        self.vektoriteksti(x, 45, teksti, SUURI, KELTAINEN, true);
+        self.suurteksti(x, 45, teksti, SUURI, KELTAINEN, true);
     }
 
+    /// Ylälaidan metallipalkki: pelin nimi, lisätieto ja niiden välissä niitit.
     pub fn otsikkopalkki(&mut self, otsikko: &str, nimi: &str) {
-        self.k
-            .laatikko(6, 6, self.k.leveys as i32 - 12, 30, VALKOINEN);
-        self.teksti(18, 9, otsikko, WB_SININEN);
+        let l = self.k.leveys as i32 - 12;
+        self.nappitausta(6, 6, l, 30, 0x384890);
+        self.teksti(18, 9, otsikko, KELTAINEN);
         let aani_x = self.k.leveys as i32 - 12 - AANI_L;
         let nimi_x = aani_x - 12 - nimi.chars().count() as i32 * MERKKI;
-        self.teksti(nimi_x, 9, nimi, WB_SININEN);
-        let raita_x = 36 + otsikko.chars().count() as i32 * MERKKI;
-        for y in [9, 15, 21, 27] {
-            self.k
-                .laatikko(raita_x, y, nimi_x - 12 - raita_x, 3, WB_SININEN);
+        self.teksti(nimi_x, 9, nimi, VALKOINEN);
+        let alku = 36 + otsikko.chars().count() as i32 * MERKKI;
+        let mut x = alku;
+        while x + 6 < nimi_x - 12 {
+            self.k.laatikko(x, 18, 6, 6, 0x182464);
+            self.k.laatikko(x, 18, 3, 3, 0x90A0E8);
+            x += 24;
         }
     }
 
@@ -653,20 +840,19 @@ impl Piirtaja<'_> {
             let tulos = parhaat.get(i);
             let nimi = tulos.map_or("-", |t| t.nimi.as_str());
             let vasen = format!("{} {nimi}", i + 1);
-            self.vektoriteksti(x, rivi_y, &vasen, koko, VALKOINEN, false);
+            self.suurteksti(x, rivi_y, &vasen, koko, VALKOINEN, false);
             if let Some(tulos) = tulos {
                 let pisteet = tulos.pisteet.to_string();
                 let pituus = pisteet.chars().count() as i32 * koko.2;
                 let oikea = x + leveys - pituus;
-                self.vektoriteksti(oikea, rivi_y, &pisteet, koko, KELTAINEN, false);
+                self.suurteksti(oikea, rivi_y, &pisteet, koko, KELTAINEN, false);
             }
         }
     }
 
     pub fn parhaat_alkuruudulla(&mut self, otsikko: &str, parhaat: &[Tulos]) {
         let (x, y, l, k) = ALKU_PARHAAT;
-        self.k.laatikko(x, y, l, k, TAUSTA_TUMMA);
-        self.k.kehys(x, y, l, k, REUNA);
+        self.ikkuna(x, y, l, k);
         self.parhaat_lista(x + 12, y + 9, l - 24, TULOS, otsikko, parhaat);
     }
 
@@ -674,7 +860,7 @@ impl Piirtaja<'_> {
     pub fn nimikysely(&mut self, pisteet: u32, nimi: &str) {
         let otsikko = format!("{} {pisteet}", kaanna(NIMI_OTSIKKO));
         let ohje_y = PANEELI_RIVI_Y + 2 * RIVIN_KORKEUS;
-        self.vektoriteksti(TEKSTI_X, ohje_y - 21, &otsikko, TULOS, KELTAINEN, true);
+        self.suurteksti(TEKSTI_X, ohje_y - 21, &otsikko, TULOS, KELTAINEN, true);
         self.teksti(TEKSTI_X, ohje_y + 6, kaanna(NIMI_OHJE), HUTI);
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
         let kentta = format!("> {nimi}");
@@ -685,24 +871,37 @@ impl Piirtaja<'_> {
         }
     }
 
+    /// Tulipallo, joka haalenee savuksi, ja sen ympärillä sinkoilevat sirpaleet.
     pub fn rajahdys(&mut self, keski: (i32, i32), ika: f32, sateita: i32, koko: f32) {
-        let vari = if ika < 0.3 {
-            VALKOINEN
-        } else if ika < 0.6 {
-            KELTAINEN
+        let ika = ika.clamp(0.0, 1.0);
+        let p = self.k.pikseli;
+        let kasvu = (ika * 4.0).min(1.0) * (1.0 - ika * ika);
+        let sade = (koko * 0.42 * kasvu) as i32;
+        if ika < 0.75 {
+            self.k.kiekko(keski, sade + p, OSUMA);
+            self.k.kiekko(keski, sade, WB_ORANSSI);
+            self.k.kiekko(keski, sade * 2 / 3, KELTAINEN);
+            self.k.kiekko(keski, sade / 3, VALKOINEN);
         } else {
-            WB_ORANSSI
-        };
+            self.k.kiekko(keski, sade, 0x484058);
+            self.k
+                .kiekko((keski.0 - p, keski.1 - p), sade / 2, 0x6C6478);
+        }
         for i in 0..sateita {
-            // sirpaleet lentävät eri pituisina, jottei räjähdys ole ympyrä
+            // Sirpaleet lentävät eri pituisina, jottei räjähdys ole ympyrä.
             let kerroin = 0.6 + ((i * 37) % 11) as f32 / 25.0;
             let kulma = i as f32 / sateita as f32 * TAU;
-            let ulko = kehapiste(keski, ika * koko * kerroin + 6.0, kulma);
-            let sisa = kehapiste(keski, ika * koko * kerroin * 0.55, kulma);
-            self.k.viiva(sisa, ulko, vari);
+            let (x, y) = kehapiste(keski, ika * koko * kerroin + 6.0, kulma);
+            let vari = if ika < 0.3 {
+                VALKOINEN
+            } else if ika < 0.6 {
+                KELTAINEN
+            } else {
+                WB_ORANSSI
+            };
+            let sivu = if ika < 0.5 { 2 * p } else { p };
+            self.k.laatikko(x / p * p, y / p * p, sivu, sivu, vari);
         }
-        self.k
-            .ympyra(keski, ika * koko * 0.8, varjosta(vari, 1.0 - ika * 0.6));
     }
 
     pub fn aanikytkin(&mut self, paalla: bool) {
@@ -712,20 +911,36 @@ impl Piirtaja<'_> {
             (WB_ORANSSI, AANI_POIS)
         };
         let x = self.k.leveys as i32 - 12 - AANI_L;
-        self.k.laatikko(x, AANI_Y, AANI_L, AANI_K, tausta);
-        self.k.kehys(x, AANI_Y, AANI_L, AANI_K, MUSTA);
+        self.nappitausta(x, AANI_Y, AANI_L, AANI_K, tausta);
         self.teksti(x + 12, AANI_Y + 3, kaanna(teksti), MUSTA);
     }
 
     pub fn nappi(&mut self, x: i32, y: i32, avain: &str, tausta: u32, vari: u32) {
-        let leveys = napin_leveys(avain);
-        self.k.laatikko(x, y, leveys, NAPPI_K, tausta);
-        self.k
-            .laatikko(x + 3, y + NAPPI_K - 3, leveys - 3, 3, MUSTA);
-        self.k
-            .laatikko(x + leveys - 3, y + 3, 3, NAPPI_K - 3, MUSTA);
+        self.nappitausta(x, y, napin_leveys(avain), NAPPI_K, tausta);
         self.teksti(x + 12, y + 3, kaanna(avain), vari);
     }
+
+    /// Pieni viisteinen palkin pala tilastoissa.
+    pub fn pala(&mut self, x: i32, y: i32, l: i32, k: i32, vari: u32) {
+        self.k.laatikko(x, y, l, k, tummenna(vari, 0.35));
+        self.k.laatikko(x, y, l - 3, k - 3, vari);
+        self.k.laatikko(x, y, l - 3, 3, vaalenna(vari, 0.5));
+    }
+
+    /// Kupera painike: pyöristetyt kulmat, kiilto ylhäällä ja varjo alhaalla.
+    pub fn nappitausta(&mut self, x: i32, y: i32, l: i32, k: i32, tausta: u32) {
+        let p = self.k.pikseli;
+        self.pyorea(x, y, l, k, ULKOVIIVA);
+        let (sx, sy, sl, sk) = (x + p, y + p, l - 2 * p, k - 2 * p);
+        let (yla, ala) = (vaalenna(tausta, 0.35), tummenna(tausta, 0.3));
+        self.k.liukulaatikko(sx, sy, sl, sk, yla, ala);
+        self.k.laatikko(sx, sy, sl, p, vaalenna(tausta, 0.7));
+    }
+}
+
+fn on_vaalea(vari: u32) -> bool {
+    let (r, g, b) = (vari >> 16 & 0xFF, vari >> 8 & 0xFF, vari & 0xFF);
+    r * 3 + g * 6 + b > 1100
 }
 
 /// Ohjeet ja kehote eivät saa mennä päällekkäin eivätkä yli kuvan laidan millään kielellä.
@@ -771,8 +986,8 @@ mod tests {
         }
         kehys.venyta();
         let (kuva, ruutu) = (&kehys.kuva, &kehys.ruutu);
-        assert_eq!(ruutu[0], REUNA);
-        assert_eq!(ruutu[RUUDUN_LEVEYS * RUUDUN_KORKEUS - 1], REUNA);
+        assert_eq!(ruutu[0], PALKKI);
+        assert_eq!(ruutu[RUUDUN_LEVEYS * RUUDUN_KORKEUS - 1], PALKKI);
         for (x, y) in [(285, 0), (700, 300), (1634, 1079), (1000, 1079)] {
             let (kx, ky) = ruudulta_kuvaan(x, y);
             let pikseli = ruutu[y as usize * RUUDUN_LEVEYS + x as usize];
@@ -863,8 +1078,8 @@ mod tests {
         let mut kuva = Ikkunakuva::default();
         kuva.sovita(&ruutu, &KAIKKI_RIVIT, l, k, sovitus);
         let ikkuna = &kuva.pikselit;
-        assert_eq!(ikkuna[0], REUNA);
-        assert_eq!(ikkuna[l * k - 1], REUNA);
+        assert_eq!(ikkuna[0], PALKKI);
+        assert_eq!(ikkuna[l * k - 1], PALKKI);
         let rivi = &ikkuna[sovitus.y * l..(sovitus.y + 1) * l];
         assert_eq!(rivi[480], 0x7F7F7F);
         assert_eq!(rivi[479], 0);

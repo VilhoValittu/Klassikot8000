@@ -265,10 +265,7 @@ fn voittokortti(peli: &Holdem, kortti: Kortti) -> bool {
 
 impl Piirtaja<'_> {
     fn he_poyta(&mut self, peli: &Holdem) {
-        let (l, k) = (RUUDUN_LEVEYS as i32, RUUDUN_KORKEUS as i32);
-        self.liuku(0, k, TAUSTA_TUMMA, TAUSTA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.pelitausta();
         self.otsikkopalkki(&kaanna("peli.holdem").to_uppercase(), "");
 
         for i in (0..PELAAJIA).filter(|&i| i != PELAAJA) {
@@ -304,7 +301,7 @@ impl Piirtaja<'_> {
             KELTAINEN
         };
         let nimi = pelaajan_nimi(i).to_uppercase();
-        self.vektoriteksti(x, y, &nimi, OTSIKKO, vari, true);
+        self.suurteksti(x, y, &nimi, OTSIKKO, vari, true);
         if pelaaja.tila == Tila::Poissa || peli.poyta.jako == 0 {
             return;
         }
@@ -329,9 +326,9 @@ impl Piirtaja<'_> {
 
     fn he_rivit(&mut self, pelaaja: &Pelaaja, x: i32, y: i32) {
         let (teko, vari) = tekorivi(pelaaja);
-        self.vektoriteksti(x, y, &teko, TULOS, vari, false);
+        self.suurteksti(x, y, &teko, TULOS, vari, false);
         if let Some((rivi, vari)) = panosrivi(pelaaja) {
-            self.vektoriteksti(x, y + 24, &rivi, TULOS, vari, false);
+            self.suurteksti(x, y + 24, &rivi, TULOS, vari, false);
         }
     }
 
@@ -352,7 +349,7 @@ impl Piirtaja<'_> {
         }
         self.he_nimi(peli, i, teksti_x, NIMI_Y, x + PAIKKA_L - 8);
         let rahat = pelaaja.rahat.to_string();
-        self.vektoriteksti(teksti_x, RAHAT_RIVI_Y, &rahat, TULOS, VALKOINEN, false);
+        self.suurteksti(teksti_x, RAHAT_RIVI_Y, &rahat, TULOS, VALKOINEN, false);
 
         let kortit_x = x + (PAIKKA_L - KORTTI_L - KORTTI_ASKEL) / 2;
         if pelaaja.tila == Tila::Mukana {
@@ -377,7 +374,7 @@ impl Piirtaja<'_> {
         }
         if poyta.kulku != Kulku::Ohi {
             let x = keski - teksti.chars().count() as i32 * OTSIKKO.2 / 2;
-            self.vektoriteksti(x, POTTI_Y, &teksti, OTSIKKO, KELTAINEN, true);
+            self.suurteksti(x, POTTI_Y, &teksti, OTSIKKO, KELTAINEN, true);
         }
         let leveys = 5 * YHTEISET_ASKEL - (YHTEISET_ASKEL - KORTTI_L);
         let alku = keski - leveys / 2;
@@ -386,8 +383,7 @@ impl Piirtaja<'_> {
             match poyta.yhteiset.get(i) {
                 Some(&kortti) => self.he_kortti(peli, x, YHTEISET_Y, kortti),
                 None => {
-                    self.k.laatikko(x, YHTEISET_Y, KORTTI_L, KORTTI_K, VESI);
-                    self.k.kehys(x, YHTEISET_Y, KORTTI_L, KORTTI_K, RUUDUKKO);
+                    self.korttipaikka(x, YHTEISET_Y);
                 }
             }
         }
@@ -410,7 +406,7 @@ impl Piirtaja<'_> {
         let x = POYTA_X + (POYTA_L - leveys) / 2;
         self.he_nimi(peli, PELAAJA, OMA_TEKSTI_X, OMA_Y + 12, x - 24);
         let rahat = pelaaja.rahat.to_string();
-        self.vektoriteksti(OMA_TEKSTI_X, OMA_Y + 42, &rahat, OTSIKKO, VALKOINEN, true);
+        self.suurteksti(OMA_TEKSTI_X, OMA_Y + 42, &rahat, OTSIKKO, VALKOINEN, true);
         self.he_rivit(pelaaja, OMA_TEKSTI_X, OMA_Y + 78);
         if pelaaja.tila == Tila::Mukana {
             for (j, &kortti) in pelaaja.kortit.iter().enumerate() {
@@ -430,13 +426,13 @@ impl Piirtaja<'_> {
             let nimi = kaden_nimi(&arvo).to_uppercase();
             let teksti = muotoile("holdem.oma_kasi", &[&nimi]);
             let x = keski - teksti.chars().count() as i32 * OTSIKKO.2 / 2;
-            self.vektoriteksti(x, KASI_RIVI_Y, &teksti, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(x, KASI_RIVI_Y, &teksti, OTSIKKO, VALKOINEN, true);
         }
         if peli.vaihe == Vaihe::Pelissa {
             let (taso, jakoja) = (poyta.taso() + 1, poyta.jakoja_tasolla() + 1);
             let teksti = muotoile("holdem.saanto", &[&poyta.jako, &taso, &jakoja]);
             let x = keski - teksti.chars().count() as i32 * MERKKI / 2;
-            self.teksti(x, SAANTO_Y, &teksti, REUNA);
+            self.teksti(x, SAANTO_Y, &teksti, VALKOINEN);
         } else {
             let otsikko = if peli.vaihe == Vaihe::Voitto {
                 "holdem.voitit"
@@ -446,16 +442,14 @@ impl Piirtaja<'_> {
             let teksti = kaanna(otsikko);
             let leveys = teksti.chars().count() as i32 * OTSIKKO.2;
             let x = keski - leveys / 2;
-            self.k
-                .laatikko(x - 18, SAANTO_Y - 8, leveys + 36, 34, WB_SININEN);
-            self.k
-                .kehys(x - 18, SAANTO_Y - 8, leveys + 36, 34, VALKOINEN);
-            self.vektoriteksti(x, SAANTO_Y - 2, teksti, OTSIKKO, KELTAINEN, true);
+            self.ikkuna(x - 18, SAANTO_Y - 12, leveys + 36, 42);
+            self.suurteksti(x, SAANTO_Y - 2, teksti, OTSIKKO, KELTAINEN, true);
         }
     }
 
     fn he_sivu(&mut self, peli: &Holdem) {
         let poyta = &peli.poyta;
+        self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
         let (pieni, iso) = poyta.blindit();
         let tilastot = [
             (
@@ -466,13 +460,11 @@ impl Piirtaja<'_> {
             (BLINDIT_Y, "holdem.blindit", format!("{pieni}/{iso}")),
         ];
         for (y, otsikko, arvo) in tilastot {
-            self.vektoriteksti(SIVU_TEKSTI_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
-            self.vektoriteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SIVU_TEKSTI_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
-        self.k
-            .laatikko(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, WB_SININEN);
-        self.k.kehys(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K, VALKOINEN);
+        self.ikkuna(SIVU_X, VIESTI_Y, SIVU_L, VIESTI_K);
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
@@ -495,12 +487,7 @@ impl Piirtaja<'_> {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let (teksti, kaytossa) = napin_teksti(peli, nappi);
             let vari = if kaytossa { WB_SININEN } else { KANSI };
-            self.k
-                .laatikko(SIVU_TEKSTI_X, y, NAPIN_L, NAPPI_K, VALKOINEN);
-            self.k
-                .laatikko(SIVU_TEKSTI_X + 3, y + NAPPI_K - 3, NAPIN_L - 3, 3, MUSTA);
-            self.k
-                .laatikko(SIVU_TEKSTI_X + NAPIN_L - 3, y + 3, 3, NAPPI_K - 3, MUSTA);
+            self.nappitausta(SIVU_TEKSTI_X, y, NAPIN_L, NAPPI_K, VALKOINEN);
             self.teksti(SIVU_TEKSTI_X + 12, y + 3, &teksti, vari);
         }
     }

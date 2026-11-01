@@ -7,13 +7,39 @@ use klassikot8000::miinaharava::{Paikka, Tila, Vaikeus};
 use super::peli::{Miinaharava, Nappi, RAJAHDYS_MS, Vaihe};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4};
+use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4, tummenna, vaalenna};
 
 // Lauta keskitetään otsikkopalkin ja paneelin väliin.
 const ALUE_Y: i32 = 48;
 const ALUE_K: i32 = PANEELI_Y - 6 - ALUE_Y;
 
-const SULJETTU: u32 = 0x5C6B78;
+const SULJETTU: u32 = 0x6878A0;
+const LIPUN_KUVA: [&str; 11] = [
+    "...........",
+    "....#......",
+    "...r#......",
+    "..rr#......",
+    ".rRr#......",
+    "..rr#......",
+    "...r#......",
+    "....#......",
+    "....#......",
+    "..#####....",
+    ".#######...",
+];
+const MIINAN_KUVA: [&str; 11] = [
+    ".....r.....",
+    ".r...x...r.",
+    "..xx###xx..",
+    "..#oo###x..",
+    "..#o####x..",
+    "rx######xxr",
+    "..#####xx..",
+    "..#####xx..",
+    "..xxxxxxx..",
+    ".r...x...r.",
+    ".....r.....",
+];
 const AVATTU: u32 = VESI;
 const AVATTU_REUNA: u32 = 0x1A2A6E;
 const KOROSTUS: u32 = 0x7A8A98;
@@ -223,11 +249,8 @@ impl Piirtaja<'_> {
     }
 
     fn miinan_nakyma(&mut self, peli: &Miinaharava) {
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.liuku(0, k, TAUSTA_TUMMA, TAUSTA);
+        self.pelitausta();
         self.miinakentta(peli);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
         let otsikko = kaanna("peli.miinaharava").to_uppercase();
         self.otsikkopalkki(&otsikko, "");
         self.miinan_paneeli(peli);
@@ -238,13 +261,7 @@ impl Piirtaja<'_> {
         let koko = ruudun_koko(taso);
         let (ox, oy) = origo(taso);
         let (leveys, korkeus) = (taso.leveys(), taso.korkeus());
-        self.k.kehys(
-            ox - 1,
-            oy - 1,
-            koko * leveys as i32 + 2,
-            koko * korkeus as i32 + 2,
-            REUNA,
-        );
+        self.upotus(ox, oy, koko * leveys as i32, koko * korkeus as i32);
         let hiiri = if peli.vaihe == Vaihe::Pelissa && !peli.kursori_nakyy {
             peli.hiiren_ruutu
         } else {
@@ -260,10 +277,7 @@ impl Piirtaja<'_> {
         if peli.kursori_nakyy && peli.vaihe == Vaihe::Pelissa && self.vilkku() {
             let (rivi, sarake) = peli.kursori;
             let (x, y) = (ox + sarake as i32 * koko, oy + rivi as i32 * koko);
-            for i in 0..3 {
-                self.k
-                    .kehys(x + i, y + i, koko - 2 * i, koko - 2 * i, KELTAINEN);
-            }
+            self.k.kehys(x, y, koko, koko, KELTAINEN);
         }
         if let (Some(alku), Some((rivi, sarake))) = (peli.rajahdys, peli.lauta.rajahtanyt) {
             let ika = self.kello.saturating_sub(alku) as f32 / RAJAHDYS_MS as f32;
@@ -287,8 +301,7 @@ impl Piirtaja<'_> {
         let keski = (x + koko / 2, y + koko / 2);
         let lopussa = peli.lauta.tila == Tila::Tappio;
         if ruutu.auki {
-            self.k.laatikko(x, y, koko, koko, AVATTU);
-            self.k.kehys(x, y, koko, koko, AVATTU_REUNA);
+            self.avattu(x, y, koko, AVATTU);
             if ruutu.naapureita > 0 {
                 self.miinan_numero(keski, koko, ruutu.naapureita);
             }
@@ -300,8 +313,7 @@ impl Piirtaja<'_> {
             } else {
                 AVATTU
             };
-            self.k.laatikko(x, y, koko, koko, tausta);
-            self.k.kehys(x, y, koko, koko, AVATTU_REUNA);
+            self.avattu(x, y, koko, tausta);
             self.miina(keski, koko);
             return;
         }
@@ -314,16 +326,28 @@ impl Piirtaja<'_> {
         }
     }
 
-    /// Amiga-napin tapaan kohoava ruutu.
+    /// Avattu ruutu on kuoppa: varjo ylä- ja vasemmassa reunassa.
+    fn avattu(&mut self, x: i32, y: i32, koko: i32, vari: u32) {
+        self.k.laatikko(x, y, koko, koko, vari);
+        self.k.laatikko(x, y, koko, 3, AVATTU_REUNA);
+        self.k.laatikko(x, y, 3, koko, AVATTU_REUNA);
+    }
+
+    /// Kohoava kivilaatta: viisteet, kiilto ja liuku.
     fn suljettu(&mut self, x: i32, y: i32, koko: i32, korostettu: bool) {
         let vari = if korostettu { KOROSTUS } else { SULJETTU };
-        let paksuus = (koko / 15).max(2);
-        self.k.laatikko(x, y, koko, koko, vari);
-        let (vaalea, tumma) = (sekoita(vari, VALKOINEN, 0.5), sekoita(vari, MUSTA, 0.55));
-        self.k.laatikko(x, y, koko, paksuus, vaalea);
-        self.k.laatikko(x, y, paksuus, koko, vaalea);
-        self.k.laatikko(x, y + koko - paksuus, koko, paksuus, tumma);
-        self.k.laatikko(x + koko - paksuus, y, paksuus, koko, tumma);
+        let p = 3;
+        self.k.laatikko(x, y, koko, koko, tummenna(vari, 0.7));
+        self.k.liukulaatikko(
+            x,
+            y,
+            koko - p,
+            koko - p,
+            vaalenna(vari, 0.18),
+            tummenna(vari, 0.2),
+        );
+        self.k.laatikko(x, y, koko - p, p, vaalenna(vari, 0.6));
+        self.k.laatikko(x, y, p, koko - p, vaalenna(vari, 0.4));
     }
 
     fn miinan_numero(&mut self, (x, y): (i32, i32), koko: i32, numero: u8) {
@@ -334,55 +358,46 @@ impl Piirtaja<'_> {
         self.teksti_koossa(x - sivu / 2, y - sivu / 2, &teksti, kerroin, vari);
     }
 
-    fn miina(&mut self, keski: (i32, i32), koko: i32) {
-        let sade = koko as f32 * 0.3;
-        let (x, y) = keski;
-        let s = sade as i32;
-        for i in 0..8 {
-            let (sin, cos) = (i as f32 / 8.0 * TAU).sin_cos();
-            let piikki = (x + (cos * sade * 1.4) as i32, y + (sin * sade * 1.4) as i32);
-            self.k.viiva(keski, piikki, MUSTA);
-        }
-        let mut kulmat = [(0, 0); 8];
-        for (i, kulma) in kulmat.iter_mut().enumerate() {
-            let (sin, cos) = (i as f32 / 8.0 * TAU).sin_cos();
-            *kulma = (x + (cos * sade) as i32, y + (sin * sade) as i32);
-        }
-        self.k.monikulmio(&kulmat, MUSTA);
-        let kiilto = (s / 3).max(1);
-        self.k
-            .laatikko(x - s / 3, y - s / 3, kiilto, kiilto, VALKOINEN);
+    /// Kerroin, jolla 11x11-kuva mahtuu ruutuun, ja kuvan kulma ruudun keskeltä.
+    fn kuvan_paikka(keski: (i32, i32), koko: i32) -> ((i32, i32), i32) {
+        let kerroin = (koko / 11).max(1);
+        let puoli = 11 * kerroin / 2;
+        ((keski.0 - puoli, keski.1 - puoli), kerroin)
     }
 
-    fn lippu(&mut self, (x, y): (i32, i32), koko: i32) {
-        let k = koko / 3;
-        let tanko_x = x + k / 3;
-        let paksuus = (koko / 20).max(2);
-        self.k.laatikko(tanko_x, y - k, paksuus, 2 * k, MUSTA);
+    fn miina(&mut self, keski: (i32, i32), koko: i32) {
+        let (kulma, kerroin) = Self::kuvan_paikka(keski, koko);
         self.k
-            .laatikko(tanko_x - k / 2, y + k, k + paksuus, paksuus, MUSTA);
-        self.k.monikulmio(
-            &[
-                (tanko_x, y - k),
-                (tanko_x, y + k / 4),
-                (tanko_x - k, y - k * 3 / 8),
-            ],
-            LIPPU,
-        );
+            .sprite(kulma, &MIINAN_KUVA, kerroin, |merkki| match merkki {
+                b'#' => Some(0x586078),
+                b'x' => Some(0x282C40),
+                b'o' => Some(VALKOINEN),
+                b'r' => Some(LIPPU),
+                _ => None,
+            });
+    }
+
+    fn lippu(&mut self, keski: (i32, i32), koko: i32) {
+        let (kulma, kerroin) = Self::kuvan_paikka(keski, koko);
+        self.k
+            .sprite(kulma, &LIPUN_KUVA, kerroin, |merkki| match merkki {
+                b'#' => Some(0x181828),
+                b'r' => Some(LIPPU),
+                b'R' => Some(0xFF8870),
+                _ => None,
+            });
     }
 
     /// Pelin päätyttyä väärä lippu saa ristin.
     fn vaara_lippu(&mut self, x: i32, y: i32, koko: i32) {
         let (a, b) = (x + 4, x + koko - 5);
         let (c, d) = (y + 4, y + koko - 5);
-        self.k.paksu_viiva((a, c), (b, d), VALKOINEN);
-        self.k.paksu_viiva((a, d), (b, c), VALKOINEN);
+        self.k.viiva((a, c), (b, d), VALKOINEN);
+        self.k.viiva((a, d), (b, c), VALKOINEN);
     }
 
     fn miinan_paneeli(&mut self, peli: &Miinaharava) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let paras = peli
@@ -399,7 +414,7 @@ impl Piirtaja<'_> {
         ];
         for (i, teksti) in tilasto.iter().enumerate() {
             let x = TEKSTI_X + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(x, TILASTON_Y, teksti, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(x, TILASTON_Y, teksti, OTSIKKO, KELTAINEN, false);
         }
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -410,7 +425,7 @@ impl Piirtaja<'_> {
             Vaihe::Pelissa | Vaihe::Alku => None,
         };
         if let Some(otsikko) = otsikko {
-            self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
+            self.suurteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
             for (_, teksti, x) in NAPIT {
                 self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
             }

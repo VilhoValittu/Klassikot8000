@@ -1,5 +1,7 @@
 //! Tiilirikon näkymät.
 
+use std::sync::LazyLock;
+
 use klassikot8000::tiilirikko::{
     self, KENTTIA, MAILA_K, MAILA_Y, PALLON_SADE, RIVEJA, SARAKKEITA, TIILET_Y, TIILI_K, TIILI_L,
     Tila,
@@ -8,7 +10,8 @@ use klassikot8000::tiilirikko::{
 use super::peli::{KIPINA_MS, Nappi, Tiilirikko, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::vektori::{Kangas, Tahko, kuutio};
+use crate::yhteinen::rasteri::{Rasteri, liukuvari};
+use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, sekoita_liuku, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
 const KENTTA_Y: i32 = 48;
@@ -41,7 +44,26 @@ const NAPIT: [(Nappi, &str, i32); 2] = [
     ),
 ];
 
-const SUPERTIILI: u32 = 0x202020;
+const SUPERTIILI: u32 = 0x302850;
+
+/// Kentän tausta: tumma metallilevy, jonka saumat ja niitit erottuvat vain vähän.
+static KENTTA_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
+    const LEVY: i32 = 20;
+    let (l, k) = (KENTTA_L / 3, KENTTA_K / 3);
+    Rasteri::luo(l as usize, k as usize, move |x, y| {
+        let vari = liukuvari(&[0x101C60, 0x0A1040, 0x060828], y as f32 / k as f32, x, y);
+        let (lx, ly) = (x % LEVY, y % LEVY);
+        if lx == 0 || ly == 0 {
+            sekoita_liuku(vari, 0x000000, 0.45)
+        } else if lx == 1 || ly == 1 {
+            sekoita_liuku(vari, 0x4060C0, 0.18)
+        } else if (lx == 3 || lx == LEVY - 3) && (ly == 3 || ly == LEVY - 3) {
+            sekoita_liuku(vari, 0x6080E0, 0.5)
+        } else {
+            vari
+        }
+    })
+});
 const SUPERPALLO: u32 = KELTAINEN;
 
 const ALKU_OSAT: [&str; 8] = [
@@ -121,21 +143,11 @@ impl Piirtaja<'_> {
     }
 
     fn tiili_nakyma(&mut self, peli: &Tiilirikko) {
-        self.liuku(0, KORKEUS as i32, TAUSTA_TUMMA, TAUSTA);
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.tausta_kentan_ympari(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
         self.otsikkopalkki(&kaanna("peli.tiilirikko").to_uppercase(), "");
 
-        self.k
-            .laatikko(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K, VESI);
-        self.k.kehys(
-            KENTTA_X - 1,
-            KENTTA_Y - 1,
-            KENTTA_L + 2,
-            KENTTA_K + 2,
-            REUNA,
-        );
+        KENTTA_KUVA.piirra(&mut self.k, KENTTA_X, KENTTA_Y);
+        self.upotus(KENTTA_X, KENTTA_Y, KENTTA_L, KENTTA_K);
         self.tiilet(peli);
         self.maila_ja_pallo(peli);
         self.tiili_tilasto(peli);
@@ -160,23 +172,29 @@ impl Piirtaja<'_> {
                 } else {
                     vari
                 };
-                self.k.laatikko(x + 1, y + 1, l - 2, k - 2, vari);
+                // Viisto reuna ja kiilto: valo tulee vasemmalta ylhäältä.
+                self.k.laatikko(x, y, l, k, tummenna(vari, 0.7));
+                self.k.laatikko(x, y, l - 3, k - 3, vari);
+                self.k.laatikko(x, y, l - 3, 3, vaalenna(vari, 0.6));
+                self.k.laatikko(x, y, 3, k - 3, vaalenna(vari, 0.35));
                 self.k
-                    .laatikko(x + 1, y + 1, l - 2, 3, sekoita(vari, VALKOINEN, 0.5));
-                self.k
-                    .laatikko(x + 1, y + k - 4, l - 2, 3, sekoita(vari, MUSTA, 0.4));
+                    .laatikko(x + 3, y + k - 6, l - 6, 3, tummenna(vari, 0.3));
+                self.k.laatikko(x + 6, y + 6, 12, 3, vaalenna(vari, 0.75));
                 // Palkintotiilen keskellä on pallon kokoinen merkki sen tuomaa palloa vastaavin värein.
                 if pallotiili || supertiili {
                     let sivu = 2 * PALLON_SADE as i32;
-                    let merkki = if supertiili { SUPERPALLO } else { MUSTA };
-                    self.k
-                        .laatikko(x + (l - sivu) / 2, y + (k - sivu) / 2, sivu, sivu, merkki);
+                    let merkki = if supertiili { SUPERPALLO } else { TORNI };
+                    let (mx, my) = (x + l / 2 - sivu / 2, y + k / 2 - sivu / 2 - 1);
+                    self.k.laatikko(mx, my, sivu, sivu, MUSTA);
+                    self.k.laatikko(mx + 3, my + 3, sivu - 6, sivu - 6, merkki);
                 }
                 // Kestävän tiilen keskellä näkyy yksi niitti jokaista lisäosumaa kohti.
                 for niitti in 1..kesto as i32 {
-                    let nx = x + l / 2 + (2 * niitti - kesto as i32) * 9 - 4;
-                    self.k.laatikko(nx, y + k / 2 - 4, 8, 8, MUSTA);
-                    self.k.laatikko(nx + 2, y + k / 2 - 2, 4, 4, VALKOINEN);
+                    let nx = x + l / 2 + (2 * niitti - kesto as i32) * 9 - 6;
+                    self.k
+                        .laatikko(nx, y + k / 2 - 6, 9, 9, tummenna(vari, 0.8));
+                    self.k.laatikko(nx, y + k / 2 - 6, 6, 6, TORNI);
+                    self.k.laatikko(nx, y + k / 2 - 6, 3, 3, VALKOINEN);
                 }
             }
         }
@@ -192,24 +210,26 @@ impl Piirtaja<'_> {
         let (l, k) = (lauta.maila_l() as i32, MAILA_K as i32);
         let x = KENTTA_X + (lauta.maila_x - lauta.maila_l() / 2.0) as i32;
         let y = KENTTA_Y + MAILA_Y as i32;
-        self.k.laatikko(x, y, l, k, KANSI);
-        self.k.laatikko(x, y, l, 3, VALKOINEN);
-        self.k.laatikko(x, y, 12, k, WB_ORANSSI);
-        self.k.laatikko(x + l - 12, y, 12, k, WB_ORANSSI);
+        // Metallinen kapseli, jonka päissä hehkuvat moottorit.
+        self.k.laatikko(x + 3, y + 3, l, k, 0x04061C);
+        self.k.liukulaatikko(x + 3, y, l - 6, k, TORNI, 0x384058);
+        self.k.laatikko(x + 12, y + 3, l - 24, 3, VALKOINEN);
+        for (reuna, kiilto) in [(x, 6), (x + l - 15, 9)] {
+            self.k.liukulaatikko(reuna, y, 15, k, KELTAINEN, OSUMA);
+            self.k.laatikko(reuna + kiilto - 3, y + 3, 3, 3, VALKOINEN);
+        }
 
-        let sivu = 2 * PALLON_SADE as i32;
         for pallo in &lauta.pallot {
-            let px = KENTTA_X + (pallo.paikka.0 - PALLON_SADE) as i32;
-            let py = KENTTA_Y + (pallo.paikka.1 - PALLON_SADE) as i32;
-            // Pallon alapuoli voi pudota kentän alle, mutta paneelin päälle se ei piirry.
-            let korkeus = sivu.min(KENTTA_Y + KENTTA_K - py);
-            if korkeus > 0 {
+            let px = KENTTA_X + pallo.paikka.0 as i32;
+            let py = KENTTA_Y + pallo.paikka.1 as i32;
+            // Pallo katoaa kentän alareunassa, joten paneelin päälle se ei piirry.
+            if py + PALLON_SADE as i32 <= KENTTA_Y + KENTTA_K {
                 let vari = if pallo.superpallo {
                     SUPERPALLO
                 } else {
                     VALKOINEN
                 };
-                self.k.laatikko(px, py, sivu, korkeus, vari);
+                self.k.kiiltopallo((px, py), PALLON_SADE as i32 + 2, vari);
             }
         }
     }
@@ -226,12 +246,12 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = KENTTA_Y + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
-            self.vektoriteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SARAKE_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
         let y = KENTTA_Y + 3 * TILASTON_ASKEL;
-        self.vektoriteksti(
+        self.suurteksti(
             SARAKE_X,
             y,
             kaanna("tiilirikko.pallot"),
@@ -241,12 +261,12 @@ impl Piirtaja<'_> {
         );
         for i in 0..lauta.elamat as i32 {
             self.k
-                .laatikko(SARAKE_X + i * 27, y + 33, 18, 18, VALKOINEN);
+                .kiiltopallo((SARAKE_X + 12 + i * 27, y + 42), 11, TORNI);
         }
 
         let y = KENTTA_Y + 4 * TILASTON_ASKEL;
         let bonus = lauta.aikabonus().to_string();
-        self.vektoriteksti(
+        self.suurteksti(
             SARAKE_X,
             y,
             kaanna("tiilirikko.aikabonus"),
@@ -254,7 +274,7 @@ impl Piirtaja<'_> {
             KELTAINEN,
             false,
         );
-        self.vektoriteksti(SARAKE_X, y + 30, &bonus, OTSIKKO, VALKOINEN, true);
+        self.suurteksti(SARAKE_X, y + 30, &bonus, OTSIKKO, VALKOINEN, true);
 
         self.parhaat_lista(
             SARAKE_X,
@@ -267,9 +287,7 @@ impl Piirtaja<'_> {
     }
 
     fn tiili_paneeli(&mut self, peli: &Tiilirikko) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -280,7 +298,7 @@ impl Piirtaja<'_> {
             }
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
             Vaihe::Tauko => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
                 self.teksti(TEKSTI_X, alarivi, kaanna(TAUON_OHJE), HUTI);
             }
             Vaihe::Voitto | Vaihe::Tappio => {
@@ -289,7 +307,7 @@ impl Piirtaja<'_> {
                 } else {
                     TAPPIO
                 };
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {
                     self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }

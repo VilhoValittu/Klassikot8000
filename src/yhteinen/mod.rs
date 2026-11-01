@@ -6,7 +6,7 @@ pub mod fontti;
 pub mod kieli;
 pub mod kortit;
 pub mod piirto;
+pub mod rasteri;
 pub mod syote;
 pub mod tulokset;
 pub mod vektori;
-pub mod vektorifontti;

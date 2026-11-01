@@ -126,21 +126,21 @@ pub fn laudan_reuna(suunta: Suunta) -> (i32, i32) {
     }
 }
 
-/// Laatan tausta ja numero. Värit kulkevat C64-sinisestä Amigan oranssiin.
-fn laatan_varit(arvo: u32) -> (u32, u32) {
+/// Laatan väri: kylläiset sävyt sinisestä kultaan.
+fn laatan_vari(arvo: u32) -> u32 {
     match arvo {
-        2 => (0x7C70DA, VALKOINEN),
-        4 => (0x4FA8E0, MUSTA),
-        8 => (HUTI, MUSTA),
-        16 => (0x70B050, MUSTA),
-        32 => (KELTAINEN, MUSTA),
-        64 => (WB_ORANSSI, MUSTA),
-        128 => (TAIVAS_ALA, VALKOINEN),
-        256 => (OSUMA, VALKOINEN),
-        512 => (0x8B3FC0, VALKOINEN),
-        1024 => (WB_SININEN, VALKOINEN),
-        2048 => (0xFFD700, MUSTA),
-        _ => (MUSTA, KELTAINEN),
+        2 => 0x7468E0,
+        4 => 0x3898E8,
+        8 => 0x28B8B8,
+        16 => 0x48B048,
+        32 => 0xD8B820,
+        64 => 0xF08010,
+        128 => TAIVAS_ALA,
+        256 => OSUMA,
+        512 => 0x8B3FC0,
+        1024 => WB_SININEN,
+        2048 => 0xFFC800,
+        _ => 0x302848,
     }
 }
 
@@ -169,7 +169,7 @@ fn tuplauksia(arvo: u32) -> i32 {
 
 /// Alkuruudun malli: neljä laattaa kasvavina pinoina. Mitat kuin laivalla.
 pub fn lukupino() -> Vec<Tahko> {
-    let varit = [2, 8, 64, 2048].map(|arvo| laatan_varit(arvo).0);
+    let varit = [2, 8, 64, 2048].map(laatan_vari);
     let mut tahkot = Vec::new();
     for (i, vari) in varit.into_iter().enumerate() {
         let x = -4.6 + i as f32 * 2.4;
@@ -208,10 +208,7 @@ impl Piirtaja<'_> {
     }
 
     fn luvut_nakyma(&mut self, luvut: &Luvut) {
-        self.liuku(0, KORKEUS as i32, TAUSTA_TUMMA, TAUSTA);
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.pelitausta();
         self.otsikkopalkki(kaanna("peli.luvut"), "");
 
         self.luku_lauta();
@@ -227,33 +224,25 @@ impl Piirtaja<'_> {
 
     /// Lauta on samaa aaltoilevaa vettä kuin laivanupotuksessa.
     fn luku_lauta(&mut self) {
-        self.k
-            .laatikko(RUUDUT_X, RUUDUT_Y, LAUDAN_SIVU, LAUDAN_SIVU, VESI);
-        const VALI: i32 = 33;
-        for rivi in 0..SIVU as i32 * 2 {
-            let y = RUUDUT_Y + rivi * RUUTU / 2 + RUUTU / 4;
-            let vaihe = self.kello as f32 * 0.0025 + rivi as f32 * 1.4;
-            let mut pisteet = [(0, 0); 17];
-            for (i, piste) in pisteet.iter_mut().enumerate() {
-                let korkeus = (vaihe + i as f32 * 0.9).sin() * 3.5;
-                *piste = (RUUDUT_X + i as i32 * VALI, y + korkeus as i32);
-            }
-            self.k.murtoviiva(&pisteet, AALTO);
-        }
-        for i in 0..=SIVU as i32 {
-            let viiva = (i * RUUTU).min(LAUDAN_SIVU - 1);
-            self.k
-                .laatikko(RUUDUT_X + viiva, RUUDUT_Y, 1, LAUDAN_SIVU, RUUDUKKO);
-            self.k
-                .laatikko(RUUDUT_X, RUUDUT_Y + viiva, LAUDAN_SIVU, 1, RUUDUKKO);
-        }
-        self.k.kehys(
-            RUUDUT_X - 1,
-            RUUDUT_Y - 1,
-            LAUDAN_SIVU + 2,
-            LAUDAN_SIVU + 2,
-            REUNA,
+        self.k.liukulaatikko(
+            RUUDUT_X,
+            RUUDUT_Y,
+            LAUDAN_SIVU,
+            LAUDAN_SIVU,
+            0x1C2470,
+            0x0C1040,
         );
+        self.upotus(RUUDUT_X, RUUDUT_Y, LAUDAN_SIVU, LAUDAN_SIVU);
+        // Jokaisella ruudulla on oma kuoppansa, johon laatta asettuu.
+        for rivi in 0..SIVU as i32 {
+            for sarake in 0..SIVU as i32 {
+                let x = RUUDUT_X + sarake * RUUTU + 6;
+                let y = RUUDUT_Y + rivi * RUUTU + 6;
+                self.k.laatikko(x, y, LAATTA, LAATTA, 0x080C30);
+                self.k.laatikko(x, y + LAATTA - 3, LAATTA, 3, 0x2C3890);
+                self.k.laatikko(x + LAATTA - 3, y, 3, LAATTA, 0x2C3890);
+            }
+        }
     }
 
     fn laatat(&mut self, luvut: &Luvut) {
@@ -308,16 +297,11 @@ impl Piirtaja<'_> {
         }
     }
 
-    /// Amiga-napin tapaan kohoava laatta. `sivu` muuttuu animaatioissa.
+    /// Kupera, kiiltävä laatta. `sivu` muuttuu animaatioissa.
     fn laatta(&mut self, keski: (i32, i32), sivu: i32, arvo: u32) {
-        let (tausta, teksti_vari) = laatan_varit(arvo);
         let (x, y) = (keski.0 - sivu / 2, keski.1 - sivu / 2);
-        self.k.laatikko(x + 3, y + 3, sivu, sivu, MUSTA);
-        self.k.laatikko(x, y, sivu, sivu, tausta);
-        self.k
-            .laatikko(x, y, sivu, 3, sekoita(tausta, VALKOINEN, 0.5));
-        self.k
-            .laatikko(x, y, 3, sivu, sekoita(tausta, VALKOINEN, 0.5));
+        self.k.laatikko(x + 6, y + 6, sivu - 3, sivu - 3, 0x04061C);
+        self.nappitausta(x, y, sivu, sivu, laatan_vari(arvo));
 
         let teksti = arvo.to_string();
         let pituus = teksti.chars().count();
@@ -326,9 +310,7 @@ impl Piirtaja<'_> {
         let koko = (mittaa(l), mittaa(k), mittaa(askel));
         let leveys = pituus as i32 * koko.2 - (koko.2 - koko.0);
         let (tx, ty) = (keski.0 - leveys / 2, keski.1 - koko.1 / 2);
-        // Kaksi kerrosta, jotta numero erottuu isosta laatasta.
-        self.vektoriteksti(tx, ty, &teksti, koko, teksti_vari, true);
-        self.vektoriteksti(tx + 1, ty + 1, &teksti, koko, teksti_vari, true);
+        self.suurteksti(tx, ty, &teksti, koko, VALKOINEN, true);
     }
 
     fn suuntanuoli(&mut self, suunta: Suunta) {
@@ -359,9 +341,9 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = RUUDUT_Y + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
             let numero = arvo.to_string();
-            self.vektoriteksti(SARAKE_X, y + 30, &numero, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SARAKE_X, y + 30, &numero, OTSIKKO, VALKOINEN, true);
         }
 
         // Palkki kertoo matkan tavoitteeseen samoilla väreillä kuin laatat.
@@ -371,7 +353,7 @@ impl Piirtaja<'_> {
         for i in 1..=ASKELIA_TAVOITTEESEEN {
             let x = SARAKE_X + (i - 1) * PALKIN_PALA;
             let vari = if i <= saavutettu {
-                laatan_varit(1 << i).0
+                laatan_vari(1 << i)
             } else {
                 KANSI
             };
@@ -380,7 +362,7 @@ impl Piirtaja<'_> {
             } else {
                 (TAVOITE_Y + 42, 12)
             };
-            self.k.laatikko(x, y, PALKIN_PALA - 3, korkeus, vari);
+            self.pala(x, y, PALKIN_PALA - 3, korkeus, vari);
         }
         self.parhaat_lista(
             SARAKE_X,
@@ -393,9 +375,7 @@ impl Piirtaja<'_> {
     }
 
     fn luku_paneeli(&mut self, luvut: &Luvut) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &luvut.viesti, VALKOINEN);
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -406,13 +386,13 @@ impl Piirtaja<'_> {
             }
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
             Vaihe::Voitto => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(VOITTO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(VOITTO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {
                     self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }
             }
             Vaihe::Tappio => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in &NAPIT[..2] {
                     self.nappi(*x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }

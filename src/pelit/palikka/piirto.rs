@@ -211,17 +211,16 @@ impl Piirtaja<'_> {
     }
 
     fn palikan_nakyma(&mut self, peli: &Palikkapeli) {
-        let (l, k) = (LEVEYS as i32, KORKEUS as i32);
-        self.liuku(0, k, TAUSTA_TUMMA, TAUSTA);
+        let l = LEVEYS as i32;
+        self.pelitausta();
         self.palikkalauta();
         self.palikat(peli);
         if peli.animaatio.is_none() {
             self.merkinnat(peli);
         }
         // Yläpuolelta tulevat palikat piiloutuvat otsikkopalkin taakse.
-        self.k.laatikko(0, 0, l, RUUDUT_Y - 1, TAUSTA_TUMMA);
-        self.k.kehys(0, 0, l, k, REUNA);
-        self.k.kehys(1, 1, l - 2, k - 2, REUNA);
+        self.tausta_alue(0, 0, l, RUUDUT_Y - 3);
+        self.upotus(RUUDUT_X, RUUDUT_Y, LAUDAN_SIVU, LAUDAN_SIVU);
         self.otsikkopalkki(&kaanna("peli.palikka").to_uppercase(), "");
         self.palikan_tilasto(peli);
         self.palikan_paneeli(peli);
@@ -237,15 +236,10 @@ impl Piirtaja<'_> {
                 };
                 let (x, y) = (RUUDUT_X + sarake * RUUTU, RUUDUT_Y + rivi * RUUTU);
                 self.k.laatikko(x, y, RUUTU, RUUTU, vari);
+                self.k.laatikko(x, y, RUUTU, 3, sekoita(vari, MUSTA, 0.35));
+                self.k.laatikko(x, y, 3, RUUTU, sekoita(vari, MUSTA, 0.35));
             }
         }
-        self.k.kehys(
-            RUUDUT_X - 1,
-            RUUDUT_Y - 1,
-            LAUDAN_SIVU + 2,
-            LAUDAN_SIVU + 2,
-            REUNA,
-        );
     }
 
     fn palikat(&mut self, peli: &Palikkapeli) {
@@ -342,8 +336,7 @@ impl Piirtaja<'_> {
         let leveys = teksti.chars().count() as i32 * OTSIKKO.2;
         let x = sx / maara - leveys / 2;
         let y = sy / maara - (t * LEIJUNTA) as i32;
-        self.vektoriteksti(x + 2, y + 2, &teksti, OTSIKKO, MUSTA, true);
-        self.vektoriteksti(x, y, &teksti, OTSIKKO, KELTAINEN, true);
+        self.suurteksti(x, y, &teksti, OTSIKKO, KELTAINEN, true);
     }
 
     fn palikka(&mut self, keski: (i32, i32), sade: f32, palikka: Palikka) {
@@ -388,12 +381,21 @@ impl Piirtaja<'_> {
             *kulma = piste(m, 0.52, (-0.1, -0.12));
         }
         self.k.monikulmio(hionta, sekoita(vari, VALKOINEN, 0.42));
+        // Tumma hionta alhaalla oikealla ja kirkas tähtikimallus.
+        let mut pohja = [(0, 0); 12];
+        let pohja = &mut pohja[..muoto.len()];
+        for (kulma, &m) in pohja.iter_mut().zip(muoto) {
+            *kulma = piste(m, 0.42, (0.28, 0.32));
+        }
+        self.k.monikulmio(pohja, sekoita(vari, MUSTA, 0.28));
         for (i, &a) in kulmat.iter().enumerate() {
             let b = kulmat[(i + 1) % kulmat.len()];
-            self.k.viiva(a, b, sekoita(vari, MUSTA, 0.45));
+            self.k.viiva(a, b, sekoita(vari, MUSTA, 0.5));
         }
-        let (kx, ky) = piste((-0.28, -0.32), 1.0, (0.0, 0.0));
-        self.k.laatikko(kx, ky, 3, 3, VALKOINEN);
+        let (kx, ky) = piste((-0.3, -0.34), 1.0, (0.0, 0.0));
+        self.k.piste(kx, ky, VALKOINEN);
+        self.k.piste(kx + 3, ky, sekoita(vari, VALKOINEN, 0.8));
+        self.k.piste(kx, ky + 3, sekoita(vari, VALKOINEN, 0.8));
     }
 
     /// Kaikkipalikka on musta pallo, jonka kehällä näkyvät kaikki värit.
@@ -466,9 +468,9 @@ impl Piirtaja<'_> {
         .enumerate()
         {
             let y = RUUDUT_Y + i as i32 * TILASTON_ASKEL;
-            self.vektoriteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
+            self.suurteksti(SARAKE_X, y, otsikko, OTSIKKO, KELTAINEN, false);
             let numero = arvo.to_string();
-            self.vektoriteksti(SARAKE_X, y + 30, &numero, OTSIKKO, VALKOINEN, true);
+            self.suurteksti(SARAKE_X, y + 30, &numero, OTSIKKO, VALKOINEN, true);
         }
         // Palkki kertoo matkan seuraavalle tasolle.
         let tavoite = tason_tavoite(lauta.taso).max(1);
@@ -476,7 +478,7 @@ impl Piirtaja<'_> {
         for i in 0..EDISTYS_PALOJA {
             let x = SARAKE_X + i as i32 * PALKIN_PALA;
             let vari = if i < taysia { KELTAINEN } else { KANSI };
-            self.k.laatikko(x, EDISTYS_Y, PALKIN_PALA - 3, 15, vari);
+            self.pala(x, EDISTYS_Y, PALKIN_PALA - 3, 15, vari);
         }
         self.parhaat_lista(
             SARAKE_X,
@@ -489,9 +491,7 @@ impl Piirtaja<'_> {
     }
 
     fn palikan_paneeli(&mut self, peli: &Palikkapeli) {
-        let leveys = LEVEYS as i32 - 12;
-        self.k.laatikko(6, PANEELI_Y, leveys, PANEELI_K, WB_SININEN);
-        self.k.kehys(6, PANEELI_Y, leveys, PANEELI_K, VALKOINEN);
+        self.paneelin_tausta();
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
@@ -499,7 +499,7 @@ impl Piirtaja<'_> {
         match peli.vaihe {
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
             Vaihe::Tappio => {
-                self.vektoriteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
+                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {
                     self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
                 }

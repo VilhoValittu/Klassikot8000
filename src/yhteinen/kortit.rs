@@ -5,10 +5,118 @@ use std::f32::consts::TAU;
 use klassikot8000::kortit::{KUNINGAS, Kortti, Maa};
 
 use super::piirto::*;
-use super::vektori::{Tahko, kehapiste, tahko4};
+use super::vektori::{Tahko, sekoita_liuku, tahko4, tummenna, vaalenna};
 
 pub const KORTTI_L: i32 = 150;
 pub const KORTTI_K: i32 = 210;
+
+const SELKA_TUMMA: u32 = 0x8C1830;
+const SELKA_VAALEA: u32 = 0xD84858;
+const PAPERI: u32 = 0xF8F4E8;
+const PAPERI_VARJO: u32 = 0xC8C4D8;
+const KULTA: u32 = 0xF0C040;
+const KULTA_TUMMA: u32 = 0xA87020;
+const IHO: u32 = 0xF8C8A0;
+const HIUS: u32 = 0x6A3C20;
+const VIITTA_MUSTA: u32 = 0x2838A0;
+const VERKA_VAALEA: u32 = 0x10583C;
+const VERKA_TUMMA: u32 = 0x07382A;
+
+// Maat ovat 9x9-kuvia: '#' on maan väri, 'o' sen kiilto.
+const HERTTA: [&str; 9] = [
+    ".##...##.",
+    "#oo#.####",
+    "#o#######",
+    "#########",
+    ".#######.",
+    "..#####..",
+    "...###...",
+    "....#....",
+    ".........",
+];
+const RUUTU: [&str; 9] = [
+    "....#....",
+    "...o##...",
+    "..oo###..",
+    ".oo#####.",
+    "#########",
+    ".#######.",
+    "..#####..",
+    "...###...",
+    "....#....",
+];
+const PATA: [&str; 9] = [
+    "....#....",
+    "...o##...",
+    "..oo###..",
+    ".oo#####.",
+    "#o#######",
+    "#########",
+    ".##.#.##.",
+    "....#....",
+    "...###...",
+];
+const RISTI: [&str; 9] = [
+    "...###...",
+    "..oo###..",
+    "..o####..",
+    "...###...",
+    ".##.#.##.",
+    "#oo#####o",
+    "#########",
+    ".##.#.##.",
+    "...###...",
+];
+
+// Kuvakorttien hahmon yläpuolikas, joka toistuu alhaalla peilattuna kuten oikeassa kortissa.
+// g kulta, r kirkas jalokivi, s iho, h hius, e silmä, m suu, v viitta, w vaalea reunus.
+const KUVAN_LEVEYS: i32 = 15;
+const KUVAN_KERROIN: i32 = 4;
+const KUNINGAS_KUVA: [&str; 13] = [
+    "...g..g.g..g...",
+    "...ggggggggg...",
+    "...grgggggrg...",
+    "....sssssss....",
+    "...hsesssesh...",
+    "...hssssssssh..",
+    "...hhsmmmshh...",
+    "....hhhhhhh....",
+    "...vvvhhhvvv...",
+    "..vvvvgggvvvv..",
+    ".vvvwvvgvvwvvv.",
+    ".vvvwvvgvvwvvv.",
+    "gvvvwvvgvvwvvvg",
+];
+const KUNINGATAR_KUVA: [&str; 13] = [
+    "......g.g......",
+    ".....ggrgg.....",
+    "....hgggggh....",
+    "...hhsssssshh..",
+    "...hsesssesh...",
+    "..hhsssssssshh.",
+    "..hhhssmsshhh..",
+    "..hh.sssss.hh..",
+    "..hvvvwwwvvvh..",
+    "..vvvvgggvvvv..",
+    ".vvvwvvgvvwvvv.",
+    ".vvvwvvgvvwvvv.",
+    "gvvvwvvgvvwvvvg",
+];
+const JATKA_KUVA: [&str; 13] = [
+    "............ww.",
+    "...vvvvvvvvww..",
+    "..vvvvvvvvvvv..",
+    "..gggggggggggg.",
+    "...hsssssssh...",
+    "...hsesssesh...",
+    "...hsssssssh...",
+    "....ssmmmss....",
+    "...vvvsssvvv...",
+    "..vvvvgggvvvv..",
+    ".vvvwvvgvvwvvv.",
+    ".vvvwvvgvvwvvv.",
+    "gvvvwvvgvvwvvvg",
+];
 
 /// Yksi pelimerkki kolmiulotteiseen malliin. `taso` kertoo sen paikan pinossa alhaalta lukien.
 pub fn pelimerkki(x: f32, z: f32, taso: usize, vari: u32, tahkot: &mut Vec<Tahko>) {
@@ -43,7 +151,7 @@ pub fn pelimerkki(x: f32, z: f32, taso: usize, vari: u32, tahkot: &mut Vec<Tahko
 }
 
 fn maan_vari(maa: Maa) -> u32 {
-    if maa.on_punainen() { OSUMA } else { MUSTA }
+    if maa.on_punainen() { OSUMA } else { 0x181828 }
 }
 
 fn arvon_nimi(arvo: u8) -> String {
@@ -121,46 +229,66 @@ fn kuviot(arvo: u8) -> &'static [(f32, f32)] {
 }
 
 impl Piirtaja<'_> {
-    /// Selkäpuoli on Amiga-sinistä ruudutusta.
-    pub fn kortin_tausta(&mut self, x: i32, y: i32) {
-        self.k.laatikko(x + 3, y + 3, KORTTI_L, KORTTI_K, MUSTA);
-        self.k.laatikko(x, y, KORTTI_L, KORTTI_K, WB_SININEN);
-        self.k.kehys(x, y, KORTTI_L, KORTTI_K, MUSTA);
+    /// Kortin muoto kulmat pyöristettyinä ja varjo pöydällä.
+    fn kortin_pohja(&mut self, x: i32, y: i32, vari: u32) {
+        let p = self.k.pikseli;
         self.k
-            .kehys(x + 6, y + 6, KORTTI_L - 12, KORTTI_K - 12, VALKOINEN);
-        const RUUTU: i32 = 12;
-        for rivi in 0..(KORTTI_K - 24) / RUUTU {
-            for sarake in 0..(KORTTI_L - 24) / RUUTU {
-                if (rivi + sarake) % 2 == 0 {
-                    let (rx, ry) = (x + 12 + sarake * RUUTU, y + 12 + rivi * RUUTU);
-                    self.k.laatikko(rx, ry, RUUTU, RUUTU, REUNA);
-                }
+            .laatikko(x + 2 * p, y + KORTTI_K, KORTTI_L - 2 * p, p, 0x042418);
+        self.k
+            .laatikko(x + KORTTI_L, y + 2 * p, p, KORTTI_K - 2 * p, 0x042418);
+        self.k.laatikko(x + p, y, KORTTI_L - 2 * p, KORTTI_K, MUSTA);
+        self.k.laatikko(x, y + p, KORTTI_L, KORTTI_K - 2 * p, MUSTA);
+        self.k
+            .laatikko(x + p, y + p, KORTTI_L - 2 * p, KORTTI_K - 2 * p, vari);
+    }
+
+    /// Selkäpuolella on punaisella pohjalla kultareunainen vinoneliöristikko.
+    pub fn kortin_tausta(&mut self, x: i32, y: i32) {
+        let p = self.k.pikseli;
+        self.kortin_pohja(x, y, PAPERI);
+        let (sx, sy) = (x + 2 * p, y + 2 * p);
+        let (sl, sk) = (KORTTI_L - 4 * p, KORTTI_K - 4 * p);
+        self.k.laatikko(sx, sy, sl, sk, SELKA_TUMMA);
+        self.k.kehys(sx, sy, sl, sk, KULTA);
+        for rivi in 2..sk / p - 2 {
+            for sarake in 2..sl / p - 2 {
+                let vari = match ((rivi + sarake) % 6, (rivi - sarake).rem_euclid(6)) {
+                    (0, _) | (_, 0) => SELKA_VAALEA,
+                    (3, 3) => KULTA,
+                    _ => continue,
+                };
+                self.k.laatikko(sx + sarake * p, sy + rivi * p, p, p, vari);
             }
         }
     }
 
     pub fn pelikortti(&mut self, x: i32, y: i32, kortti: Kortti) {
         let vari = maan_vari(kortti.maa);
-        self.k.laatikko(x + 3, y + 3, KORTTI_L, KORTTI_K, MUSTA);
-        self.k.laatikko(x, y, KORTTI_L, KORTTI_K, VALKOINEN);
-        self.k.kehys(x, y, KORTTI_L, KORTTI_K, MUSTA);
+        let p = self.k.pikseli;
+        self.kortin_pohja(x, y, PAPERI);
+        self.k.laatikko(
+            x + p,
+            y + KORTTI_K - 2 * p,
+            KORTTI_L - 2 * p,
+            p,
+            PAPERI_VARJO,
+        );
+        self.k.laatikko(
+            x + KORTTI_L - 2 * p,
+            y + p,
+            p,
+            KORTTI_K - 2 * p,
+            PAPERI_VARJO,
+        );
 
         let nimi = arvon_nimi(kortti.arvo);
-        self.vektoriteksti(x + 9, y + 8, &nimi, OTSIKKO, vari, true);
-        self.maakuvio(kortti.maa, (x + KORTTI_L - 21, y + 18), 12.0, vari);
+        self.suurteksti(x + 9, y + 8, &nimi, OTSIKKO, vari, true);
+        self.maakuvio(kortti.maa, (x + KORTTI_L - 24, y + 21), 12.0, vari);
 
         let keski = (x + KORTTI_L / 2, y + 42 + (KORTTI_K - 42) / 2);
         match kortti.arvo {
             1 => self.maakuvio(kortti.maa, keski, 42.0, vari),
-            11..=KUNINGAS => {
-                // Kuvakortit ovat kehystetty kirjain, kuten vanhojen koneiden pasiansseissa.
-                let (kx, ky) = (x + 21, y + 42);
-                self.k
-                    .laatikko(kx, ky, KORTTI_L - 42, KORTTI_K - 57, KELTAINEN);
-                self.k.kehys(kx, ky, KORTTI_L - 42, KORTTI_K - 57, vari);
-                self.vektoriteksti(keski.0 - SUURI.0 / 2, ky + 12, &nimi, SUURI, vari, true);
-                self.maakuvio(kortti.maa, (keski.0, ky + 105), 21.0, vari);
-            }
+            11..=KUNINGAS => self.kuvakortti(x, y, kortti),
             arvo => {
                 for &(px, py) in kuviot(arvo) {
                     let kohta = (keski.0 + (px * 54.0) as i32, keski.1 + (py * 66.0) as i32);
@@ -170,51 +298,99 @@ impl Piirtaja<'_> {
         }
     }
 
-    fn taytetty_ympyra(&mut self, keski: (i32, i32), sade: f32, vari: u32) {
-        const SIVUJA: usize = 12;
-        let mut pisteet = [(0, 0); SIVUJA];
-        for (i, piste) in pisteet.iter_mut().enumerate() {
-            let kulma = i as f32 / SIVUJA as f32 * TAU;
-            *piste = kehapiste(keski, sade, kulma);
-        }
-        self.k.monikulmio(&pisteet, vari);
+    /// Kullalla kehystetty hahmo, jonka alapuoli on yläpuolen peilikuva.
+    fn kuvakortti(&mut self, x: i32, y: i32, kortti: Kortti) {
+        let (kx, ky) = (x + 21, y + 42);
+        let (kl, kk) = (KORTTI_L - 42, KORTTI_K - 57);
+        self.k.liukulaatikko(kx, ky, kl, kk, 0xFFF0B0, 0xF0C860);
+        self.k.kehys(kx, ky, kl, kk, KULTA_TUMMA);
+
+        let kuva = match kortti.arvo {
+            11 => &JATKA_KUVA,
+            12 => &KUNINGATAR_KUVA,
+            _ => &KUNINGAS_KUVA,
+        };
+        let viitta = if kortti.maa.on_punainen() {
+            OSUMA
+        } else {
+            VIITTA_MUSTA
+        };
+        let vari = move |merkki: u8| match merkki {
+            b'g' => Some(KULTA),
+            b'r' => Some(0xE82848),
+            b's' => Some(IHO),
+            b'h' => Some(HIUS),
+            b'e' | b'm' => Some(0x401818),
+            b'v' => Some(viitta),
+            b'w' => Some(vaalenna(viitta, 0.55)),
+            _ => None,
+        };
+        let sx = kx + (kl - KUVAN_LEVEYS * KUVAN_KERROIN) / 2;
+        let rivit = kuva.len() as i32;
+        let sy = ky + kk / 2 - rivit * KUVAN_KERROIN;
+        self.k.sprite((sx, sy), kuva, KUVAN_KERROIN, vari);
+        let mut peilattu = *kuva;
+        peilattu.reverse();
+        let ala_y = sy + rivit * KUVAN_KERROIN;
+        self.k.sprite((sx, ala_y), &peilattu, KUVAN_KERROIN, vari);
     }
 
-    /// Maat kootaan ympyröistä ja monikulmioista, joten ne skaalautuvat mihin tahansa kokoon.
+    /// Tyhjä paikka kortille: upotettu kuoppa verassa.
+    pub fn korttipaikka(&mut self, x: i32, y: i32) {
+        self.k.laatikko(x, y, KORTTI_L, KORTTI_K, VERKA_TUMMA);
+        self.k.kehys(x, y, KORTTI_L, KORTTI_K, VERKA_VAALEA);
+    }
+
+    /// Tyhjän perustan himmeä maa.
+    pub fn himmea_maa(&mut self, maa: Maa, keski: (i32, i32)) {
+        self.maakuvio(maa, keski, 36.0, VERKA_VAALEA);
+    }
+
+    /// Maa pikselikuvana. `koko` on kuvan säde pikseleinä kuten ennenkin.
     pub fn maakuvio(&mut self, maa: Maa, keski: (i32, i32), koko: f32, vari: u32) {
-        let piste = |x: f32, y: f32| (keski.0 + (x * koko) as i32, keski.1 + (y * koko) as i32);
-        let sade = koko * 0.5;
-        match maa {
-            Maa::Ruutu => {
-                let kulmat = [
-                    piste(0.0, -1.0),
-                    piste(0.8, 0.0),
-                    piste(0.0, 1.0),
-                    piste(-0.8, 0.0),
-                ];
-                self.k.monikulmio(&kulmat, vari);
-            }
-            Maa::Hertta => {
-                self.taytetty_ympyra(piste(-0.47, -0.4), sade, vari);
-                self.taytetty_ympyra(piste(0.47, -0.4), sade, vari);
-                let karki = [piste(-0.95, -0.2), piste(0.95, -0.2), piste(0.0, 1.0)];
-                self.k.monikulmio(&karki, vari);
-            }
-            Maa::Pata => {
-                self.taytetty_ympyra(piste(-0.47, 0.2), sade, vari);
-                self.taytetty_ympyra(piste(0.47, 0.2), sade, vari);
-                let karki = [piste(-0.95, 0.0), piste(0.95, 0.0), piste(0.0, -1.0)];
-                self.k.monikulmio(&karki, vari);
-                let varsi = [piste(0.0, 0.3), piste(0.35, 1.0), piste(-0.35, 1.0)];
-                self.k.monikulmio(&varsi, vari);
-            }
-            Maa::Risti => {
-                self.taytetty_ympyra(piste(0.0, -0.5), sade, vari);
-                self.taytetty_ympyra(piste(-0.52, 0.2), sade, vari);
-                self.taytetty_ympyra(piste(0.52, 0.2), sade, vari);
-                let varsi = [piste(0.0, -0.2), piste(0.35, 1.0), piste(-0.35, 1.0)];
-                self.k.monikulmio(&varsi, vari);
+        let kuva = match maa {
+            Maa::Hertta => &HERTTA,
+            Maa::Ruutu => &RUUTU,
+            Maa::Pata => &PATA,
+            Maa::Risti => &RISTI,
+        };
+        let kerroin = ((koko / 6.5).round() as i32).max(1);
+        let puoli = 9 * kerroin / 2;
+        let kiilto = sekoita_liuku(vari, VALKOINEN, 0.45);
+        let varjo = tummenna(vari, 0.2);
+        self.k.sprite(
+            (keski.0 - puoli, keski.1 - puoli),
+            kuva,
+            kerroin,
+            move |merkki| match merkki {
+                b'#' => Some(vari),
+                b'o' => Some(kiilto),
+                b'x' => Some(varjo),
+                _ => None,
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kuvat_ovat_tasalevyisia() {
+        for kuva in [&HERTTA, &RUUTU, &PATA, &RISTI] {
+            assert!(kuva.iter().all(|rivi| rivi.len() == 9));
+        }
+        for kuva in [&KUNINGAS_KUVA, &KUNINGATAR_KUVA, &JATKA_KUVA] {
+            for rivi in kuva {
+                assert!(rivi.len() as i32 <= KUVAN_LEVEYS, "{rivi}");
             }
         }
+    }
+
+    #[test]
+    fn hahmo_mahtuu_kehykseen() {
+        const { assert!(KUVAN_LEVEYS * KUVAN_KERROIN <= KORTTI_L - 42) };
+        const { assert!(2 * 13 * KUVAN_KERROIN <= KORTTI_K - 57) };
     }
 }
