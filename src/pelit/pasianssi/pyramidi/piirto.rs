@@ -1,6 +1,5 @@
 //! Pyramidipasianssin näkymä: pyramidi ja pakka pöydällä, sivupaneeli kuten Klondikessa.
 
-use klassikot8000::pasianssi::Vaikeus;
 use klassikot8000::pyramidi::{JATTEEN_NAKYVAT, Lauta, Paikka, RIVEJA, kierroksia};
 
 use crate::pelit::pasianssi::peli::{Nappi, Pasianssi, Vaihe};
@@ -185,7 +184,7 @@ impl Piirtaja<'_> {
                 lauta.tila.pakka.len().to_string(),
             ),
         ];
-        let peruutus = lauta.vaikeus != Vaikeus::Vaikea;
+        let peruutus = lauta.voi_perua();
         self.sivupaneeli(peli, tilastot, &OHJEET, &NAPIT, peruutus);
     }
 }
@@ -195,6 +194,7 @@ mod tests {
     use super::*;
     use crate::pelit::pasianssi::piirto::{SIVU_ALKAA, sivu_mahtuu};
     use klassikot8000::Arpa;
+    use klassikot8000::pasianssi::Vaikeus;
 
     #[test]
     fn pyramidi_mahtuu_poydalle_eika_osu_pakkaan() {

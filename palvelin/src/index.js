@@ -1,7 +1,7 @@
 // Pelien nettilista. Vastaukset ovat tekstiä, rivi muodossa "pisteet NIMI", jotta peli
 // ei tarvitse JSON-kirjastoa.
 
-import { lue_tulos, PELIT } from "./tarkistus.js";
+import { lue_tulos, PELIT, YKSI_PER_NIMI } from "./tarkistus.js";
 
 const NAYTETTAVIA = 3;
 // Poistettu huijaustulos paljastaa alemmat, joten tietokantaan jää enemmän kuin näytetään.
@@ -11,6 +11,8 @@ const LISTA = `SELECT pisteet, nimi FROM tulokset WHERE peli = ?1
                ORDER BY pisteet DESC, aika ASC, rowid ASC LIMIT ${NAYTETTAVIA}`;
 // Sama nimi ja pisteet tallentuvat kerran, joten pelin uudelleenlähetys ei tee kaksoiskappaletta.
 const LISAYS = `INSERT OR IGNORE INTO tulokset (peli, nimi, pisteet, aika) VALUES (?1, ?2, ?3, ?4)`;
+const NIMEN_VANHAT = `DELETE FROM tulokset WHERE peli = ?1 AND nimi = ?2 AND pisteet < (
+                        SELECT MAX(pisteet) FROM tulokset WHERE peli = ?1 AND nimi = ?2)`;
 const KARSINTA = `DELETE FROM tulokset WHERE peli = ?1 AND rowid NOT IN (
                     SELECT rowid FROM tulokset WHERE peli = ?1
                     ORDER BY pisteet DESC, aika ASC, rowid ASC LIMIT ${SAILYTETTAVIA})`;
@@ -40,10 +42,12 @@ async function lisaa(pyynto, env, peli) {
   if (!tulos) {
     return vastaus("kelvoton tulos\n", 400);
   }
-  await env.DB.batch([
-    env.DB.prepare(LISAYS).bind(peli, tulos.nimi, tulos.pisteet, Date.now()),
-    env.DB.prepare(KARSINTA).bind(peli),
-  ]);
+  const lausekkeet = [env.DB.prepare(LISAYS).bind(peli, tulos.nimi, tulos.pisteet, Date.now())];
+  if (YKSI_PER_NIMI.has(peli)) {
+    lausekkeet.push(env.DB.prepare(NIMEN_VANHAT).bind(peli, tulos.nimi));
+  }
+  lausekkeet.push(env.DB.prepare(KARSINTA).bind(peli));
+  await env.DB.batch(lausekkeet);
   return lista(env, peli);
 }
 

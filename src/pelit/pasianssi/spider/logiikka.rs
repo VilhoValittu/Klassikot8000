@@ -13,7 +13,7 @@ const PITKA_SARAKE: usize = 6;
 const LYHYT_SARAKE: usize = 5;
 
 /// Vaikeus on maiden määrä: mitä vähemmän maita, sitä helpommin jonot pysyvät ehjinä.
-fn maat(vaikeus: Vaikeus) -> &'static [Maa] {
+pub fn maat(vaikeus: Vaikeus) -> &'static [Maa] {
     match vaikeus {
         Vaikeus::Helppo => &[Maa::Pata],
         Vaikeus::Normaali => &[Maa::Pata, Maa::Hertta],
@@ -45,6 +45,15 @@ pub struct Lauta {
 }
 
 impl Lauta {
+    /// Kesken oleva peli, johon pelaaja liittyy. Alkutilannetta edemmäs ei voi perua.
+    pub fn kesken(vaikeus: Vaikeus, tila: Tila) -> Self {
+        Self {
+            vaikeus,
+            tila,
+            historia: Vec::new(),
+        }
+    }
+
     pub fn new(vaikeus: Vaikeus, arpa: &mut Arpa) -> Self {
         let maat = maat(vaikeus);
         let mut pakka: Vec<Kortti> = (0..SARJOJA)

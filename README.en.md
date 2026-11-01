@@ -25,6 +25,8 @@ Three games under one card, each with its own top list. Your score comes from ti
 
 **Spider** deals two decks into ten columns. Build same-suit runs from king to ace and they leave the table. Easy uses one suit, Normal two and Hard four. Undo is always allowed, because four suits are close to unwinnable without it.
 
+**Challenges** open with H on the intro screen: you join a game in progress and try to win it. Each of the three games has 20 challenges that get harder in order. Every challenge can be won, because the tests play a stored solution through each one, and you can always undo back to the starting position. Challenges have their own top list, and your score there is the sum of your best score in each challenge.
+
 **Pyramid** comes apart in pairs: two free cards must add up to 13, and a king leaves alone. The top two cards of the waste pile are in play. On Easy you can recycle the stock freely, on Normal you get three passes, and on Hard two with no undo.
 
 *Mouse, or arrows and space.*

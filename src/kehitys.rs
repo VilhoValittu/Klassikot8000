@@ -35,6 +35,10 @@ pub struct Liput {
     pub uusi_versio: Option<String>,
     /// Pasianssi: laji, ilman tätä Klondike.
     pub variantti: Option<Variantti>,
+    /// Pasianssi: avaa haastelistan.
+    pub haasteet: bool,
+    /// Pasianssi: aloittaa tämän haasteen nollasta alkaen.
+    pub haaste: Option<usize>,
     /// Pasianssi: aloittaa pelin ja nostaa pakasta näin monta kertaa.
     pub nostot: Option<u32>,
     /// Pasianssi: aloittaa pelin voitettuna, loppujuhlan tarkistukseen.
@@ -76,7 +80,13 @@ impl Liput {
             Some(Laji::Laivanupotus)
         } else if self.lauta.is_some() || !self.liu_ut.is_empty() {
             Some(Laji::Luvut)
-        } else if self.nostot.is_some() || self.voitto || self.jumissa || self.variantti.is_some() {
+        } else if self.nostot.is_some()
+            || self.voitto
+            || self.jumissa
+            || self.variantti.is_some()
+            || self.haasteet
+            || self.haaste.is_some()
+        {
             Some(Laji::Pasianssi)
         } else if self.kentta.is_some() {
             Some(Laji::Tiilirikko)
@@ -111,6 +121,8 @@ pub fn lue_liput() -> Result<Liput, String> {
         julkaisut: None,
         uusi_versio: None,
         variantti: None,
+        haasteet: false,
+        haaste: None,
         nostot: None,
         voitto: false,
         nimi: false,
@@ -170,6 +182,10 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "pyramidi" => Variantti::Pyramidi,
                     _ => return Err(format!("--variant: {arvo}")),
                 });
+            }
+            "--challenges" => liput.haasteet = arvo == "1",
+            "--challenge" => {
+                liput.haaste = Some(arvo.parse().map_err(|_| "--challenge: ei luku")?);
             }
             "--draws" => liput.nostot = Some(arvo.parse().map_err(|_| "--draws: ei luku")?),
             "--win" => liput.voitto = arvo == "1",

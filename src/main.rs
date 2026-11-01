@@ -401,7 +401,12 @@ fn main() -> ExitCode {
                 if let Some(variantti) = liput.variantti {
                     peli.variantti = variantti;
                 }
-                if liput.nostot.is_some() || liput.voitto || liput.jumissa {
+                if liput.haasteet {
+                    peli.kasittele(Syote::Kirjain('H'));
+                }
+                if let Some(haaste) = liput.haaste {
+                    peli.aloita_haaste(haaste);
+                } else if liput.nostot.is_some() || liput.voitto || liput.jumissa {
                     peli.kasittele(Syote::Ammu);
                 }
                 for _ in 0..liput.nostot.unwrap_or(0) {

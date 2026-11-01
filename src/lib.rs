@@ -6,6 +6,8 @@ pub mod arpa;
 pub mod asteroidit;
 #[path = "pelit/blackjack/logiikka.rs"]
 pub mod blackjack;
+#[path = "pelit/pasianssi/haasteet.rs"]
+pub mod haasteet;
 #[path = "pelit/holdem/logiikka.rs"]
 pub mod holdem;
 pub mod kortit;

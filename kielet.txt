@@ -145,6 +145,20 @@ pasianssi.ei_kerattavaa = Ei siirtoja!
 pasianssi.jumissa = Siirrot näyttävät loppuneen. K = uusi peli.
 pasianssi.voittoviesti = Kaikki kortit ovat pakoissa! Pisteet: {}.
 pasianssi.siirrot_loppu = Siirrot loppuivat. K = uusi peli.
+pasianssi.aloitus = Aloita: välilyönti.
+pasianssi.nappi_haasteet_alku = H = Haasteet
+pasianssi.haasteet_otsikko = HAASTEET
+pasianssi.haaste = HAASTE {}/{}
+pasianssi.haaste_viesti = Liityit kesken olevaan peliin. Voita se!
+pasianssi.haaste_voitto = Haaste läpi! Pisteet: {}. Yhteensä: {}.
+pasianssi.haaste_jumissa = Ei siirtoja. U = peru, K = haasteet.
+pasianssi.nappi_haasteet = K = Haasteet
+pasianssi.nappi_takaisin = Esc = Takaisin
+pasianssi.haaste_yhteensa = YHTEENSÄ
+pasianssi.haaste_lapi = LÄPÄISTY
+pasianssi.haaste_ohje = Liity kesken olevaan peliin ja voita se. Jokainen haaste on voitettavissa, ja perua saa aina. Top-listan tulos on kunkin haasteen parhaiden pisteiden summa.
+pasianssi.haaste_nappaimet_1 = Nuolet + väli: aloita.
+pasianssi.haaste_nappaimet_2 = 1-3: vaihda peliä.
 
 spider.ohje_1 = Kokoa saman maan sarjat kuninkaasta ässään. Valmis sarja poistuu.
 spider.ohje_2 = Kortti käy yhtä suuremman päälle. Vain saman maan jono liikkuu.
@@ -514,6 +528,20 @@ pasianssi.ei_kerattavaa = No moves!
 pasianssi.jumissa = Looks like you are out of moves. K = new game.
 pasianssi.voittoviesti = All cards are on the piles! Score: {}.
 pasianssi.siirrot_loppu = Out of moves. K = new game.
+pasianssi.aloitus = Start: space.
+pasianssi.nappi_haasteet_alku = H = Challenges
+pasianssi.haasteet_otsikko = CHALLENGES
+pasianssi.haaste = CHALLENGE {}/{}
+pasianssi.haaste_viesti = You joined a game in progress. Win it!
+pasianssi.haaste_voitto = Challenge beaten! Score: {}. Total: {}.
+pasianssi.haaste_jumissa = No moves. U = undo, K = list.
+pasianssi.nappi_haasteet = K = List
+pasianssi.nappi_takaisin = Esc = Back
+pasianssi.haaste_yhteensa = TOTAL
+pasianssi.haaste_lapi = BEATEN
+pasianssi.haaste_ohje = Join a game in progress and win it. Every challenge can be won, and undo is always allowed. Your top list score is the sum of your best score in each challenge.
+pasianssi.haaste_nappaimet_1 = Arrows + space: start.
+pasianssi.haaste_nappaimet_2 = 1-3: change game.
 
 spider.ohje_1 = Build same-suit runs from king to ace. Finished runs leave.
 spider.ohje_2 = A card goes on one rank higher. Only same-suit runs move.

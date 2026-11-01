@@ -30,6 +30,7 @@ pub enum Nettipeli {
     Pasianssi,
     Spider,
     Pyramidi,
+    Haasteet,
     Blackjack,
     Holdem,
 }
@@ -46,6 +47,7 @@ impl Nettipeli {
             Nettipeli::Pasianssi => "pasianssi",
             Nettipeli::Spider => "spider",
             Nettipeli::Pyramidi => "pyramidi",
+            Nettipeli::Haasteet => "haasteet",
             Nettipeli::Blackjack => "blackjack",
             Nettipeli::Holdem => "holdem",
         }

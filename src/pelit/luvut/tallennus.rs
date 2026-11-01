@@ -7,7 +7,9 @@ use std::path::Path;
 #[cfg(not(debug_assertions))]
 use std::path::PathBuf;
 
+use klassikot8000::haasteet::HAASTEITA;
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU};
+use klassikot8000::pasianssi::{SUURIN_TULOS, Variantti};
 
 use crate::yhteinen::kieli::Kieli;
 use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, tulos_tekstista};
@@ -24,6 +26,9 @@ pub struct Kesken {
     pub siirrot: u32,
     pub jatkettu: bool,
 }
+
+/// Kunkin pasianssin haasteiden parhaat tulokset. Nolla tarkoittaa, ettei haastetta ole läpäisty.
+pub type Haastepisteet = [[u32; HAASTEITA]; Variantti::KAIKKI.len()];
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Tallennus {
@@ -73,6 +78,13 @@ pub struct Tallennus {
     pub pyramidin_parhaat: Vec<Tulos>,
     /// Pyramidin tulokset, jotka eivät ole vielä päässeet nettilistalle.
     pub pyramidin_jono: Vec<Tulos>,
+    /// Haasteiden yhteinen top 3, järjestys kuten `parhaat`.
+    pub haasteiden_parhaat: Vec<Tulos>,
+    /// Haastetulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub haasteiden_jono: Vec<Tulos>,
+    /// Kerran kysytty nimi: summa kasvaa haaste kerrallaan, joten sitä ei kysytä joka voitosta.
+    pub haastenimi: String,
+    pub haastepisteet: Haastepisteet,
     /// Blackjackin top 3, järjestys kuten `parhaat`.
     pub blackjackin_parhaat: Vec<Tulos>,
     /// Blackjackin tulokset, jotka eivät ole vielä päässeet nettilistalle.
@@ -108,6 +120,18 @@ fn miinaajat(teksti: &str) -> Option<[u32; 3]> {
         *aika = luku(osat.next()?)?;
     }
     osat.next().is_none().then_some(ajat)
+}
+
+/// Rivi muodossa "laji p1,p2,...". Kelvoton rivi jätetään huomiotta.
+fn haasterivi(teksti: &str) -> Option<(usize, [u32; HAASTEITA])> {
+    let (laji, arvot) = teksti.split_once(' ')?;
+    let laji: usize = laji.parse().ok().filter(|&i| i < Variantti::KAIKKI.len())?;
+    let mut pisteet = [0; HAASTEITA];
+    let mut osat = arvot.split(',');
+    for arvo in &mut pisteet {
+        *arvo = osat.next()?.parse().ok().filter(|&p| p <= SUURIN_TULOS)?;
+    }
+    osat.next().is_none().then_some((laji, pisteet))
 }
 
 impl Tallennus {
@@ -173,6 +197,19 @@ impl Tallennus {
         for tulos in &self.pyramidin_jono {
             teksti += &format!("pyramidijono {} {}\n", tulos.pisteet, tulos.nimi);
         }
+        for tulos in &self.haasteiden_parhaat {
+            teksti += &format!("haastetop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.haasteiden_jono {
+            teksti += &format!("haastejono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        if !self.haastenimi.is_empty() {
+            teksti += &format!("haastenimi {}\n", self.haastenimi);
+        }
+        for (laji, pisteet) in self.haastepisteet.iter().enumerate() {
+            let luvut: Vec<String> = pisteet.iter().map(u32::to_string).collect();
+            teksti += &format!("haastepisteet {laji} {}\n", luvut.join(","));
+        }
         for tulos in &self.blackjackin_parhaat {
             teksti += &format!("blackjacktop {} {}\n", tulos.pisteet, tulos.nimi);
         }
@@ -214,6 +251,9 @@ impl Tallennus {
         let (mut pasianssin_parhaat, mut pasianssin_jono) = (Vec::new(), Vec::new());
         let (mut spiderin_parhaat, mut spiderin_jono) = (Vec::new(), Vec::new());
         let (mut pyramidin_parhaat, mut pyramidin_jono) = (Vec::new(), Vec::new());
+        let (mut haasteiden_parhaat, mut haasteiden_jono) = (Vec::new(), Vec::new());
+        let mut haastenimi = String::new();
+        let mut haastepisteet = Haastepisteet::default();
         let (mut blackjackin_parhaat, mut blackjackin_jono) = (Vec::new(), Vec::new());
         let (mut holdemin_parhaat, mut holdemin_jono) = (Vec::new(), Vec::new());
         let (mut tiilirikko, mut asteroidit, mut silmukka, mut palikka) = (None, None, None, None);
@@ -308,6 +348,27 @@ impl Tallennus {
                         lisaa_tulos(&mut pyramidin_jono, tulos);
                     }
                 }
+                Some(("haastetop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut haasteiden_parhaat, tulos);
+                    }
+                }
+                Some(("haastejono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut haasteiden_jono, tulos);
+                    }
+                }
+                Some(("haastenimi", arvo)) => {
+                    // Nimi kelpaa samoin ehdoin kuin tulosrivillä.
+                    if let Some(tulos) = tulos_tekstista(&format!("1 {arvo}")) {
+                        haastenimi = tulos.nimi;
+                    }
+                }
+                Some(("haastepisteet", arvo)) => {
+                    if let Some((laji, pisteet)) = haasterivi(arvo) {
+                        haastepisteet[laji] = pisteet;
+                    }
+                }
                 Some(("blackjacktop", arvo)) => {
                     if let Some(tulos) = tulos_tekstista(arvo) {
                         lisaa_tulos(&mut blackjackin_parhaat, tulos);
@@ -373,6 +434,10 @@ impl Tallennus {
             spiderin_jono,
             pyramidin_parhaat,
             pyramidin_jono,
+            haasteiden_parhaat,
+            haasteiden_jono,
+            haastenimi,
+            haastepisteet,
             blackjackin_parhaat,
             blackjackin_jono,
             holdemin_parhaat,
@@ -510,6 +575,21 @@ mod tests {
                 nimi: "FARAO".to_string(),
                 pisteet: 3300,
             }],
+            haasteiden_parhaat: vec![Tulos {
+                nimi: "HAASTAJA".to_string(),
+                pisteet: 7000,
+            }],
+            haasteiden_jono: vec![Tulos {
+                nimi: "HAASTAJA".to_string(),
+                pisteet: 7000,
+            }],
+            haastenimi: "HAASTAJA".to_string(),
+            haastepisteet: {
+                let mut pisteet = Haastepisteet::default();
+                pisteet[1][3] = 3500;
+                pisteet[2][19] = 3500;
+                pisteet
+            },
             blackjackin_parhaat: vec![Tulos {
                 nimi: "KORTTI".to_string(),
                 pisteet: 120,
@@ -559,6 +639,10 @@ mod tests {
             spiderin_jono: Vec::new(),
             pyramidin_parhaat: Vec::new(),
             pyramidin_jono: Vec::new(),
+            haasteiden_parhaat: Vec::new(),
+            haasteiden_jono: Vec::new(),
+            haastenimi: String::new(),
+            haastepisteet: Haastepisteet::default(),
             blackjackin_parhaat: Vec::new(),
             blackjackin_jono: Vec::new(),
             holdemin_parhaat: Vec::new(),
@@ -596,6 +680,24 @@ mod tests {
         assert_eq!(t.palikka, 0);
         assert_eq!(t.miinaajat, [0; 3]);
         assert!(t.parhaat.is_empty());
+    }
+
+    #[test]
+    fn kelvottomat_haastetiedot_hylataan() {
+        let nollia = vec!["0"; HAASTEITA].join(",");
+        let hyva = format!("klassikot8000 1\nhaastepisteet 2 5,{}\n", &nollia[2..]);
+        assert_eq!(Tallennus::tekstista(&hyva).haastepisteet[2][0], 5);
+        for huono in [
+            format!("haastepisteet 3 {nollia}"),
+            format!("haastepisteet 0 {nollia},0"),
+            "haastepisteet 0 1,2".to_string(),
+            format!("haastepisteet 0 99999999,{}", &nollia[2..]),
+        ] {
+            let t = Tallennus::tekstista(&format!("klassikot8000 1\n{huono}\n"));
+            assert_eq!(t.haastepisteet, Haastepisteet::default(), "{huono}");
+        }
+        let t = Tallennus::tekstista("klassikot8000 1\nhaastenimi pieni\n");
+        assert!(t.haastenimi.is_empty());
     }
 
     #[test]

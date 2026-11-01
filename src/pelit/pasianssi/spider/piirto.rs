@@ -6,7 +6,7 @@ use klassikot8000::pasianssi::Sarake;
 use klassikot8000::spider::{Jono, Lauta, SARAKKEITA, SARJOJA};
 
 use crate::pelit::pasianssi::peli::{Nappi, Pasianssi, Vaihe};
-use crate::pelit::pasianssi::piirto::kesto;
+use crate::pelit::pasianssi::piirto::{kesto, uuden_napin_teksti};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::kortit::{KORTTI_K, KORTTI_L};
 use crate::yhteinen::piirto::*;
@@ -164,19 +164,17 @@ impl Piirtaja<'_> {
         for i in 0..jakoja {
             self.kortin_tausta(SARAKE_X + i * PAKKA_ASKEL, YLARIVI_Y);
         }
-        for i in 0..SARJOJA {
-            let x = VALMIIT_X + i as i32 * VALMIS_ASKEL;
-            match peli.spider.tila.valmiit.get(i) {
-                Some(&maa) => self.pelikortti(
-                    x,
-                    YLARIVI_Y,
-                    Kortti {
-                        maa,
-                        arvo: KUNINGAS,
-                    },
-                ),
-                None => self.korttipaikka(x, YLARIVI_Y),
-            }
+        // Paikat ovat päällekkäin, joten tyhjät tulevat ensin: ne eivät saa peittää valmiita sarjoja.
+        let valmiit = &peli.spider.tila.valmiit;
+        for i in valmiit.len()..SARJOJA {
+            self.korttipaikka(VALMIIT_X + i as i32 * VALMIS_ASKEL, YLARIVI_Y);
+        }
+        for (i, &maa) in valmiit.iter().enumerate() {
+            let kortti = Kortti {
+                maa,
+                arvo: KUNINGAS,
+            };
+            self.pelikortti(VALMIIT_X + i as i32 * VALMIS_ASKEL, YLARIVI_Y, kortti);
         }
     }
 
@@ -206,6 +204,7 @@ impl Piirtaja<'_> {
             let kaytossa = peli.vaihe == Vaihe::Pelissa
                 || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
             let vari = if kaytossa { WB_SININEN } else { KANSI };
+            let teksti = uuden_napin_teksti(peli, nappi, teksti);
             self.nappi(NAPIT_X, y, teksti, VALKOINEN, vari);
         }
     }
@@ -308,6 +307,9 @@ mod tests {
                 "pasianssi.jumissa",
                 "pasianssi.voittoviesti",
                 "pasianssi.siirrot_loppu",
+                "pasianssi.haaste_viesti",
+                "pasianssi.haaste_voitto",
+                "pasianssi.haaste_jumissa",
             ] {
                 let rivit = rivita(kaanna(avain), VIESTIN_MERKKEJA).len();
                 assert!(rivit <= VIESTIN_RIVEJA, "{avain}");

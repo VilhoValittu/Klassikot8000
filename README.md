@@ -28,6 +28,8 @@ Kolme peliä saman kortin alla, ja jokaisella on oma top-listansa. Pisteet tulev
 
 **Spider** jaetaan kahdesta pakasta kymmeneen sarakkeeseen. Kokoa saman maan sarjat kuninkaasta ässään, niin ne poistuvat pöydältä. Helpolla kortteja on yhtä maata, normaalilla kahta ja vaikealla neljää. Perua saa aina, koska neljää maata ei muuten juuri voita.
 
+**Haasteet** avautuvat alkuruudulta H-näppäimellä: pelaaja liittyy kesken olevaan peliin ja koettaa voittaa sen. Jokaisessa kolmessa pelissä on 20 haastetta, jotka vaikeutuvat järjestyksessä. Jokainen haaste on varmasti voitettavissa, koska testit pelaavat tallennetun ratkaisun läpi, ja perua saa aina alkutilanteeseen asti. Haasteilla on oma top-listansa, jonka tulos on kaikkien haasteiden parhaiden pisteiden summa.
+
 **Pyramidi** puretaan pareittain: kahden vapaan kortin summan on oltava 13, ja kuningas lähtee yksin. Jätepinon kaksi päällimmäistä korttia ovat pelattavissa. Helpolla pakkaa saa kierrättää vapaasti, normaalilla käydä läpi kolmesti, ja vaikealla kahdesti ilman peruutusta.
 
 *Hiiri tai nuolet ja välilyönti.*

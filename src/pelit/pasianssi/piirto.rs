@@ -1,12 +1,13 @@
 //! Pasianssin näkymät. Alkuruutu käyttää muiden pelien kanssa samaa klassista kuvaa,
 //! pelilauta piirretään suoraan täysikokoiselle ruudulle.
 
+use klassikot8000::haasteet::HAASTEITA;
 use klassikot8000::pasianssi::{
     KUNINGAS, Kohde, Kortti, Lahde, Lauta, MAITA, Maa, SARAKKEITA, Sarake, Vaikeus, Variantti,
 };
 
 use super::peli::{Nappi, Pasianssi, Vaihe};
-use crate::yhteinen::kieli::kaanna;
+use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::kortit::{KORTTI_K, KORTTI_L};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio};
@@ -21,17 +22,17 @@ const VIUHKA_ASKEL: i32 = 36;
 const PERUSTA_ALKAA: usize = 3;
 const JATE_SARAKE: i32 = 1;
 
-const SIVU_X: i32 = SARAKE_X + SARAKKEITA as i32 * SARAKE_ASKEL + 6;
+pub(super) const SIVU_X: i32 = SARAKE_X + SARAKKEITA as i32 * SARAKE_ASKEL + 6;
 #[cfg(test)]
 pub const SIVU_ALKAA: i32 = SIVU_X - 12;
-const SIVU_L: i32 = RUUDUN_LEVEYS as i32 - 24 - SIVU_X;
-const SIVU_TEKSTI_X: i32 = SIVU_X + 18;
-const SIVU_MERKKEJA: usize = 22;
+pub(super) const SIVU_L: i32 = RUUDUN_LEVEYS as i32 - 24 - SIVU_X;
+pub(super) const SIVU_TEKSTI_X: i32 = SIVU_X + 18;
+pub(super) const SIVU_MERKKEJA: usize = 22;
 const TILASTO_ASKEL: i32 = 66;
 const VIESTI_Y: i32 = YLARIVI_Y + 5 * TILASTO_ASKEL + 6;
 const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
-const NAPIT_Y: i32 = SIVU_OHJE_Y + 7 * RIVIN_KORKEUS + 18;
+pub(super) const NAPIT_Y: i32 = SIVU_OHJE_Y + 7 * RIVIN_KORKEUS + 18;
 const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 
 const SIVU_OHJEET: [&str; 6] = [
@@ -69,7 +70,7 @@ const TASOT: [(Vaikeus, &str, i32); 3] = [
     ),
 ];
 
-const VARIANTIT: [(Variantti, &str, i32); 3] = [
+pub(super) const VARIANTIT: [(Variantti, &str, i32); 3] = [
     (Variantti::Klondike, "pasianssi.laji_klondike", TASO_X),
     (
         Variantti::Spider,
@@ -82,6 +83,11 @@ const VARIANTIT: [(Variantti, &str, i32); 3] = [
         TASO_X + 14 * MERKKI + 48 + 2 * TASO_VALI,
     ),
 ];
+
+// Alkuruudun kehote on muita lyhyempi, jotta haastenappi mahtuu samalle riville.
+const PASIANSSI_ALOITUS: &str = "pasianssi.aloitus";
+const HAASTENAPPI: &str = "pasianssi.nappi_haasteet_alku";
+const NAPPI_HAASTEET: &str = "pasianssi.nappi_haasteet";
 
 const VOITTOTEKSTI: &str = "yhteinen.voitit";
 const TAPPIOTEKSTI: &str = "pasianssi.tappio";
@@ -134,7 +140,7 @@ fn lajin_nimi(variantti: Variantti) -> &'static str {
     kaanna(avain)
 }
 
-fn vaikeuden_nimi(vaikeus: Vaikeus) -> &'static str {
+pub(super) fn vaikeuden_nimi(vaikeus: Vaikeus) -> &'static str {
     kaanna(match vaikeus {
         Vaikeus::Helppo => "yhteinen.helppo",
         Vaikeus::Normaali => "yhteinen.normaali",
@@ -265,6 +271,26 @@ pub fn variantti_pisteesta(x: i32, y: i32) -> Option<Variantti> {
         .map(|&(variantti, ..)| variantti)
 }
 
+fn haastenapin_x() -> i32 {
+    // Jää alapaneelin sisään.
+    LEVEYS as i32 - 36 - napin_leveys(HAASTENAPPI)
+}
+
+pub fn haastenappi_pisteessa(x: i32, y: i32) -> bool {
+    let vasen = haastenapin_x();
+    (vasen..vasen + napin_leveys(HAASTENAPPI)).contains(&x)
+        && (ALOITUS_Y..ALOITUS_Y + NAPPI_K).contains(&y)
+}
+
+/// Haasteessa Uusi-nappi vie haastelistaan. Teksti ei ole pidempi kuin tavallinen, joten osuma-alue kelpaa.
+pub fn uuden_napin_teksti<'a>(peli: &Pasianssi, nappi: Nappi, teksti: &'a str) -> &'a str {
+    if nappi == Nappi::Uusi && peli.haaste.is_some() {
+        NAPPI_HAASTEET
+    } else {
+        teksti
+    }
+}
+
 /// Pelilaudan näkymässä äänikytkin on täyden ruudun oikeassa laidassa.
 pub fn aanikytkimella(vaihe: Vaihe, x: i32, y: i32) -> bool {
     let siirto = if vaihe == Vaihe::Alku {
@@ -273,6 +299,14 @@ pub fn aanikytkimella(vaihe: Vaihe, x: i32, y: i32) -> bool {
         (RUUDUN_LEVEYS - LEVEYS) as i32
     };
     crate::yhteinen::piirto::aanikytkimella(x - siirto, y)
+}
+
+#[cfg(test)]
+pub fn haastenapin_keskipiste() -> (i32, i32) {
+    (
+        haastenapin_x() + napin_leveys(HAASTENAPPI) / 2,
+        ALOITUS_Y + NAPPI_K / 2,
+    )
 }
 
 #[cfg(test)]
@@ -391,18 +425,32 @@ impl Piirtaja<'_> {
                 self.nappi(x, TASO_Y, teksti, VALKOINEN, WB_SININEN);
             }
         }
-        self.aloituskehote(ALOITUS);
+        self.aloituskehote(PASIANSSI_ALOITUS);
+        self.nappi(
+            haastenapin_x(),
+            ALOITUS_Y,
+            HAASTENAPPI,
+            VALKOINEN,
+            WB_SININEN,
+        );
     }
 
     fn pasianssi_nakyma(&mut self, peli: &Pasianssi) {
         self.pelitausta();
-        let nimi = format!(
+        if peli.vaihe == Vaihe::Haasteet {
+            self.haastelista(peli);
+            return;
+        }
+        let mut nimi = format!(
             "{} - {}",
             kaanna("peli.pasianssi"),
             lajin_nimi(peli.variantti)
-        )
-        .to_uppercase();
-        self.otsikkopalkki(&nimi, vaikeuden_nimi(peli.laudan_vaikeus()));
+        );
+        if let Some(haaste) = peli.haaste {
+            nimi += " - ";
+            nimi += &muotoile("pasianssi.haaste", &[&(haaste + 1), &HAASTEITA]);
+        }
+        self.otsikkopalkki(&nimi.to_uppercase(), vaikeuden_nimi(peli.laudan_vaikeus()));
 
         match peli.variantti {
             Variantti::Klondike => self.klondike_lauta(peli),
@@ -416,10 +464,10 @@ impl Piirtaja<'_> {
             }
             Vaihe::Nimi => {
                 self.pasianssi_juhla(peli);
-                self.nimi_ikkuna(peli.pisteet(), &peli.nimi);
+                self.nimi_ikkuna(peli.nimen_pisteet(), &peli.nimi);
             }
             Vaihe::Tappio => self.pasianssi_loppupalkki(TAPPIOTEKSTI),
-            Vaihe::Alku | Vaihe::Pelissa => {}
+            Vaihe::Alku | Vaihe::Haasteet | Vaihe::Pelissa => {}
         }
     }
 
@@ -579,7 +627,7 @@ impl Piirtaja<'_> {
             (kaanna("pasianssi.kierros"), kierros),
             (kaanna("pasianssi.pakassa"), tila.pakka.len().to_string()),
         ];
-        let peruutus = peli.lauta.vaikeus.peruutus_sallittu();
+        let peruutus = peli.lauta.voi_perua();
         self.sivupaneeli(peli, tilastot, &SIVU_OHJEET, &NAPIT, peruutus);
     }
 
@@ -618,6 +666,7 @@ impl Piirtaja<'_> {
                 || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
             let kaytossa = kaytossa && (nappi != Nappi::Peruuta || peruutus);
             let vari = if kaytossa { WB_SININEN } else { KANSI };
+            let teksti = uuden_napin_teksti(peli, nappi, teksti);
             self.nappi(SIVU_TEKSTI_X, y, teksti, VALKOINEN, vari);
         }
     }
@@ -723,6 +772,17 @@ mod tests {
             ] {
                 assert!(rivita(kaanna(avain), SIVU_MERKKEJA).len() <= 4, "{avain}");
             }
+            for avain in [
+                "pasianssi.haaste_viesti",
+                "pasianssi.haaste_voitto",
+                "pasianssi.haaste_jumissa",
+            ] {
+                assert!(rivita(kaanna(avain), SIVU_MERKKEJA).len() <= 4, "{avain}");
+            }
+            assert!(napin_leveys(NAPPI_HAASTEET) <= napin_leveys("pasianssi.nappi_uusi"));
+            // Kehote ja sen vilkkuva kursori jäävät haastenapin vasemmalle puolelle.
+            let kehote = kaanna(PASIANSSI_ALOITUS).chars().count() as i32 + 1;
+            assert!(48 + kehote * MERKKI < haastenapin_x());
             for pari in TASOT.windows(2) {
                 assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
             }
@@ -849,6 +909,25 @@ mod tests {
                 piirra(&peli, &mut ruutu);
             }
             peli.vaihe = Vaihe::Nimi;
+            piirra(&peli, &mut ruutu);
+        }
+    }
+
+    #[test]
+    fn haastelista_ja_jokainen_haaste_piirtyvat_kaatumatta() {
+        let mut ruutu = vec![0; RUUDUN_LEVEYS * RUUDUN_KORKEUS];
+        for laji in Variantti::KAIKKI {
+            let mut peli = Pasianssi::new(1);
+            peli.variantti = laji;
+            peli.haastepisteet[laji as usize][2] = 3400;
+            peli.vaihe = Vaihe::Haasteet;
+            piirra(&peli, &mut ruutu);
+            for haaste in 0..HAASTEITA {
+                peli.aloita_haaste(haaste);
+                peli.kursori_nakyy = true;
+                piirra(&peli, &mut ruutu);
+            }
+            peli.vaihe = Vaihe::Voitto;
             piirra(&peli, &mut ruutu);
         }
     }

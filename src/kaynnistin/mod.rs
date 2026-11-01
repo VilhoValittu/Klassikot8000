@@ -34,7 +34,7 @@ use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{self, Kieli, kaanna};
 use crate::yhteinen::piirto::ruudulta_kuvaan;
 use crate::yhteinen::syote::Syote;
-use crate::yhteinen::tulokset::{Tulos, lisaa_tulos};
+use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, paivita_nimen_tulos};
 use crate::yhteinen::vektori::Tahko;
 
 /// Valikon mallia ja vilkkua piirretään harvemmin kuin silmukka kiertää: joka toinen
@@ -192,6 +192,7 @@ pub struct Kaynnistin {
     netti_palikka: Option<Vec<Tulos>>,
     /// Pasianssin lajit erikseen, järjestys kuten `Variantti::KAIKKI`.
     netti_pasianssi: [Option<Vec<Tulos>>; VARIANTTEJA],
+    netti_haasteet: Option<Vec<Tulos>>,
     netti_blackjack: Option<Vec<Tulos>>,
     netti_holdem: Option<Vec<Tulos>>,
     /// Uusin julkaistu versio, jos se on uudempi kuin tämä ohjelma.
@@ -224,6 +225,7 @@ impl Kaynnistin {
             netti_silmukka: None,
             netti_palikka: None,
             netti_pasianssi: Default::default(),
+            netti_haasteet: None,
             netti_blackjack: None,
             netti_holdem: None,
             uusi_versio: None,
@@ -422,11 +424,16 @@ impl Kaynnistin {
                     self.tallennus.pyramidin_parhaat.clone(),
                 ];
                 peli.netti_parhaat = self.netti_pasianssi.clone();
+                peli.haasteiden_parhaat = self.tallennus.haasteiden_parhaat.clone();
+                peli.netti_haasteet = self.netti_haasteet.clone();
+                peli.haastepisteet = self.tallennus.haastepisteet;
+                peli.haastenimi = self.tallennus.haastenimi.clone();
                 peli.aanet_paalla = self.aanet_paalla;
                 for variantti in Variantti::KAIKKI {
                     self.pyynnot
                         .push(Pyynto::Hae(pasianssin_nettipeli(variantti)));
                 }
+                self.pyynnot.push(Pyynto::Hae(Nettipeli::Haasteet));
                 Kaynnissa::Pasianssi(Box::new(peli))
             }
             Laji::Tiilirikko => {
@@ -505,6 +512,7 @@ impl Kaynnistin {
             (Nettipeli::Pasianssi, &tallennus.pasianssin_jono),
             (Nettipeli::Spider, &tallennus.spiderin_jono),
             (Nettipeli::Pyramidi, &tallennus.pyramidin_jono),
+            (Nettipeli::Haasteet, &tallennus.haasteiden_jono),
             (Nettipeli::Blackjack, &tallennus.blackjackin_jono),
             (Nettipeli::Holdem, &tallennus.holdemin_jono),
         ] {
@@ -562,6 +570,12 @@ impl Kaynnistin {
                 }
                 self.netti_pasianssi[variantti as usize] = Some(lista);
             }
+            Vastaus::Lista(Nettipeli::Haasteet, lista) => {
+                if let Some(Kaynnissa::Pasianssi(peli)) = &mut self.peli {
+                    peli.netti_haasteet = Some(lista.clone());
+                }
+                self.netti_haasteet = Some(lista);
+            }
             Vastaus::Lista(Nettipeli::Blackjack, lista) => {
                 if let Some(Kaynnissa::Blackjack(peli)) = &mut self.peli {
                     peli.netti_parhaat = Some(lista.clone());
@@ -584,6 +598,7 @@ impl Kaynnistin {
                     Nettipeli::Pasianssi => &mut self.tallennus.pasianssin_jono,
                     Nettipeli::Spider => &mut self.tallennus.spiderin_jono,
                     Nettipeli::Pyramidi => &mut self.tallennus.pyramidin_jono,
+                    Nettipeli::Haasteet => &mut self.tallennus.haasteiden_jono,
                     Nettipeli::Blackjack => &mut self.tallennus.blackjackin_jono,
                     Nettipeli::Holdem => &mut self.tallennus.holdemin_jono,
                 };
@@ -654,6 +669,16 @@ impl Kaynnistin {
                 self.tallennus.spiderin_parhaat = spider;
                 self.tallennus.pyramidin_parhaat = pyramidi;
                 self.netti_pasianssi = peli.netti_parhaat.clone();
+                self.tallennus.haasteiden_parhaat = peli.haasteiden_parhaat.clone();
+                self.tallennus.haastepisteet = peli.haastepisteet;
+                self.tallennus.haastenimi = peli.haastenimi.clone();
+                self.netti_haasteet = peli.netti_haasteet.clone();
+                if let Some(tulos) = peli.haaste_lahetys.take() {
+                    // Summa korvaa saman nimen vanhan summan, joten jonoon jää vain uusin.
+                    paivita_nimen_tulos(&mut self.tallennus.haasteiden_jono, tulos.clone());
+                    self.pyynnot
+                        .push(Pyynto::Laheta(Nettipeli::Haasteet, tulos));
+                }
                 if let Some(tulos) = peli.lahetys.take() {
                     let jono = match peli.variantti {
                         Variantti::Klondike => &mut self.tallennus.pasianssin_jono,
@@ -1285,6 +1310,47 @@ mod tests {
             Nettipeli::Pasianssi,
             pasianssi::aikapisteet(pasianssi::Vaikeus::Normaali, 300),
         );
+    }
+
+    #[test]
+    fn haasteen_tulos_tallentuu_ja_lahtee_omalle_listalleen() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Pasianssi);
+        assert!(k.pyynnot.contains(&Pyynto::Hae(Nettipeli::Haasteet)));
+        let Some(Kaynnissa::Pasianssi(peli)) = &mut k.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        peli.haastepisteet[1][4] = 3000;
+        peli.haastenimi = "V".to_string();
+        let tulos = Tulos {
+            nimi: "V".to_string(),
+            pisteet: 3000,
+        };
+        peli.haasteiden_parhaat = vec![tulos.clone()];
+        peli.haaste_lahetys = Some(tulos.clone());
+        k.paivita_tallennus();
+        assert_eq!(k.tallennus.haastepisteet[1][4], 3000);
+        assert_eq!(k.tallennus.haastenimi, "V");
+        assert_eq!(k.tallennus.haasteiden_parhaat, std::slice::from_ref(&tulos));
+        assert_eq!(k.tallennus.haasteiden_jono, std::slice::from_ref(&tulos));
+        assert!(
+            k.pyynnot
+                .contains(&Pyynto::Laheta(Nettipeli::Haasteet, tulos.clone()))
+        );
+        assert!(k.tallennus.pasianssin_parhaat.is_empty());
+
+        // Kuitattu lähetys poistuu jonosta, ja seuraava peli jatkaa samoista tiedoista.
+        k.vastaanota(Vastaus::Lahetetty(Nettipeli::Haasteet, tulos.clone()));
+        assert!(k.tallennus.haasteiden_jono.is_empty());
+        k.vastaanota(Vastaus::Lista(Nettipeli::Haasteet, vec![tulos.clone()]));
+        k.peli = None;
+        k.kaynnista(Laji::Pasianssi);
+        let Some(Kaynnissa::Pasianssi(peli)) = &k.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        assert_eq!(peli.haastepisteet[1][4], 3000);
+        assert_eq!(peli.haastenimi, "V");
+        assert_eq!(peli.haastelista(), [tulos]);
     }
 
     #[test]

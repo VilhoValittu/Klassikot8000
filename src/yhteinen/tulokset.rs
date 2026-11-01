@@ -50,6 +50,12 @@ pub fn lisaa_tulos(parhaat: &mut Vec<Tulos>, tulos: Tulos) {
     parhaat.truncate(PARHAITA);
 }
 
+/// Listalle, jossa kullakin nimellä on yksi rivi: uusi tulos korvaa saman nimen vanhan.
+pub fn paivita_nimen_tulos(parhaat: &mut Vec<Tulos>, tulos: Tulos) {
+    parhaat.retain(|t| t.nimi != tulos.nimi);
+    lisaa_tulos(parhaat, tulos);
+}
+
 /// Ottaa kirjoitetun nimen. Ikkunan sulkeminen ei saa hävittää tulosta, joten tyhjä
 /// nimi korvataan oletuksella.
 pub fn ota_nimi(nimi: &mut String) -> String {
@@ -105,6 +111,17 @@ mod tests {
         let pisteet: Vec<u32> = lista.iter().map(|t| t.pisteet).collect();
         assert_eq!(pisteet, [9, 5]);
         assert_eq!(lista[0].nimi, "VÄINÖ");
+    }
+
+    #[test]
+    fn saman_nimen_tulos_korvataan() {
+        let tulos = |nimi: &str, pisteet| Tulos {
+            nimi: nimi.to_string(),
+            pisteet,
+        };
+        let mut lista = vec![tulos("A", 300), tulos("B", 200), tulos("C", 100)];
+        paivita_nimen_tulos(&mut lista, tulos("C", 400));
+        assert_eq!(lista, [tulos("C", 400), tulos("A", 300), tulos("B", 200)]);
     }
 
     #[test]

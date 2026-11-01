@@ -41,9 +41,21 @@ pub struct Lauta {
     pub vaikeus: Vaikeus,
     pub tila: Tila,
     historia: Vec<Tila>,
+    /// Haasteessa peruutus on aina sallittu, jotta väärä siirto ei voi pilata voitettavaa peliä.
+    aina_peruttava: bool,
 }
 
 impl Lauta {
+    /// Kesken oleva peli, johon pelaaja liittyy. Alkutilannetta edemmäs ei voi perua.
+    pub fn kesken(vaikeus: Vaikeus, tila: Tila) -> Self {
+        Self {
+            vaikeus,
+            tila,
+            historia: Vec::new(),
+            aina_peruttava: true,
+        }
+    }
+
     pub fn new(vaikeus: Vaikeus, arpa: &mut Arpa) -> Self {
         let mut pakka = sekoitettu(1, arpa);
         let mut rivit = [[None; RIVEJA]; RIVEJA];
@@ -62,6 +74,7 @@ impl Lauta {
                 siirrot: 0,
             },
             historia: Vec::new(),
+            aina_peruttava: false,
         }
     }
 
@@ -166,9 +179,13 @@ impl Lauta {
         self.tila.rivit.iter().flatten().all(Option::is_none)
     }
 
+    pub fn voi_perua(&self) -> bool {
+        self.aina_peruttava || self.vaikeus.peruutus_sallittu()
+    }
+
     /// Peruu viimeisimmän siirron. Kello ei peruudu, joten peruutus maksaa aikaa.
     pub fn peruuta(&mut self) -> bool {
-        if !self.vaikeus.peruutus_sallittu() {
+        if !self.voi_perua() {
             return false;
         }
         let Some(edellinen) = self.historia.pop() else {
