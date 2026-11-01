@@ -563,11 +563,20 @@ mod tests {
                 pelaajan_nimi(2),
                 pelaajan_nimi(3)
             );
+            let nimet: Vec<&str> = (0..PELAAJIA).map(pelaajan_nimi).collect();
+            let kaksi = |a: usize, b: usize| {
+                format!("{} +2500, {} +2500", pelaajan_nimi(a), pelaajan_nimi(b))
+            };
             let viestit = [
                 muotoile(
                     "holdem.voitot_kasi",
                     &[&kaikki, &kaanna("holdem.kasi_kuningasvarisuora")],
                 ),
+                muotoile(
+                    "holdem.tasan",
+                    &[&nimet.join(", "), &kaanna("holdem.kasi_kuningasvarisuora")],
+                ),
+                muotoile("holdem.sivupotti_tulos", &[&kaksi(2, 4), &kaksi(1, 3)]),
                 muotoile(
                     "holdem.muut_kippasivat",
                     &[&format!("{} +5000", pelaajan_nimi(1))],

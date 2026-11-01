@@ -166,18 +166,42 @@ impl Holdem {
         }
     }
 
-    /// Voittajat summineen ja suurimman voiton käsi, jos kortit näytettiin.
+    /// Tulos kertoo, miksi voittajia on useampi: täsmälleen sama käsi jakaa potin, ja sivupotin
+    /// voi voittaa vain sen maksaneista.
     fn tulosviesti(&self) -> String {
         let pelaajat = &self.poyta.pelaajat;
-        let voittajat: Vec<String> = (0..PELAAJIA)
-            .filter(|&i| pelaajat[i].voitto > 0)
-            .map(|i| format!("{} +{}", pelaajan_nimi(i), pelaajat[i].voitto))
-            .collect();
-        let voittajat = voittajat.join(", ");
-        let suurin = (0..PELAAJIA).max_by_key(|&i| pelaajat[i].voitto);
-        match suurin.and_then(|i| pelaajat[i].kasi) {
-            Some((arvo, _)) => muotoile("holdem.voitot_kasi", &[&voittajat, &kaden_nimi(&arvo)]),
-            None => muotoile("holdem.muut_kippasivat", &[&voittajat]),
+        let summat = |osuus: &dyn Fn(usize) -> u32| {
+            let rivit: Vec<String> = (0..PELAAJIA)
+                .filter(|&i| osuus(i) > 0)
+                .map(|i| format!("{} +{}", pelaajan_nimi(i), osuus(i)))
+                .collect();
+            rivit.join(", ")
+        };
+        let voitto = |i: usize| pelaajat[i].voitto;
+        let sivupotista = |i: usize| pelaajat[i].voitto - pelaajat[i].paapotista;
+        let voittajia = (0..PELAAJIA).filter(|&i| voitto(i) > 0).count();
+        let suurin = (0..PELAAJIA).max_by_key(|&i| voitto(i));
+        let Some((arvo, _)) = suurin.and_then(|i| pelaajat[i].kasi) else {
+            return muotoile("holdem.muut_kippasivat", &[&summat(&voitto)]);
+        };
+        if voittajia == 1 {
+            muotoile(
+                "holdem.voitot_kasi",
+                &[&summat(&voitto), &kaden_nimi(&arvo)],
+            )
+        } else if (0..PELAAJIA).any(|i| sivupotista(i) > 0) {
+            let paapotista = summat(&|i| pelaajat[i].paapotista);
+            muotoile(
+                "holdem.sivupotti_tulos",
+                &[&paapotista, &summat(&sivupotista)],
+            )
+        } else {
+            // Summat näkyvät paikoilla, joten viesti mahtuu viidellekin voittajalle.
+            let nimet: Vec<&str> = (0..PELAAJIA)
+                .filter(|&i| voitto(i) > 0)
+                .map(pelaajan_nimi)
+                .collect();
+            muotoile("holdem.tasan", &[&nimet.join(", "), &kaden_nimi(&arvo)])
         }
     }
 
@@ -293,7 +317,7 @@ impl Holdem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use klassikot8000::holdem::Tila;
+    use klassikot8000::holdem::{Kortti, Maa, Tila, paras_kasi};
 
     /// Peli, jossa on pelaajan vuoro. Pelaajalla on oikea pino.
     fn omalla_vuorolla(siemen: u64) -> Holdem {
@@ -433,6 +457,50 @@ mod tests {
         assert_eq!(peli.poyta.jako, jako);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.poyta.jako, jako + 1);
+    }
+
+    /// Asettaa voitot (voitto, josta pääpotista) ja kaikille saman näytetyn käden.
+    fn tulos(voitot: [(u32, u32); PELAAJIA]) -> String {
+        let mut peli = Holdem::new(1);
+        let kortit = [2, 3, 4, 5, 6].map(|arvo| Kortti {
+            maa: Maa::Pata,
+            arvo,
+        });
+        for (pelaaja, (voitto, paapotista)) in peli.poyta.pelaajat.iter_mut().zip(voitot) {
+            pelaaja.voitto = voitto;
+            pelaaja.paapotista = paapotista;
+            pelaaja.kasi = paras_kasi(&kortit);
+        }
+        peli.tulosviesti()
+    }
+
+    #[test]
+    fn tulos_kertoo_yhden_voittajan_tasakaden_ja_sivupotin_eri_tavoin() {
+        let kasi = kaanna("holdem.kasi_varisuora");
+        let nimi = pelaajan_nimi;
+        assert_eq!(
+            tulos([(50, 50), (0, 0), (0, 0), (0, 0), (0, 0)]),
+            muotoile("holdem.voitot_kasi", &[&format!("{} +50", nimi(0)), &kasi])
+        );
+        // Sama voittaja kummassakin potissa on yhä yksi voittaja.
+        assert_eq!(
+            tulos([(70, 50), (0, 0), (0, 0), (0, 0), (0, 0)]),
+            muotoile("holdem.voitot_kasi", &[&format!("{} +70", nimi(0)), &kasi])
+        );
+        assert_eq!(
+            tulos([(25, 25), (0, 0), (25, 25), (0, 0), (0, 0)]),
+            muotoile(
+                "holdem.tasan",
+                &[&format!("{}, {}", nimi(0), nimi(2)), &kasi]
+            )
+        );
+        assert_eq!(
+            tulos([(330, 330), (0, 0), (400, 0), (0, 0), (0, 0)]),
+            muotoile(
+                "holdem.sivupotti_tulos",
+                &[&format!("{} +330", nimi(0)), &format!("{} +400", nimi(2))]
+            )
+        );
     }
 
     #[test]

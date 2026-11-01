@@ -577,8 +577,10 @@ fn all_in_saa_vain_paapotin_ja_sivupotti_menee_seuraavaksi_parhaalle() {
 
     // pääpotti: 100 * 3 + blindit 10 + 20. sivupotti: 200 * 2.
     assert_eq!(p.pelaajat[3].voitto, 330);
+    assert_eq!(p.pelaajat[3].paapotista, 330);
     assert_eq!(p.pelaajat[3].rahat, 330);
     assert_eq!(p.pelaajat[4].voitto, 400);
+    assert_eq!(p.pelaajat[4].paapotista, 0);
     assert_eq!(p.pelaajat[0].voitto, 0);
     assert_eq!(p.pelaajat[4].rahat, 1100);
     assert_eq!(rahat_yhteensa(&p), 5000 - 900);
@@ -621,6 +623,40 @@ fn jokainen_sivupotti_jaetaan_erikseen() {
     assert_eq!(p.pelaajat[3].voitto, 165);
     assert_eq!(p.pelaajat[4].voitto, 165 + 400);
     assert_eq!(p.pelaajat[0].voitto, 0);
+}
+
+/// Vain 0 ja 2 jatkavat näyttöön asti. Potti on 50: kaksi isoa blindiä ja kipanneen pieni.
+fn kaksi_nayttoon(oma: &str, toinen: &str, poyta_kortit: &str) -> Poyta {
+    let mut p = jako_korteilla(
+        TAYSI,
+        [oma, "2d 3c", toinen, "4h 4c", "2h 3h"],
+        poyta_kortit,
+    );
+    assert!(p.toimi(Toimi::Kippaa));
+    assert!(p.toimi(Toimi::Kippaa));
+    assert!(p.toimi(Toimi::Maksa));
+    assert!(p.toimi(Toimi::Kippaa));
+    pelaa_loppuun(&mut p);
+    p
+}
+
+#[test]
+fn korkeampi_suora_vie_koko_potin() {
+    let p = kaksi_nayttoon("9h Tc", "9d 4c", "5s 6h 7d 8c Kd");
+    assert_eq!(p.pelaajat[0].kasi.unwrap().0.luokka, Luokka::Suora);
+    assert_eq!(p.pelaajat[2].kasi.unwrap().0.luokka, Luokka::Suora);
+    assert_eq!(p.pelaajat[0].voitto, 50);
+    assert_eq!(p.pelaajat[2].voitto, 0);
+}
+
+#[test]
+fn sama_suora_jakaa_potin_vaikka_omat_kortit_olisivat_korkeammat() {
+    // Pöydän suora on molempien paras käsi, eikä viiden kortin ulkopuolinen ässä ratkaise.
+    let p = kaksi_nayttoon("As Kh", "2c 3d", "5s 6h 7d 8c 9s");
+    assert_eq!(p.pelaajat[0].voitto, 25);
+    assert_eq!(p.pelaajat[2].voitto, 25);
+    assert_eq!(p.pelaajat[0].paapotista, 25);
+    assert_eq!(p.pelaajat[2].paapotista, 25);
 }
 
 #[test]

@@ -339,6 +339,8 @@ holdem.kortit_esiin = Kortit esiin.
 holdem.seuraava_kortti = Seuraava kortti.
 holdem.ei_korotusta = Et voi korottaa nyt.
 holdem.voitot_kasi = {}. Käsi: {}.
+holdem.tasan = Tasan, potti jaetaan: {}. Käsi: {}.
+holdem.sivupotti_tulos = Pääpotti: {}. Sivupotit: {}.
 holdem.muut_kippasivat = Muut kippasivat. {}.
 holdem.havio = Putosit sijalle {}. K = uusi peli.
 holdem.voitto = Sait kaikki {} rahaa! K = uusi peli.
@@ -678,6 +680,8 @@ holdem.kortit_esiin = Show your cards.
 holdem.seuraava_kortti = Next card.
 holdem.ei_korotusta = You can't raise now.
 holdem.voitot_kasi = {}. Hand: {}.
+holdem.tasan = Tie, pot split: {}. Hand: {}.
+holdem.sivupotti_tulos = Main pot: {}. Side pots: {}.
 holdem.muut_kippasivat = Everyone else folded. {}.
 holdem.havio = You finished in place {}. K = new game.
 holdem.voitto = You took all {}! K = new game.

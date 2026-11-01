@@ -173,6 +173,8 @@ pub struct Pelaaja {
     pub kasi: Option<(Kadenarvo, [Kortti; KATEEN])>,
     /// Tämän jaon voitto potista, oma panos mukaan lukien.
     pub voitto: u32,
+    /// Osa voitosta, joka tuli pääpotista. Loppu tuli sivupoteista.
+    pub paapotista: u32,
     toiminut: bool,
     /// Korkein panos, kun pelaaja viimeksi toimi: korotusoikeus palaa vasta täydestä korotuksesta.
     nahty: u32,
@@ -269,6 +271,7 @@ impl Poyta {
             naytetty: false,
             kasi: None,
             voitto: 0,
+            paapotista: 0,
             toiminut: false,
             nahty: 0,
         };
@@ -447,6 +450,7 @@ impl Poyta {
             pelaaja.naytetty = false;
             pelaaja.kasi = None;
             pelaaja.voitto = 0;
+            pelaaja.paapotista = 0;
             pelaaja.toiminut = false;
             pelaaja.nahty = 0;
         }
@@ -689,7 +693,7 @@ impl Poyta {
                 self.laske_kasi(i);
             }
         }
-        for potti in self.potit() {
+        for (monesko, potti) in self.potit().into_iter().enumerate() {
             let arvo = |i: usize| self.pelaajat[i].kasi.map(|(arvo, _)| arvo);
             let paras = potti.oikeutetut.iter().map(|&i| arvo(i)).max().flatten();
             // Parittomat merkit menevät voittajille napista vasemmalle lukien.
@@ -702,6 +706,9 @@ impl Poyta {
                 let maara = osuus + (sija < parittomia) as u32;
                 self.pelaajat[i].rahat += maara;
                 self.pelaajat[i].voitto += maara;
+                if monesko == 0 {
+                    self.pelaajat[i].paapotista = maara;
+                }
             }
         }
         self.tyhjenna_panokset();
