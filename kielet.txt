@@ -112,7 +112,7 @@ luvut.siirto = Siirto {}.
 pasianssi.banneri = **** PASIANSSI ****
 pasianssi.tervetuloa = Tervetuloa pelaamaan pasianssia.
 pasianssi.ohje_1 = Kokoa kortit maittain ylärivin pinoihin ässästä kuninkaaseen.
-pasianssi.ohje_2 = Sarakkeissa kortit laskevat vuorotellen punaisina ja mustina.
+pasianssi.ohje_2 = Sarakkeissa kortit laskevat vuorotellen punaisina ja mustina. Nopea voitto antaa enemmän pisteitä.
 pasianssi.nappain_hiiri = Hiiri: vedä, klikkaa, tuplaklikkaa.
 pasianssi.nappain_nuolet = Nuolet + välilyönti: siirrä.
 pasianssi.nappain_kirjaimet = N: nosta, U: peru, A: vie ylös.
@@ -139,7 +139,7 @@ pasianssi.ei_peruutusta = Vaikealla tasolla ei voi perua.
 pasianssi.ei_peruttavaa = Ei mitään peruttavaa.
 pasianssi.ei_kerattavaa = Ei siirtoja!
 pasianssi.jumissa = Siirrot näyttävät loppuneen. K = uusi peli.
-pasianssi.voittoviesti = Kaikki kortit ovat pakoissa!
+pasianssi.voittoviesti = Kaikki kortit ovat pakoissa! Pisteet: {}.
 pasianssi.siirrot_loppu = Siirrot loppuivat. K = uusi peli.
 
 tiilirikko.banneri = ** LAATAN MURSKAIN **
@@ -234,7 +234,7 @@ miinaharava.aika_viesti = Aika: {} s.
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Tervetuloa pelaamaan blackjackia.
 blackjack.ohje_1 = Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Kuvakortit ovat 10, ässä 1 tai 11.
-blackjack.ohje_2 = Pelaat leikkirahalla: alussa 300, pienin panos 1.
+blackjack.ohje_2 = Pelaat leikkirahalla: alussa 300, pienin panos 1. Tuloksesi on voitto, jonka viet pöydästä.
 blackjack.nappain_panos = Panos: nuolet, numerot tai hiiri.
 blackjack.nappain_jako = Väli: jaa kortit.
 blackjack.nappain_kortit = O ota, J jää, T tuplaa, H halkaise.
@@ -281,7 +281,7 @@ blackjack.konkurssi = Rahat loppuivat. K = uusi peli, {} rahaa.
 holdem.banneri = **** TEXAS HOLD'EM ****
 holdem.tervetuloa = Tervetuloa Hold'em-pöytään.
 holdem.ohje_1 = Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi voittaa potin.
-holdem.ohje_2 = Neljä konetta, kaikilla 1000 rahaa. Blindit 10/20 tuplaantuvat 10 jaon välein. Viimeinen rahoissa voittaa.
+holdem.ohje_2 = Neljä konetta, kaikilla 1000 rahaa. Blindit 10/20 tuplaantuvat 10 jaon välein. Viimeinen rahoissa voittaa. Tuloksesi on voitto, jonka viet pöydästä.
 holdem.nappain_vuoro = V tarkista tai maksa, K skippaa.
 holdem.nappain_korotus = R korota, nuolet ja 1-4 summa.
 holdem.nappain_jatka = Väli: jatka tai uusi jako.
@@ -453,7 +453,7 @@ luvut.siirto = Move {}.
 pasianssi.banneri = **** SOLITAIRE ****
 pasianssi.tervetuloa = Welcome to Solitaire.
 pasianssi.ohje_1 = Build the top row piles by suit from ace to king.
-pasianssi.ohje_2 = In the columns, cards go down in alternating red and black.
+pasianssi.ohje_2 = In the columns, cards go down in alternating red and black. A faster win scores higher.
 pasianssi.nappain_hiiri = Mouse: drag, click, double-click.
 pasianssi.nappain_nuolet = Arrows + space: move.
 pasianssi.nappain_kirjaimet = N: draw, U: undo, A: send up.
@@ -480,7 +480,7 @@ pasianssi.ei_peruutusta = Hard level has no undo.
 pasianssi.ei_peruttavaa = Nothing to undo.
 pasianssi.ei_kerattavaa = No moves!
 pasianssi.jumissa = Looks like you are out of moves. K = new game.
-pasianssi.voittoviesti = All cards are on the piles!
+pasianssi.voittoviesti = All cards are on the piles! Score: {}.
 pasianssi.siirrot_loppu = Out of moves. K = new game.
 
 tiilirikko.banneri = ** LAATAN MURSKAIN **
@@ -575,7 +575,7 @@ miinaharava.aika_viesti = Time: {} s.
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Welcome to Blackjack.
 blackjack.ohje_1 = Get closer to 21 than the dealer without going over. Face cards are 10, aces 1 or 11.
-blackjack.ohje_2 = You play with play money: 300 to start, lowest bet 1.
+blackjack.ohje_2 = You play with play money: 300 to start, lowest bet 1. Your score is the profit you leave with.
 blackjack.nappain_panos = Bet: arrows, numbers or mouse.
 blackjack.nappain_jako = Space: deal.
 blackjack.nappain_kortit = O hit, J stand, T double, H split.
@@ -622,7 +622,7 @@ blackjack.konkurssi = Out of money. K = new game with {}.
 holdem.banneri = **** TEXAS HOLD'EM ****
 holdem.tervetuloa = Welcome to the Hold'em table.
 holdem.ohje_1 = Two cards of your own and five shared: the best five-card hand wins the pot.
-holdem.ohje_2 = Four computers, everyone has 1000. Blinds 10/20 double every 10 hands. Last one with money wins.
+holdem.ohje_2 = Four computers, everyone has 1000. Blinds 10/20 double every 10 hands. Last one with money wins. Your score is the profit you leave with.
 holdem.nappain_vuoro = V check or call, K fold.
 holdem.nappain_korotus = R raise, arrows and 1-4 set amount.
 holdem.nappain_jatka = Space: go on or next hand.

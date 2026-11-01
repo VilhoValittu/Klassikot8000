@@ -10,6 +10,7 @@ pub use crate::kortit::{Kortti, Maa};
 pub const YKSI: u32 = 2;
 pub const ALKURAHA: u32 = 300 * YKSI;
 pub const PIENIN_PANOS: u32 = YKSI;
+pub const SUURIN_TULOS: u32 = 999_999;
 pub const ENITEN_KASIA: usize = 4;
 pub const JAKAJA_JAA: u32 = 17;
 
@@ -330,6 +331,11 @@ impl Poyta {
 
     pub fn vakuutus_voitti(&self) -> bool {
         self.vakuutus > 0 && self.jakajalla_blackjack()
+    }
+
+    /// Listan tulos: voitto alkurahoihin nähden kokonaisina rahoina. Kesken oleva panos ei kuulu rahoihin.
+    pub fn pisteet(&self) -> u32 {
+        (self.rahat.saturating_sub(ALKURAHA) / YKSI).min(SUURIN_TULOS)
     }
 
     /// Kierroksen voitto panosten ja vakuutuksen jälkeen. Tappio on negatiivinen.

@@ -61,6 +61,18 @@ pub struct Tallennus {
     pub palikan_parhaat: Vec<Tulos>,
     /// Palikan tulokset, jotka eivät ole vielä päässeet nettilistalle.
     pub palikan_jono: Vec<Tulos>,
+    /// Pasianssin top 3, järjestys kuten `parhaat`.
+    pub pasianssin_parhaat: Vec<Tulos>,
+    /// Pasianssin tulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub pasianssin_jono: Vec<Tulos>,
+    /// Blackjackin top 3, järjestys kuten `parhaat`.
+    pub blackjackin_parhaat: Vec<Tulos>,
+    /// Blackjackin tulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub blackjackin_jono: Vec<Tulos>,
+    /// Hold'emin top 3, järjestys kuten `parhaat`.
+    pub holdemin_parhaat: Vec<Tulos>,
+    /// Hold'emin tulokset, jotka eivät ole vielä päässeet nettilistalle.
+    pub holdemin_jono: Vec<Tulos>,
     /// Miinaharavan parhaat ajat sekunteina tasoittain. Nolla tarkoittaa, ettei tasoa ole läpäisty.
     pub miinaajat: [u32; 3],
 }
@@ -135,6 +147,24 @@ impl Tallennus {
         for tulos in &self.palikan_jono {
             teksti += &format!("palikkajono {} {}\n", tulos.pisteet, tulos.nimi);
         }
+        for tulos in &self.pasianssin_parhaat {
+            teksti += &format!("pasianssitop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.pasianssin_jono {
+            teksti += &format!("pasianssijono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.blackjackin_parhaat {
+            teksti += &format!("blackjacktop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.blackjackin_jono {
+            teksti += &format!("blackjackjono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.holdemin_parhaat {
+            teksti += &format!("holdemtop {} {}\n", tulos.pisteet, tulos.nimi);
+        }
+        for tulos in &self.holdemin_jono {
+            teksti += &format!("holdemjono {} {}\n", tulos.pisteet, tulos.nimi);
+        }
         if let Some(kesken) = &self.kesken {
             let luvut: Vec<String> = kesken.ruudut.iter().flatten().map(u32::to_string).collect();
             teksti += &format!(
@@ -161,6 +191,9 @@ impl Tallennus {
         let (mut asteroidien_parhaat, mut asteroidien_jono) = (Vec::new(), Vec::new());
         let (mut silmukan_parhaat, mut silmukan_jono) = (Vec::new(), Vec::new());
         let (mut palikan_parhaat, mut palikan_jono) = (Vec::new(), Vec::new());
+        let (mut pasianssin_parhaat, mut pasianssin_jono) = (Vec::new(), Vec::new());
+        let (mut blackjackin_parhaat, mut blackjackin_jono) = (Vec::new(), Vec::new());
+        let (mut holdemin_parhaat, mut holdemin_jono) = (Vec::new(), Vec::new());
         let (mut tiilirikko, mut asteroidit, mut silmukka, mut palikka) = (None, None, None, None);
         let mut ajat = None;
         for rivi in rivit {
@@ -223,6 +256,36 @@ impl Tallennus {
                         lisaa_tulos(&mut palikan_jono, tulos);
                     }
                 }
+                Some(("pasianssitop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut pasianssin_parhaat, tulos);
+                    }
+                }
+                Some(("pasianssijono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut pasianssin_jono, tulos);
+                    }
+                }
+                Some(("blackjacktop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut blackjackin_parhaat, tulos);
+                    }
+                }
+                Some(("blackjackjono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut blackjackin_jono, tulos);
+                    }
+                }
+                Some(("holdemtop", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut holdemin_parhaat, tulos);
+                    }
+                }
+                Some(("holdemjono", arvo)) => {
+                    if let Some(tulos) = tulos_tekstista(arvo) {
+                        lisaa_tulos(&mut holdemin_jono, tulos);
+                    }
+                }
                 Some(("lauta", arvo)) => lauta = ruudut(arvo),
                 Some(("pisteet", arvo)) => pisteet = luku(arvo),
                 Some(("siirrot", arvo)) => siirrot = luku(arvo),
@@ -262,6 +325,12 @@ impl Tallennus {
             palikka: palikka.unwrap_or(0),
             palikan_parhaat,
             palikan_jono,
+            pasianssin_parhaat,
+            pasianssin_jono,
+            blackjackin_parhaat,
+            blackjackin_jono,
+            holdemin_parhaat,
+            holdemin_jono,
             miinaajat: ajat.unwrap_or_default(),
         }
     }
@@ -371,6 +440,30 @@ mod tests {
                 nimi: "KIVI".to_string(),
                 pisteet: 700,
             }],
+            pasianssin_parhaat: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 6600,
+            }],
+            pasianssin_jono: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 6600,
+            }],
+            blackjackin_parhaat: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 120,
+            }],
+            blackjackin_jono: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 120,
+            }],
+            holdemin_parhaat: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 4000,
+            }],
+            holdemin_jono: vec![Tulos {
+                nimi: "KORTTI".to_string(),
+                pisteet: 4000,
+            }],
             miinaajat: [12, 0, 345],
         }
     }
@@ -398,6 +491,12 @@ mod tests {
             palikka: 0,
             palikan_parhaat: Vec::new(),
             palikan_jono: Vec::new(),
+            pasianssin_parhaat: Vec::new(),
+            pasianssin_jono: Vec::new(),
+            blackjackin_parhaat: Vec::new(),
+            blackjackin_jono: Vec::new(),
+            holdemin_parhaat: Vec::new(),
+            holdemin_jono: Vec::new(),
             miinaajat: [0; 3],
         };
         assert_eq!(Tallennus::tekstista(&t.tekstiksi()), t);

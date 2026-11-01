@@ -252,7 +252,7 @@ pub fn piirra_alku(peli: &Pasianssi, kuva: &mut [u32]) {
         k: Kangas::new(kuva),
         kello: peli.kello_ms,
     };
-    p.pasianssi_alkuruutu(peli.vaikeus);
+    p.pasianssi_alkuruutu(peli);
     p.aanikytkin(peli.aanet_paalla);
 }
 
@@ -266,8 +266,11 @@ pub fn piirra(peli: &Pasianssi, ruutu: &mut [u32]) {
 }
 
 impl Piirtaja<'_> {
-    fn pasianssi_alkuruutu(&mut self, vaikeus: Vaikeus) {
+    fn pasianssi_alkuruutu(&mut self, peli: &Pasianssi) {
+        let vaikeus = peli.vaikeus;
         self.maisema(kaanna("pasianssi.banneri"), &korttipinot());
+        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
         let kuvaus = match vaikeus {
             Vaikeus::Helppo => "pasianssi.kuvaus_helppo",
@@ -308,10 +311,17 @@ impl Piirtaja<'_> {
                 self.pelikortti(x, y + i as i32 * NAKYVA_ASKEL, kortti);
             }
         }
-        if peli.vaihe == Vaihe::Voitto {
-            self.pasianssi_juhla(peli);
-        } else if peli.vaihe == Vaihe::Tappio {
-            self.pasianssi_loppupalkki(TAPPIOTEKSTI);
+        match peli.vaihe {
+            Vaihe::Voitto => {
+                self.pasianssi_juhla(peli);
+                self.pasianssi_loppupalkki(VOITTOTEKSTI);
+            }
+            Vaihe::Nimi => {
+                self.pasianssi_juhla(peli);
+                self.nimi_ikkuna(peli.pisteet(), &peli.nimi);
+            }
+            Vaihe::Tappio => self.pasianssi_loppupalkki(TAPPIOTEKSTI),
+            Vaihe::Alku | Vaihe::Pelissa => {}
         }
     }
 
@@ -447,7 +457,7 @@ impl Piirtaja<'_> {
             None => peli.lauta.kierros().to_string(),
         };
         for (i, (otsikko, arvo)) in [
-            (kaanna("yhteinen.pisteet"), tila.pisteet.to_string()),
+            (kaanna("yhteinen.pisteet"), peli.pisteet().to_string()),
             (kaanna("yhteinen.siirrot"), tila.siirrot.to_string()),
             (kaanna("pasianssi.aika"), kesto(peli.peliaika_ms)),
             (kaanna("pasianssi.kierros"), kierros),
@@ -476,8 +486,8 @@ impl Piirtaja<'_> {
 
         for (i, (nappi, teksti)) in NAPIT.into_iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
-            let kaytossa =
-                peli.vaihe == Vaihe::Pelissa || matches!(nappi, Nappi::Uusi | Nappi::Valikko);
+            let kaytossa = peli.vaihe == Vaihe::Pelissa
+                || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
             let kaytossa =
                 kaytossa && (nappi != Nappi::Peruuta || peli.lauta.vaikeus.peruutus_sallittu());
             let vari = if kaytossa { WB_SININEN } else { KANSI };
@@ -504,7 +514,6 @@ impl Piirtaja<'_> {
                 }
             }
         }
-        self.pasianssi_loppupalkki(VOITTOTEKSTI);
     }
 
     /// Oma tausta, jotta teksti erottuu korttien päältä.
@@ -673,6 +682,8 @@ mod tests {
                 peli.edista(1500);
                 piirra(&peli, &mut ruutu);
             }
+            peli.vaihe = Vaihe::Nimi;
+            piirra(&peli, &mut ruutu);
         }
     }
 }

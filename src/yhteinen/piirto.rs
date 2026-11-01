@@ -238,6 +238,8 @@ const PARHAAT_RIVI: i32 = 26;
 const ALKU_PARHAAT: (i32, i32, i32, i32) = (36, 204, 318, 126);
 const NIMI_OTSIKKO: &str = "yhteinen.nimi_otsikko";
 pub const NIMI_OHJE: &str = "yhteinen.nimi_ohje";
+const NIMI_IKKUNA_L: i32 = 912;
+const NIMI_IKKUNA_K: i32 = 120;
 
 pub fn aanikytkimella(x: i32, y: i32) -> bool {
     (AANI_X..AANI_X + AANI_L).contains(&x) && (AANI_Y..AANI_Y + AANI_K).contains(&y)
@@ -863,11 +865,27 @@ impl Piirtaja<'_> {
         self.suurteksti(TEKSTI_X, ohje_y - 21, &otsikko, TULOS, KELTAINEN, true);
         self.teksti(TEKSTI_X, ohje_y + 6, kaanna(NIMI_OHJE), HUTI);
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
+        self.nimikentta(TEKSTI_X, alarivi, nimi);
+    }
+
+    /// Sama kysely täysikokoisille korttipöydille, joilla ei ole alapaneelia.
+    pub fn nimi_ikkuna(&mut self, pisteet: u32, nimi: &str) {
+        let x = (RUUDUN_LEVEYS as i32 - NIMI_IKKUNA_L) / 2;
+        let y = (RUUDUN_KORKEUS as i32 - NIMI_IKKUNA_K) / 2;
+        self.ikkuna(x, y, NIMI_IKKUNA_L, NIMI_IKKUNA_K);
+        let otsikko = format!("{} {pisteet}", kaanna(NIMI_OTSIKKO));
+        let teksti_x = x + 18;
+        self.suurteksti(teksti_x, y + 15, &otsikko, OTSIKKO, KELTAINEN, true);
+        self.teksti(teksti_x, y + 48, kaanna(NIMI_OHJE), HUTI);
+        self.nimikentta(teksti_x, y + 84, nimi);
+    }
+
+    fn nimikentta(&mut self, x: i32, y: i32, nimi: &str) {
         let kentta = format!("> {nimi}");
-        self.teksti(TEKSTI_X, alarivi, &kentta, VALKOINEN);
+        self.teksti(x, y, &kentta, VALKOINEN);
         if self.vilkku() {
-            let x = TEKSTI_X + kentta.chars().count() as i32 * MERKKI;
-            self.k.laatikko(x, alarivi, MERKKI, MERKKI, REUNA);
+            let loppu = x + kentta.chars().count() as i32 * MERKKI;
+            self.k.laatikko(loppu, y, MERKKI, MERKKI, REUNA);
         }
     }
 
@@ -965,6 +983,16 @@ mod tests {
     use super::*;
 
     const KAIKKI_RIVIT: [bool; RUUDUN_KORKEUS] = [true; RUUDUN_KORKEUS];
+
+    #[test]
+    fn nimi_ikkunan_tekstit_mahtuvat_kummallakin_kielella() {
+        crate::yhteinen::kieli::kaikilla_kielilla(|| {
+            let tila = NIMI_IKKUNA_L - 36;
+            assert!(kaanna(NIMI_OHJE).chars().count() as i32 * MERKKI <= tila);
+            let otsikko = format!("{} 999999", kaanna(NIMI_OTSIKKO));
+            assert!(otsikko.chars().count() as i32 * OTSIKKO.2 <= tila);
+        });
+    }
 
     #[test]
     pub fn rivitys_katkaisee_sanavalista_ja_kasittelee_aakkoset() {

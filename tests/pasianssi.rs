@@ -1,6 +1,7 @@
 use klassikot8000::Arpa;
 use klassikot8000::pasianssi::{
-    KORTTEJA, KUNINGAS, Kohde, Kortti, Lahde, Lauta, MAITA, Maa, SARAKKEITA, Sarake, Vaikeus,
+    KORTTEJA, KUNINGAS, Kohde, Kortti, Lahde, Lauta, MAITA, Maa, SARAKKEITA, SUURIN_TULOS, Sarake,
+    Vaikeus, aikapisteet,
 };
 
 fn kaikki_kortit(lauta: &Lauta) -> Vec<(u8, u8)> {
@@ -143,7 +144,6 @@ fn perusta_kasvaa_assasta_ylos_omassa_maassaan() {
     assert!(lauta.siirra(JATE, Kohde::Perusta(pata)));
     assert!(lauta.perustalle(JATE));
     assert_eq!(lauta.tila.perustat[pata].len(), 2);
-    assert_eq!(lauta.tila.pisteet, 20);
 
     lauta.tila.jate = vec![k(Maa::Pata, 4)];
     assert!(!lauta.perustalle(JATE));
@@ -165,7 +165,6 @@ fn jono_siirtyy_kokonaan_ja_alta_kaantyy_kortti() {
     assert_eq!(lauta.tila.sarakkeet[1].kortit.len(), 3);
     assert_eq!(lauta.tila.sarakkeet[0].kortit.len(), 1);
     assert_eq!(lauta.tila.sarakkeet[0].piilossa, 0);
-    assert_eq!(lauta.tila.pisteet, 5);
 }
 
 #[test]
@@ -188,16 +187,25 @@ fn piilossa_olevaa_tai_rikkinaista_jonoa_ei_voi_siirtaa() {
 }
 
 #[test]
-fn peruutus_palauttaa_tilanteen_ja_vie_pisteita() {
+fn nopeampi_voitto_ja_vaikeampi_taso_antavat_enemman() {
+    assert!(aikapisteet(Vaikeus::Normaali, 100) > aikapisteet(Vaikeus::Normaali, 101));
+    assert!(aikapisteet(Vaikeus::Vaikea, 100) > aikapisteet(Vaikeus::Normaali, 100));
+    assert!(aikapisteet(Vaikeus::Normaali, 100) > aikapisteet(Vaikeus::Helppo, 100));
+    assert_eq!(aikapisteet(Vaikeus::Vaikea, 0), SUURIN_TULOS);
+    // Hidaskin voitto kelpaa listalle.
+    for vaikeus in Vaikeus::KAIKKI {
+        assert!(aikapisteet(vaikeus, u32::MAX) > 0);
+    }
+}
+
+#[test]
+fn peruutus_palauttaa_tilanteen() {
     let mut lauta = tyhja(Vaikeus::Helppo);
-    lauta.tila.pisteet = 50;
     lauta.tila.jate = vec![k(Maa::Hertta, 1)];
     assert!(lauta.perustalle(JATE));
-    assert_eq!(lauta.tila.pisteet, 60);
     assert!(lauta.peruuta());
     assert_eq!(lauta.tila.jate.len(), 1);
     assert!(lauta.tila.perustat[0].is_empty());
-    assert_eq!(lauta.tila.pisteet, 45);
     assert!(!lauta.peruuta());
 }
 

@@ -7,13 +7,9 @@ pub use crate::kortit::{KUNINGAS, Kortti, MAITA, Maa};
 pub const SARAKKEITA: usize = 7;
 pub const KORTTEJA: usize = MAITA * KUNINGAS as usize;
 
-const PISTE_JATTEESTA_SARAKKEELLE: u32 = 5;
-const PISTE_PERUSTALLE: u32 = 10;
-const PISTE_KAANNOSTA: u32 = 5;
-const SAKKO_PERUSTALTA: u32 = 15;
-const SAKKO_PERUUTUKSESTA: u32 = 5;
-const SAKKO_KIERROSTA_YKSI: u32 = 100;
-const SAKKO_KIERROSTA_KOLME: u32 = 20;
+/// Jokainen sekunti vie tasokertoimen verran pisteitä, joten tunnin jälkeen voitosta saa enää pienimmän tuloksen.
+const AIKAKATTO_S: u32 = 3600;
+pub const SUURIN_TULOS: u32 = AIKAKATTO_S * 3;
 
 impl Kortti {
     fn sopii_paalle(self, alla: Kortti) -> bool {
@@ -58,6 +54,20 @@ impl Vaikeus {
     pub fn peruutus_sallittu(self) -> bool {
         self != Vaikeus::Vaikea
     }
+
+    /// Tasot jakavat saman listan, joten vaikeampi taso painaa enemmän kuin helpon nopeus.
+    fn kerroin(self) -> u32 {
+        match self {
+            Vaikeus::Helppo => 1,
+            Vaikeus::Normaali => 2,
+            Vaikeus::Vaikea => 3,
+        }
+    }
+}
+
+/// Voitosta saatava tulos: mitä nopeammin, sitä enemmän. Voitto antaa aina jotain.
+pub fn aikapisteet(vaikeus: Vaikeus, sekunnit: u32) -> u32 {
+    AIKAKATTO_S.saturating_sub(sekunnit).max(1) * vaikeus.kerroin()
 }
 
 /// Sarakkeen kortit alimmasta päällimmäiseen. Alimmat `piilossa` korttia ovat nurin.
@@ -90,7 +100,6 @@ pub struct Tila {
     pub perustat: [Vec<Kortti>; MAITA],
     pub sarakkeet: [Sarake; SARAKKEITA],
     pub kierratykset: u32,
-    pub pisteet: u32,
     pub siirrot: u32,
 }
 
@@ -116,7 +125,6 @@ impl Lauta {
                 perustat: Default::default(),
                 sarakkeet,
                 kierratykset: 0,
-                pisteet: 0,
                 siirrot: 0,
             },
             historia: Vec::new(),
@@ -143,16 +151,10 @@ impl Lauta {
                 return false;
             }
             self.muista();
-            let sakko = if self.vaikeus.nosto() == 1 {
-                SAKKO_KIERROSTA_YKSI
-            } else {
-                SAKKO_KIERROSTA_KOLME
-            };
             let tila = &mut self.tila;
             tila.pakka = std::mem::take(&mut tila.jate);
             tila.pakka.reverse();
             tila.kierratykset += 1;
-            tila.pisteet = tila.pisteet.saturating_sub(sakko);
         } else {
             self.muista();
             let nosto = self.vaikeus.nosto().min(self.tila.pakka.len());
@@ -232,28 +234,13 @@ impl Lauta {
                 let jono = sarake.kortit.split_off(kortti);
                 if sarake.piilossa > 0 && sarake.piilossa == sarake.kortit.len() {
                     sarake.piilossa -= 1;
-                    tila.pisteet += PISTE_KAANNOSTA;
                 }
                 jono
             }
         };
         match kohde {
-            Kohde::Perusta(perusta) => {
-                tila.perustat[perusta].extend(kortit);
-                if !matches!(lahde, Lahde::Perusta(_)) {
-                    tila.pisteet += PISTE_PERUSTALLE;
-                }
-            }
-            Kohde::Sarake(sarake) => {
-                tila.sarakkeet[sarake].kortit.extend(kortit);
-                match lahde {
-                    Lahde::Jate => tila.pisteet += PISTE_JATTEESTA_SARAKKEELLE,
-                    Lahde::Perusta(_) => {
-                        tila.pisteet = tila.pisteet.saturating_sub(SAKKO_PERUSTALTA);
-                    }
-                    Lahde::Sarake { .. } => {}
-                }
-            }
+            Kohde::Perusta(perusta) => tila.perustat[perusta].extend(kortit),
+            Kohde::Sarake(sarake) => tila.sarakkeet[sarake].kortit.extend(kortit),
         }
         tila.siirrot += 1;
         true
@@ -293,7 +280,7 @@ impl Lauta {
             .all(|pino| pino.len() == KUNINGAS as usize)
     }
 
-    /// Peruu viimeisimmän siirron. Peruutus maksaa pisteitä, ettei se ole ilmainen.
+    /// Peruu viimeisimmän siirron. Kello ei peruudu, joten peruutus maksaa aikaa.
     pub fn peruuta(&mut self) -> bool {
         if !self.vaikeus.peruutus_sallittu() {
             return false;
@@ -302,7 +289,6 @@ impl Lauta {
             return false;
         };
         self.tila = edellinen;
-        self.tila.pisteet = self.tila.pisteet.saturating_sub(SAKKO_PERUUTUKSESTA);
         true
     }
 

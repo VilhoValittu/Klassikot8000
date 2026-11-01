@@ -4,7 +4,9 @@ use klassikot8000::blackjack::{ALKURAHA, PIENIN_PANOS, Poyta, Tulos, Vuoro, YKSI
 use super::piirto::{self, raha};
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::piirto::VILKKU_MS;
 use crate::yhteinen::syote::Syote;
+use crate::yhteinen::tulokset::{self, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
 
 const ALKUPANOS: u32 = 10 * YKSI;
 const LISAYKSET: [u32; 4] = [YKSI, 5 * YKSI, 25 * YKSI, 100 * YKSI];
@@ -19,6 +21,8 @@ pub enum Vaihe {
     Pelissa,
     /// Rahat loppuivat.
     Loppu,
+    /// Pöydästä lähdetään voitolla, joka pääsi kolmen parhaan joukkoon.
+    Nimi,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +47,15 @@ pub struct Blackjack {
     pub poyta: Poyta,
     /// Seuraavan jaon panos. Säilyy kierroksesta toiseen, jos rahat riittävät.
     pub panos: u32,
+    pub parhaat: Vec<tulokset::Tulos>,
+    /// Nettilista. `None`, kunnes palvelin on vastannut.
+    pub netti_parhaat: Option<Vec<tulokset::Tulos>>,
+    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
+    pub lahetys: Option<tulokset::Tulos>,
+    /// Kirjoitettavana oleva nimimerkki.
+    pub nimi: String,
+    /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
+    pub uusi_tulos: bool,
     pub viesti: String,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
@@ -62,6 +75,11 @@ impl Blackjack {
             vaihe: Vaihe::Alku,
             poyta: Poyta::new(&mut arpa),
             panos: ALKUPANOS,
+            parhaat: Vec::new(),
+            netti_parhaat: None,
+            lahetys: None,
+            nimi: String::new(),
+            uusi_tulos: false,
             viesti: String::new(),
             lopeta: false,
             aanet_paalla: true,
@@ -75,12 +93,63 @@ impl Blackjack {
 
     /// Kuva riippuu tästä ja syötteestä. `None`, kun alkuruudun malli pyörii.
     pub fn kuvan_askel(&self) -> Option<u32> {
-        (self.vaihe != Vaihe::Alku).then_some(self.siirtoja)
+        match self.vaihe {
+            Vaihe::Alku => None,
+            Vaihe::Nimi => Some(self.kello_ms / VILKKU_MS),
+            Vaihe::Pelissa | Vaihe::Loppu => Some(self.siirtoja),
+        }
+    }
+
+    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
+    pub fn nakyva_lista(&self) -> &[tulokset::Tulos] {
+        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
+    }
+
+    /// Pöydästä lähtö on ainoa hetki, jolloin voitto lunastetaan. Kesken jäänyt panos jää pöytään.
+    pub fn poistu(&mut self) {
+        if self.vaihe == Vaihe::Pelissa
+            && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
+        {
+            self.nimi.clear();
+            self.vaihe = Vaihe::Nimi;
+        } else {
+            self.lopeta = true;
+        }
+    }
+
+    /// Kirjaa odottavan tuloksen ja palaa valikkoon.
+    pub fn vahvista_nimi(&mut self) {
+        if self.vaihe != Vaihe::Nimi {
+            return;
+        }
+        let tulos = tulokset::Tulos {
+            nimi: ota_nimi(&mut self.nimi),
+            pisteet: self.poyta.pisteet(),
+        };
+        lisaa_tulos(&mut self.parhaat, tulos.clone());
+        if let Some(lista) = &mut self.netti_parhaat {
+            lisaa_tulos(lista, tulos.clone());
+        }
+        self.lahetys = Some(tulos);
+        self.uusi_tulos = true;
+        self.lopeta = true;
+    }
+
+    fn kasittele_nimi(&mut self, syote: Syote) {
+        match syote {
+            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
+            Syote::Ammu if self.nimi.is_empty() => {}
+            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
+            _ => muokkaa_nimea(&mut self.nimi, syote),
+        }
     }
 
     pub fn edista(&mut self, ms: u32) {
         self.kello_ms = self.kello_ms.saturating_add(ms);
-        while self.poyta.vuoro == Vuoro::Jakaja && self.kello_ms >= self.seuraava_siirto_ms {
+        while self.vaihe == Vaihe::Pelissa
+            && self.poyta.vuoro == Vuoro::Jakaja
+            && self.kello_ms >= self.seuraava_siirto_ms
+        {
             self.poyta.jakajan_siirto();
             self.siirtoja = self.siirtoja.wrapping_add(1);
             self.seuraava_siirto_ms = self.seuraava_siirto_ms.saturating_add(JAKAJAN_SIIRTO_MS);
@@ -100,14 +169,22 @@ impl Blackjack {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
+        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
+        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
+            self.kasittele_nimi(syote);
+            return;
+        }
         if syote == Syote::Peru {
-            self.lopeta = true;
+            self.poistu();
             return;
         }
         let kytkimella =
             matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(self.vaihe, x, y));
         if syote == Syote::VaihdaAanet || kytkimella {
             self.aanet_paalla = !self.aanet_paalla;
+            return;
+        }
+        if self.vaihe == Vaihe::Nimi {
             return;
         }
         if self.vaihe == Vaihe::Alku {
@@ -183,7 +260,7 @@ impl Blackjack {
                 }
             }
             Nappi::Uudestaan => self.aloita(),
-            Nappi::Valikko => self.lopeta = true,
+            Nappi::Valikko => self.poistu(),
         }
     }
 
@@ -497,6 +574,65 @@ mod tests {
         assert_eq!(peli.viesti, kaanna("blackjack.ei_halkaisua"));
         assert_eq!(peli.poyta.kadet[0].kortit.len(), 2);
         assert_eq!(peli.poyta.vuoro, Vuoro::Pelaaja);
+    }
+
+    #[test]
+    fn voitolla_poistuva_kirjoittaa_nimen_ja_tulos_on_voitto() {
+        let mut peli = pelissa(&[]);
+        peli.poyta.rahat = ALKURAHA + 120 * YKSI;
+        peli.kasittele(Syote::Kirjain('E'));
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        assert!(!peli.lopeta);
+        // Nappikirjain menee nimeen, eikä klikkaus paina piilossa olevia nappeja.
+        peli.kasittele(Syote::Kirjain('E'));
+        let (x, y) = piirto::napin_keskipiste(Vaihe::Nimi, Vuoro::Panostus, Nappi::Valikko);
+        peli.kasittele(Syote::Klikkaus(x, y));
+        assert!(!peli.lopeta);
+        peli.kasittele(Syote::Ammu);
+        assert!(peli.lopeta);
+        assert_eq!(peli.parhaat[0].nimi, "E");
+        assert_eq!(peli.parhaat[0].pisteet, 120);
+        assert!(peli.uusi_tulos);
+        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 120);
+    }
+
+    #[test]
+    fn ilman_voittoa_tai_listapaikkaa_poistutaan_heti() {
+        let mut peli = pelissa(&[]);
+        peli.kasittele(Syote::Peru);
+        assert!(peli.lopeta);
+        assert_eq!(peli.lahetys, None);
+
+        let mut peli = pelissa(&[]);
+        peli.poyta.rahat = ALKURAHA + 5 * YKSI;
+        peli.netti_parhaat = Some(vec![
+            tulokset::Tulos {
+                nimi: "A".to_string(),
+                pisteet: 100,
+            };
+            3
+        ]);
+        peli.kasittele(Syote::Peru);
+        assert!(peli.lopeta);
+        assert_eq!(peli.lahetys, None);
+    }
+
+    #[test]
+    fn kesken_kierroksen_poistuva_jattaa_panoksen_eika_jakaja_jatka() {
+        let mut peli = pelissa(&[10, 5, 10, 6, 4, 2]);
+        peli.poyta.rahat = ALKURAHA + 50 * YKSI;
+        peli.kasittele(Syote::Ammu);
+        peli.kasittele(Syote::Kirjain('J'));
+        assert_eq!(peli.poyta.vuoro, Vuoro::Jakaja);
+        peli.kasittele(Syote::Peru);
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        let kuva = peli.kuvan_askel();
+        peli.edista(10_000);
+        assert_eq!(peli.poyta.vuoro, Vuoro::Jakaja);
+        assert_ne!(peli.kuvan_askel(), kuva);
+        peli.kasittele(Syote::Kirjain('A'));
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.parhaat[0].pisteet, 40);
     }
 
     #[test]

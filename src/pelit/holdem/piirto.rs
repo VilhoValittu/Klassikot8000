@@ -238,6 +238,8 @@ pub fn piirra_alku(peli: &Holdem, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.maisema(kaanna("holdem.banneri"), &poytamalli());
+    let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+    p.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
     p.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
     p.aloituskehote(ALOITUS);
     p.aanikytkin(peli.aanet_paalla);
@@ -275,6 +277,9 @@ impl Piirtaja<'_> {
         self.he_oma(peli);
         self.he_alarivit(peli);
         self.he_sivu(peli);
+        if peli.vaihe == Vaihe::Nimi {
+            self.nimi_ikkuna(peli.poyta.pisteet(), &peli.nimi);
+        }
     }
 
     fn he_kortti(&mut self, peli: &Holdem, x: i32, y: i32, kortti: Kortti) {
@@ -433,7 +438,7 @@ impl Piirtaja<'_> {
             let teksti = muotoile("holdem.saanto", &[&poyta.jako, &taso, &jakoja]);
             let x = keski - teksti.chars().count() as i32 * MERKKI / 2;
             self.teksti(x, SAANTO_Y, &teksti, VALKOINEN);
-        } else {
+        } else if peli.vaihe != Vaihe::Nimi {
             let otsikko = if peli.vaihe == Vaihe::Voitto {
                 "holdem.voitit"
             } else {
@@ -451,12 +456,14 @@ impl Piirtaja<'_> {
         let poyta = &peli.poyta;
         self.ikkuna(SIVU_X - 12, 42, SIVU_L + 24, RUUDUN_KORKEUS as i32 - 66);
         let (pieni, iso) = poyta.blindit();
+        // Voitto näkyy rahojen vieressä, koska se on poistuessa saatava tulos.
+        let rahat = poyta.pelaajat[PELAAJA].rahat;
+        let rahat = match poyta.pisteet() {
+            0 => rahat.to_string(),
+            voitto => format!("{rahat} (+{voitto})"),
+        };
         let tilastot = [
-            (
-                RAHAT_Y,
-                "holdem.rahat",
-                poyta.pelaajat[PELAAJA].rahat.to_string(),
-            ),
+            (RAHAT_Y, "holdem.rahat", rahat),
             (BLINDIT_Y, "holdem.blindit", format!("{pieni}/{iso}")),
         ];
         for (y, otsikko, arvo) in tilastot {
@@ -483,6 +490,9 @@ impl Piirtaja<'_> {
             y += RIVIN_KORKEUS;
         }
 
+        if peli.vaihe == Vaihe::Nimi {
+            return;
+        }
         for (i, &nappi) in napit(napisto).iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let (teksti, kaytossa) = napin_teksti(peli, nappi);
@@ -685,6 +695,9 @@ mod tests {
                     break;
                 }
             }
+            peli.vaihe = Vaihe::Nimi;
+            peli.poyta.pelaajat[PELAAJA].rahat = 5 * ALKURAHA;
+            piirra(&peli, &mut ruutu);
         }
     }
 }

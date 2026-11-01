@@ -36,6 +36,8 @@ pub struct Liput {
     pub nostot: Option<u32>,
     /// Pasianssi: aloittaa pelin voitettuna, loppujuhlan tarkistukseen.
     pub voitto: bool,
+    /// Pasianssi, Blackjack ja Hold'em: näyttää nimikyselyn. Pasianssi tarvitsee rinnalleen `--win`-lipun.
+    pub nimi: bool,
     /// Pasianssi: pelaa pelin tilanteeseen, jossa siirrot loppuvat.
     pub jumissa: bool,
     /// Tiilirikko: aloittaa tästä kentästä (nollasta alkaen) pallo lennossa.
@@ -79,7 +81,7 @@ impl Liput {
             Some(Laji::Asteroidit)
         } else if self.rengas.is_some() {
             Some(Laji::Silmukka)
-        } else if self.napit.is_some() || self.kadet.is_some() || self.konkurssi {
+        } else if self.napit.is_some() || self.kadet.is_some() || self.konkurssi || self.nimi {
             Some(Laji::Blackjack)
         } else {
             None
@@ -107,6 +109,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         uusi_versio: None,
         nostot: None,
         voitto: false,
+        nimi: false,
         jumissa: false,
         kentta: None,
         toinen_pallo: false,
@@ -158,6 +161,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             }
             "--draws" => liput.nostot = Some(arvo.parse().map_err(|_| "--draws: ei luku")?),
             "--win" => liput.voitto = arvo == "1",
+            "--name" => liput.nimi = arvo == "1",
             "--stuck" => liput.jumissa = arvo == "1",
             "--stage" => liput.kentta = Some(arvo.parse().map_err(|_| "--stage: ei luku")?),
             "--second-ball" => liput.toinen_pallo = arvo == "1",

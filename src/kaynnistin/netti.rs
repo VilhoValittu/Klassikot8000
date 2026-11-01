@@ -27,6 +27,9 @@ pub enum Nettipeli {
     Asteroidit,
     Silmukka,
     Palikka,
+    Pasianssi,
+    Blackjack,
+    Holdem,
 }
 
 impl Nettipeli {
@@ -38,6 +41,9 @@ impl Nettipeli {
             Nettipeli::Asteroidit => "asteroidit",
             Nettipeli::Silmukka => "silmukka",
             Nettipeli::Palikka => "palikka",
+            Nettipeli::Pasianssi => "pasianssi",
+            Nettipeli::Blackjack => "blackjack",
+            Nettipeli::Holdem => "holdem",
         }
     }
 }

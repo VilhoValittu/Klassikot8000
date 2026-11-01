@@ -428,3 +428,18 @@ fn rahat_tasmaavat_ja_kenka_riittaa_tuhansilla_kierroksilla() {
         }
     }
 }
+
+#[test]
+fn tulos_on_voitto_kokonaisina_rahoina() {
+    use klassikot8000::blackjack::{ALKURAHA, SUURIN_TULOS, YKSI};
+    let mut poyta = klassikot8000::blackjack::Poyta::new(&mut klassikot8000::Arpa::new(1));
+    assert_eq!(poyta.pisteet(), 0);
+    poyta.rahat = ALKURAHA - YKSI;
+    assert_eq!(poyta.pisteet(), 0);
+    poyta.rahat = ALKURAHA + 1;
+    assert_eq!(poyta.pisteet(), 0);
+    poyta.rahat = ALKURAHA + 25 * YKSI + 1;
+    assert_eq!(poyta.pisteet(), 25);
+    poyta.rahat = u32::MAX;
+    assert_eq!(poyta.pisteet(), SUURIN_TULOS);
+}

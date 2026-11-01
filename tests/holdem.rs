@@ -1023,3 +1023,14 @@ fn kone_kippaa_heikon_kaden_valtavaa_panosta_vastaan_ja_ei_vahvaa() {
     assert_eq!(vahva_kippasi, 0);
     assert_eq!(heikko_maksoi, 0);
 }
+
+#[test]
+fn tulos_on_oma_voitto_alkurahoihin_nahden() {
+    use klassikot8000::holdem::{ALKURAHA, PELAAJA, PELAAJIA};
+    let mut poyta = klassikot8000::holdem::Poyta::new(&mut klassikot8000::Arpa::new(1));
+    assert_eq!(poyta.pisteet(), 0);
+    poyta.pelaajat[PELAAJA].rahat = ALKURAHA - 1;
+    assert_eq!(poyta.pisteet(), 0);
+    poyta.pelaajat[PELAAJA].rahat = ALKURAHA * PELAAJIA as u32;
+    assert_eq!(poyta.pisteet(), ALKURAHA * (PELAAJIA as u32 - 1));
+}

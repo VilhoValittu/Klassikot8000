@@ -181,6 +181,9 @@ pub struct Kaynnistin {
     netti_asteroidit: Option<Vec<Tulos>>,
     netti_silmukka: Option<Vec<Tulos>>,
     netti_palikka: Option<Vec<Tulos>>,
+    netti_pasianssi: Option<Vec<Tulos>>,
+    netti_blackjack: Option<Vec<Tulos>>,
+    netti_holdem: Option<Vec<Tulos>>,
     /// Uusin julkaistu versio, jos se on uudempi kuin tämä ohjelma.
     uusi_versio: Option<String>,
     vaikeus: Vaikeus,
@@ -209,6 +212,9 @@ impl Kaynnistin {
             netti_asteroidit: None,
             netti_silmukka: None,
             netti_palikka: None,
+            netti_pasianssi: None,
+            netti_blackjack: None,
+            netti_holdem: None,
             uusi_versio: None,
             vaikeus: Vaikeus::Normaali,
             pasianssin_vaikeus: pasianssi::Vaikeus::Normaali,
@@ -225,7 +231,7 @@ impl Kaynnistin {
         }
     }
 
-    /// Valitun pelin omat parhaat. Laivanupotuksella, pasianssilla, miinaharavalla ja korttipeleillä ei ole pistelistaa.
+    /// Valitun pelin omat parhaat. Laivanupotuksella ja miinaharavalla ei ole pistelistaa.
     pub fn valitun_parhaat(&self) -> Option<&[Tulos]> {
         match PELIT[self.valittu].laji {
             Laji::Luvut => Some(&self.tallennus.parhaat),
@@ -233,11 +239,10 @@ impl Kaynnistin {
             Laji::Asteroidit => Some(&self.tallennus.asteroidien_parhaat),
             Laji::Silmukka => Some(&self.tallennus.silmukan_parhaat),
             Laji::Palikka => Some(&self.tallennus.palikan_parhaat),
-            Laji::Laivanupotus
-            | Laji::Pasianssi
-            | Laji::Miinaharava
-            | Laji::Blackjack
-            | Laji::Holdem => None,
+            Laji::Pasianssi => Some(&self.tallennus.pasianssin_parhaat),
+            Laji::Blackjack => Some(&self.tallennus.blackjackin_parhaat),
+            Laji::Holdem => Some(&self.tallennus.holdemin_parhaat),
+            Laji::Laivanupotus | Laji::Miinaharava => None,
         }
     }
 
@@ -393,7 +398,10 @@ impl Kaynnistin {
             Laji::Pasianssi => {
                 let mut peli = Pasianssi::new(siemen);
                 peli.vaikeus = self.pasianssin_vaikeus;
+                peli.parhaat = self.tallennus.pasianssin_parhaat.clone();
+                peli.netti_parhaat = self.netti_pasianssi.clone();
                 peli.aanet_paalla = self.aanet_paalla;
+                self.pyynnot.push(Pyynto::Hae(Nettipeli::Pasianssi));
                 Kaynnissa::Pasianssi(Box::new(peli))
             }
             Laji::Tiilirikko => {
@@ -441,12 +449,18 @@ impl Kaynnistin {
             }
             Laji::Blackjack => {
                 let mut peli = Blackjack::new(siemen);
+                peli.parhaat = self.tallennus.blackjackin_parhaat.clone();
+                peli.netti_parhaat = self.netti_blackjack.clone();
                 peli.aanet_paalla = self.aanet_paalla;
+                self.pyynnot.push(Pyynto::Hae(Nettipeli::Blackjack));
                 Kaynnissa::Blackjack(Box::new(peli))
             }
             Laji::Holdem => {
                 let mut peli = Holdem::new(siemen);
+                peli.parhaat = self.tallennus.holdemin_parhaat.clone();
+                peli.netti_parhaat = self.netti_holdem.clone();
                 peli.aanet_paalla = self.aanet_paalla;
+                self.pyynnot.push(Pyynto::Hae(Nettipeli::Holdem));
                 Kaynnissa::Holdem(Box::new(peli))
             }
         });
@@ -463,6 +477,9 @@ impl Kaynnistin {
             (Nettipeli::Asteroidit, &tallennus.asteroidien_jono),
             (Nettipeli::Silmukka, &tallennus.silmukan_jono),
             (Nettipeli::Palikka, &tallennus.palikan_jono),
+            (Nettipeli::Pasianssi, &tallennus.pasianssin_jono),
+            (Nettipeli::Blackjack, &tallennus.blackjackin_jono),
+            (Nettipeli::Holdem, &tallennus.holdemin_jono),
         ] {
             let tulokset = jono.iter().cloned();
             self.pyynnot
@@ -504,6 +521,24 @@ impl Kaynnistin {
                 }
                 self.netti_palikka = Some(lista);
             }
+            Vastaus::Lista(Nettipeli::Pasianssi, lista) => {
+                if let Some(Kaynnissa::Pasianssi(peli)) = &mut self.peli {
+                    peli.netti_parhaat = Some(lista.clone());
+                }
+                self.netti_pasianssi = Some(lista);
+            }
+            Vastaus::Lista(Nettipeli::Blackjack, lista) => {
+                if let Some(Kaynnissa::Blackjack(peli)) = &mut self.peli {
+                    peli.netti_parhaat = Some(lista.clone());
+                }
+                self.netti_blackjack = Some(lista);
+            }
+            Vastaus::Lista(Nettipeli::Holdem, lista) => {
+                if let Some(Kaynnissa::Holdem(peli)) = &mut self.peli {
+                    peli.netti_parhaat = Some(lista.clone());
+                }
+                self.netti_holdem = Some(lista);
+            }
             Vastaus::Lahetetty(peli, tulos) => {
                 let jono = match peli {
                     Nettipeli::Luvut => &mut self.tallennus.luvut_jono,
@@ -511,6 +546,9 @@ impl Kaynnistin {
                     Nettipeli::Asteroidit => &mut self.tallennus.asteroidien_jono,
                     Nettipeli::Silmukka => &mut self.tallennus.silmukan_jono,
                     Nettipeli::Palikka => &mut self.tallennus.palikan_jono,
+                    Nettipeli::Pasianssi => &mut self.tallennus.pasianssin_jono,
+                    Nettipeli::Blackjack => &mut self.tallennus.blackjackin_jono,
+                    Nettipeli::Holdem => &mut self.tallennus.holdemin_jono,
                 };
                 jono.retain(|t| *t != tulos);
                 self.tallenna = true;
@@ -573,6 +611,32 @@ impl Kaynnistin {
                     self.pyynnot.push(Pyynto::Laheta(Nettipeli::Palikka, tulos));
                 }
             }
+            Some(Kaynnissa::Pasianssi(peli)) => {
+                self.tallennus.pasianssin_parhaat = peli.parhaat.clone();
+                self.netti_pasianssi = peli.netti_parhaat.clone();
+                if let Some(tulos) = peli.lahetys.take() {
+                    lisaa_tulos(&mut self.tallennus.pasianssin_jono, tulos.clone());
+                    self.pyynnot
+                        .push(Pyynto::Laheta(Nettipeli::Pasianssi, tulos));
+                }
+            }
+            Some(Kaynnissa::Blackjack(peli)) => {
+                self.tallennus.blackjackin_parhaat = peli.parhaat.clone();
+                self.netti_blackjack = peli.netti_parhaat.clone();
+                if let Some(tulos) = peli.lahetys.take() {
+                    lisaa_tulos(&mut self.tallennus.blackjackin_jono, tulos.clone());
+                    self.pyynnot
+                        .push(Pyynto::Laheta(Nettipeli::Blackjack, tulos));
+                }
+            }
+            Some(Kaynnissa::Holdem(peli)) => {
+                self.tallennus.holdemin_parhaat = peli.parhaat.clone();
+                self.netti_holdem = peli.netti_parhaat.clone();
+                if let Some(tulos) = peli.lahetys.take() {
+                    lisaa_tulos(&mut self.tallennus.holdemin_jono, tulos.clone());
+                    self.pyynnot.push(Pyynto::Laheta(Nettipeli::Holdem, tulos));
+                }
+            }
             Some(Kaynnissa::Miinaharava(peli)) => {
                 self.tallennus.miinaajat = peli.ajat;
             }
@@ -597,6 +661,15 @@ impl Kaynnistin {
                 peli.vahvista_nimi();
             }
             Some(Kaynnissa::Palikka(peli)) => {
+                peli.poistu();
+                peli.vahvista_nimi();
+            }
+            Some(Kaynnissa::Pasianssi(peli)) => peli.vahvista_nimi(),
+            Some(Kaynnissa::Blackjack(peli)) => {
+                peli.poistu();
+                peli.vahvista_nimi();
+            }
+            Some(Kaynnissa::Holdem(peli)) => {
                 peli.poistu();
                 peli.vahvista_nimi();
             }
@@ -678,6 +751,9 @@ impl Kaynnistin {
             Some(Kaynnissa::Silmukka(peli)) => std::mem::take(&mut peli.uusi_tulos),
             Some(Kaynnissa::Palikka(peli)) => std::mem::take(&mut peli.uusi_tulos),
             Some(Kaynnissa::Miinaharava(peli)) => std::mem::take(&mut peli.uusi_tulos),
+            Some(Kaynnissa::Pasianssi(peli)) => std::mem::take(&mut peli.uusi_tulos),
+            Some(Kaynnissa::Blackjack(peli)) => std::mem::take(&mut peli.uusi_tulos),
+            Some(Kaynnissa::Holdem(peli)) => std::mem::take(&mut peli.uusi_tulos),
             _ => false,
         };
         if uusi_tulos || self.aanet_paalla != aanet_ennen || kieli::nykyinen() != kieli_ennen {
@@ -1102,8 +1178,109 @@ mod tests {
             pisteet: 100,
         }];
         assert_eq!(k.valitun_parhaat().unwrap().len(), 1);
-        k.kasittele(Syote::Numero(3));
+        k.kasittele(Syote::Numero(8));
         assert!(k.valitun_parhaat().is_none());
+    }
+
+    /// Nimi vahvistetaan, ja tulos on kirjattu tallennukseen ja jonoon. Sama läpi uuden käynnistyksen.
+    fn tarkista_korttipelin_tulos(k: &mut Kaynnistin, peli: Nettipeli, pisteet: u32) {
+        k.kasittele(Syote::Kirjain('A'));
+        k.kasittele(Syote::Ammu);
+        let tulos = Tulos {
+            nimi: "A".to_string(),
+            pisteet,
+        };
+        assert!(k.pyynnot.contains(&Pyynto::Laheta(peli, tulos.clone())));
+        assert!(k.tallenna);
+
+        let mut uusi = Kaynnistin::new(2);
+        uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+        assert_eq!(uusi.pyynnot, [Pyynto::Laheta(peli, tulos.clone())]);
+        uusi.vastaanota(Vastaus::Lahetetty(peli, tulos.clone()));
+        let (parhaat, jono) = match peli {
+            Nettipeli::Pasianssi => (
+                &uusi.tallennus.pasianssin_parhaat,
+                &uusi.tallennus.pasianssin_jono,
+            ),
+            Nettipeli::Blackjack => (
+                &uusi.tallennus.blackjackin_parhaat,
+                &uusi.tallennus.blackjackin_jono,
+            ),
+            _ => (
+                &uusi.tallennus.holdemin_parhaat,
+                &uusi.tallennus.holdemin_jono,
+            ),
+        };
+        assert_eq!(parhaat[..], [tulos]);
+        assert!(jono.is_empty());
+    }
+
+    #[test]
+    fn pasianssin_voitto_kirjautuu_ajan_mukaan() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Pasianssi);
+        assert!(k.pyynnot.contains(&Pyynto::Hae(Nettipeli::Pasianssi)));
+        k.kasittele(Syote::Ammu);
+        let Some(Kaynnissa::Pasianssi(peli)) = &mut k.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        peli.peliaika_ms = 300_000;
+        peli.vaihe = pasianssi_peli::Vaihe::Nimi;
+        tarkista_korttipelin_tulos(
+            &mut k,
+            Nettipeli::Pasianssi,
+            pasianssi::aikapisteet(pasianssi::Vaikeus::Normaali, 300),
+        );
+    }
+
+    #[test]
+    fn blackjackin_voitto_kirjautuu_poistuttaessa_ja_tappio_ei() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Blackjack);
+        k.kasittele(Syote::Ammu);
+        k.kasittele(Syote::Peru);
+        assert!(k.peli.is_none());
+        assert!(k.tallennus.blackjackin_parhaat.is_empty());
+
+        k.kaynnista(Laji::Blackjack);
+        k.kasittele(Syote::Ammu);
+        let Some(Kaynnissa::Blackjack(peli)) = &mut k.peli else {
+            panic!("blackjack ei ole käynnissä");
+        };
+        peli.poyta.rahat += 40 * klassikot8000::blackjack::YKSI;
+        k.kasittele(Syote::Peru);
+        assert!(k.peli.is_some());
+        tarkista_korttipelin_tulos(&mut k, Nettipeli::Blackjack, 40);
+        assert!(k.peli.is_none());
+    }
+
+    #[test]
+    fn holdemin_voitto_kirjautuu_poistuttaessa() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Holdem);
+        k.kasittele(Syote::Ammu);
+        let Some(Kaynnissa::Holdem(peli)) = &mut k.peli else {
+            panic!("hold'em ei ole käynnissä");
+        };
+        peli.poyta.pelaajat[klassikot8000::holdem::PELAAJA].rahat =
+            klassikot8000::holdem::ALKURAHA + 250;
+        k.kasittele(Syote::Kirjain('E'));
+        assert!(k.peli.is_some());
+        tarkista_korttipelin_tulos(&mut k, Nettipeli::Holdem, 250);
+        assert!(k.peli.is_none());
+    }
+
+    #[test]
+    fn suljettu_ikkuna_kirjaa_korttipelin_voiton() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Blackjack);
+        k.kasittele(Syote::Ammu);
+        let Some(Kaynnissa::Blackjack(peli)) = &mut k.peli else {
+            panic!("blackjack ei ole käynnissä");
+        };
+        peli.poyta.rahat += 7 * klassikot8000::blackjack::YKSI;
+        k.viimeistele();
+        assert_eq!(k.tallennus.blackjackin_parhaat[0].pisteet, 7);
     }
 
     #[test]

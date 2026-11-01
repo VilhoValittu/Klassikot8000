@@ -208,6 +208,8 @@ pub fn piirra_alku(peli: &Blackjack, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.maisema(kaanna("blackjack.banneri"), &pelimerkkipinot());
+    let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+    p.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
     p.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
     p.aloituskehote(ALOITUS);
     p.aanikytkin(peli.aanet_paalla);
@@ -237,6 +239,9 @@ impl Piirtaja<'_> {
             self.bj_kasi(peli, i);
         }
         self.bj_sivu(peli);
+        if peli.vaihe == Vaihe::Nimi {
+            self.nimi_ikkuna(peli.poyta.pisteet(), &peli.nimi);
+        }
     }
 
     fn bj_tyhjat_paikat(&mut self, kasia: usize, y: i32) {
@@ -337,12 +342,16 @@ impl Piirtaja<'_> {
         } else {
             poyta.vakuutus + poyta.kadet.iter().map(|kasi| kasi.panos).sum::<u32>()
         };
+        // Voitto näkyy rahojen vieressä, koska se on poistuessa saatava tulos.
+        let rahat = match peli.poyta.pisteet() {
+            0 => raha(poyta.rahat),
+            voitto => format!("{} (+{voitto})", raha(poyta.rahat)),
+        };
         for (y, otsikko, arvo) in [
-            (RAHAT_Y, "blackjack.rahat", poyta.rahat),
-            (PANOS_Y, "blackjack.panos", panos),
+            (RAHAT_Y, "blackjack.rahat", rahat),
+            (PANOS_Y, "blackjack.panos", raha(panos)),
         ] {
             self.suurteksti(SIVU_TEKSTI_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
-            let arvo = raha(arvo);
             self.suurteksti(SIVU_TEKSTI_X, y + 30, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
@@ -364,6 +373,9 @@ impl Piirtaja<'_> {
             y += RIVIN_KORKEUS;
         }
 
+        if peli.vaihe == Vaihe::Nimi {
+            return;
+        }
         for (i, &(nappi, teksti)) in napit(peli.vaihe, poyta.vuoro).iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let kaytossa = match nappi {
@@ -562,5 +574,20 @@ mod tests {
             piirra(&peli, &mut ruutu);
             peli.edista(5000);
         }
+        peli.poyta.rahat = u32::MAX / 2;
+        piirra(&peli, &mut ruutu);
+        peli.vaihe = Vaihe::Nimi;
+        peli.nimi = "ÄÖ".to_string();
+        piirra(&peli, &mut ruutu);
+    }
+
+    #[test]
+    fn rahat_ja_voitto_mahtuvat_sivulle() {
+        let rivi = format!(
+            "{} (+{})",
+            raha(2_000_000_001),
+            klassikot8000::blackjack::SUURIN_TULOS
+        );
+        assert!(rivi.chars().count() as i32 * OTSIKKO.2 <= SIVU_L - 36);
     }
 }

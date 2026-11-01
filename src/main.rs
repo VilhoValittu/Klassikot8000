@@ -434,6 +434,9 @@ fn main() -> ExitCode {
                     peli.lauta.tila.pakka.clear();
                     peli.lauta.tila.jate.clear();
                     peli.vaihe = pasianssi_peli::Vaihe::Voitto;
+                    if liput.nimi {
+                        peli.vaihe = pasianssi_peli::Vaihe::Nimi;
+                    }
                 }
             }
             Some(Kaynnissa::Tiilirikko(peli)) => {
@@ -566,7 +569,7 @@ fn main() -> ExitCode {
                 }
             }
             Some(Kaynnissa::Blackjack(peli)) => {
-                if liput.napit.is_some() || liput.kadet.is_some() || liput.konkurssi {
+                if liput.napit.is_some() || liput.kadet.is_some() || liput.konkurssi || liput.nimi {
                     peli.kasittele(Syote::Ammu);
                 }
                 for merkki in liput.napit.unwrap_or_default().chars() {
@@ -613,9 +616,13 @@ fn main() -> ExitCode {
                     peli.kasittele(Syote::Kirjain('J'));
                     peli.edista(10_000);
                 }
+                if liput.nimi {
+                    peli.poyta.rahat = blackjack::ALKURAHA + 120 * blackjack::YKSI;
+                    peli.poistu();
+                }
             }
             Some(Kaynnissa::Holdem(peli)) => {
-                if liput.napit.is_some() || liput.konkurssi || liput.voitto {
+                if liput.napit.is_some() || liput.konkurssi || liput.voitto || liput.nimi {
                     peli.kasittele(Syote::Ammu);
                     peli.edista(100_000);
                 }
@@ -634,6 +641,10 @@ fn main() -> ExitCode {
                 if liput.voitto {
                     peli.vaihe = pelit::holdem::peli::Vaihe::Voitto;
                     peli.viesti = kieli::muotoile("holdem.voitto", &[&5000]);
+                }
+                if liput.nimi {
+                    peli.poyta.pelaajat[0].rahat = 1300;
+                    peli.poistu();
                 }
             }
             None => {}

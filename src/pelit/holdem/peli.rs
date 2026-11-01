@@ -4,7 +4,9 @@ use klassikot8000::holdem::{ALKURAHA, Kulku, PELAAJA, PELAAJIA, Poyta, Toimi};
 use super::piirto::{self, kaden_nimi, pelaajan_nimi};
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::piirto::VILKKU_MS;
 use crate::yhteinen::syote::Syote;
+use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
 
 /// Koneen teko, kortin käännös ja käden näyttö etenevät tässä tahdissa.
 const ASKEL_MS: u32 = 900;
@@ -19,6 +21,8 @@ pub enum Vaihe {
     Havio,
     /// Muiden rahat loppuivat.
     Voitto,
+    /// Voitto pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
+    Nimi,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,6 +54,17 @@ pub struct Holdem {
     pub poyta: Poyta,
     /// Oma kokonaispanos kadulla, johon korotus nostaisi.
     pub korotus: u32,
+    pub parhaat: Vec<Tulos>,
+    /// Nettilista. `None`, kunnes palvelin on vastannut.
+    pub netti_parhaat: Option<Vec<Tulos>>,
+    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
+    pub lahetys: Option<Tulos>,
+    /// Kirjoitettavana oleva nimimerkki.
+    pub nimi: String,
+    /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
+    pub uusi_tulos: bool,
+    /// Pelaaja poistuu kesken pelin: nimen jälkeen palataan valikkoon.
+    poistuu: bool,
     pub viesti: String,
     pub lopeta: bool,
     pub aanet_paalla: bool,
@@ -68,6 +83,12 @@ impl Holdem {
             vaihe: Vaihe::Alku,
             poyta: Poyta::new(&mut arpa),
             korotus: 0,
+            parhaat: Vec::new(),
+            netti_parhaat: None,
+            lahetys: None,
+            nimi: String::new(),
+            uusi_tulos: false,
+            poistuu: false,
             viesti: String::new(),
             lopeta: false,
             aanet_paalla: true,
@@ -81,7 +102,56 @@ impl Holdem {
 
     /// Kuva riippuu tästä ja syötteestä. `None`, kun alkuruudun malli pyörii.
     pub fn kuvan_askel(&self) -> Option<u32> {
-        (self.vaihe != Vaihe::Alku).then_some(self.siirtoja)
+        match self.vaihe {
+            Vaihe::Alku => None,
+            Vaihe::Nimi => Some(self.kello_ms / VILKKU_MS),
+            Vaihe::Pelissa | Vaihe::Havio | Vaihe::Voitto => Some(self.siirtoja),
+        }
+    }
+
+    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
+    pub fn nakyva_lista(&self) -> &[Tulos] {
+        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
+    }
+
+    /// Pöydästä lähtö lunastaa voiton. Pöydässä oleva panos jää sinne.
+    pub fn poistu(&mut self) {
+        if self.vaihe == Vaihe::Pelissa
+            && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
+        {
+            self.nimi.clear();
+            self.poistuu = true;
+            self.vaihe = Vaihe::Nimi;
+        } else {
+            self.lopeta = true;
+        }
+    }
+
+    /// Kirjaa odottavan tuloksen.
+    pub fn vahvista_nimi(&mut self) {
+        if self.vaihe != Vaihe::Nimi {
+            return;
+        }
+        let nimi = ota_nimi(&mut self.nimi);
+        let pisteet = self.poyta.pisteet();
+        let tulos = Tulos { nimi, pisteet };
+        lisaa_tulos(&mut self.parhaat, tulos.clone());
+        if let Some(lista) = &mut self.netti_parhaat {
+            lisaa_tulos(lista, tulos.clone());
+        }
+        self.lahetys = Some(tulos);
+        self.uusi_tulos = true;
+        self.vaihe = Vaihe::Voitto;
+        self.lopeta = self.poistuu;
+    }
+
+    fn kasittele_nimi(&mut self, syote: Syote) {
+        match syote {
+            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
+            Syote::Ammu if self.nimi.is_empty() => {}
+            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
+            _ => muokkaa_nimea(&mut self.nimi, syote),
+        }
     }
 
     pub fn napisto(&self) -> Napisto {
@@ -159,6 +229,10 @@ impl Holdem {
             let kaikki = ALKURAHA * PELAAJIA as u32;
             self.viesti = muotoile("holdem.voitto", &[&kaikki]);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            if mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet()) {
+                self.nimi.clear();
+                self.vaihe = Vaihe::Nimi;
+            }
         } else if voitti {
             self.aanijono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
         } else {
@@ -206,14 +280,22 @@ impl Holdem {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
+        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
+        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
+            self.kasittele_nimi(syote);
+            return;
+        }
         if syote == Syote::Peru {
-            self.lopeta = true;
+            self.poistu();
             return;
         }
         let kytkimella =
             matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(self.vaihe, x, y));
         if syote == Syote::VaihdaAanet || kytkimella {
             self.aanet_paalla = !self.aanet_paalla;
+            return;
+        }
+        if self.vaihe == Vaihe::Nimi {
             return;
         }
         if self.vaihe == Vaihe::Alku {
@@ -272,7 +354,7 @@ impl Holdem {
                 _ => {}
             },
             Nappi::Uudestaan if self.napisto() == Napisto::Loppu => self.aloita(),
-            Nappi::Valikko => self.lopeta = true,
+            Nappi::Valikko => self.poistu(),
             _ => {}
         }
     }
@@ -530,11 +612,41 @@ mod tests {
         }
         peli.poyta.pelaajat[PELAAJA].rahat = ALKURAHA * PELAAJIA as u32;
         peli.jako_paattyi();
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
         assert!(peli.aanijono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
         assert_eq!(peli.viesti, muotoile("holdem.voitto", &[&5000]));
         peli.kasittele(Syote::Kirjain('K'));
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        assert!(!peli.lopeta);
+        assert_eq!(peli.parhaat[0].pisteet, 4000);
+        // Kertaalleen kirjattu voitto ei kirjaudu toista kertaa poistuttaessa.
+        peli.lahetys = None;
+        peli.kasittele(Syote::Peru);
+        assert!(peli.lopeta);
+        assert_eq!(peli.lahetys, None);
+
+        peli.lopeta = false;
+        peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
+    }
+
+    #[test]
+    fn voitolla_poistuva_kirjoittaa_nimen_ja_palaa_valikkoon() {
+        let mut peli = omalla_vuorolla(1);
+        peli.poyta.pelaajat[PELAAJA].rahat = ALKURAHA + 300;
+        peli.kasittele(Syote::Peru);
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        // Koneet eivät pelaa nimen aikana, eikä K kippaa.
+        let siirrot = peli.siirtoja;
+        peli.edista(100_000);
+        assert_eq!(peli.siirtoja, siirrot);
+        peli.kasittele(Syote::Kirjain('K'));
+        assert_eq!(peli.poyta.pelaajat[PELAAJA].tila, Tila::Mukana);
+        peli.kasittele(Syote::Ammu);
+        assert!(peli.lopeta);
+        assert_eq!(peli.parhaat[0].nimi, "K");
+        assert_eq!(peli.parhaat[0].pisteet, 300);
     }
 
     #[test]

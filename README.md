@@ -22,7 +22,7 @@ Työnnä lukuja laudalla, yhdistä samat ja tavoittele 2048:aa. Vielä yksi siir
 
 ### Pasianssi
 
-Se tuttu Klondike, jonka kanssa on kulutettu tuhansia työpäiviä. Kolme vaikeustasoa: helpolla nostat kortin kerrallaan ja saat perua, vaikealla nostat kolme, pakan saa käydä läpi kolmesti eikä mitään voi perua.
+Se tuttu Klondike, jonka kanssa on kulutettu tuhansia työpäiviä. Kolme vaikeustasoa: helpolla nostat kortin kerrallaan ja saat perua, vaikealla nostat kolme, pakan saa käydä läpi kolmesti eikä mitään voi perua. Pisteet tulevat ajasta: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
 
 *Hiiri tai nuolet ja välilyönti.*
 
@@ -58,20 +58,20 @@ Se toinen tuttu toimistoklassikko. Numero kertoo, montako miinaa ruudun ympäril
 
 ### Blackjack
 
-Sinä vastaan tietokonejakaja, ja pelivälineenä leikkiraha. Alussa on 300 rahaa ja pienin panos on 1. Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Voit ottaa kortin, jäädä, tuplata tai halkaista parin, ja kun jakajalla on ässä esillä, voit ottaa vakuutuksen. Blackjack maksaa 3:2 ja vakuutus 2:1, ja jakaja jää aina 17:ään. Kengässä on kuusi pakkaa. Kun rahat loppuvat, peli alkaa alusta. Rahat eivät säily, kun poistut valikkoon.
+Sinä vastaan tietokonejakaja, ja pelivälineenä leikkiraha. Alussa on 300 rahaa ja pienin panos on 1. Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Voit ottaa kortin, jäädä, tuplata tai halkaista parin, ja kun jakajalla on ässä esillä, voit ottaa vakuutuksen. Blackjack maksaa 3:2 ja vakuutus 2:1, ja jakaja jää aina 17:ään. Kengässä on kuusi pakkaa. Kun rahat loppuvat, peli alkaa alusta. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
 
 *Hiiri tai näppäimet: nuolet ja 1–4 panokselle, välilyönti jakaa, O ottaa, J jää, T tuplaa, H halkaisee, V vakuuttaa, N ei vakuuta.*
 
 ### Texas Hold'em
 
-No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, ja viimeinen rahoissa voittaa. Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi vie potin. Blindit alkavat 10/20 ja tuplaantuvat kymmenen jaon välein, joten peli päättyy aina. Säännöt ovat turnauksista tutut sivupotteineen, pienimpine korotuksineen ja kuolleine nappeineen. Koneet eivät kurki: ne näkevät vain omat ja yhteiset kortit. Rahat eivät säily, kun poistut valikkoon.
+No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, ja viimeinen rahoissa voittaa. Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi vie potin. Blindit alkavat 10/20 ja tuplaantuvat kymmenen jaon välein, joten peli päättyy aina. Säännöt ovat turnauksista tutut sivupotteineen, pienimpine korotuksineen ja kuolleine nappeineen. Koneet eivät kurki: ne näkevät vain omat ja yhteiset kortit. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
 
 *Hiiri tai näppäimet: V tarkistaa tai maksaa, K kippaa, R korottaa, nuolet ja 1–4 muuttavat korotusta, välilyönti hoputtaa koneita ja jakaa seuraavan käden.*
 
 ## Hyvä tietää
 
 - `Esc` palaa pelistä valikkoon, ja kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
-- Laivanupotusta, Pasianssia, Miinaharavaa, Blackjackia ja Hold'emia lukuun ottamatta peleissä on Top 3 -lista myös netissä. Ilman nettiä pelaat ihan yhtä hyvin.
+- Laivanupotusta ja Miinaharavaa lukuun ottamatta peleissä on Top 3 -lista myös netissä. Ilman nettiä pelaat ihan yhtä hyvin.
 - Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään.
 
 ## Pelaamaan

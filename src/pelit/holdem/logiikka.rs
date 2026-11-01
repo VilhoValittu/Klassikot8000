@@ -313,6 +313,11 @@ impl Poyta {
         self.pelaajat.iter().map(|p| p.yhteensa).sum()
     }
 
+    /// Listan tulos: voitto alkurahoihin nähden. Pöydässä oleva panos ei kuulu rahoihin.
+    pub fn pisteet(&self) -> u32 {
+        self.pelaajat[PELAAJA].rahat.saturating_sub(ALKURAHA)
+    }
+
     pub fn rahoissa(&self) -> usize {
         self.pelaajat.iter().filter(|p| p.rahat > 0).count()
     }
