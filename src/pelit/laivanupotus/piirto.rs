@@ -214,7 +214,7 @@ pub fn piirra(peli: &Peli, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     if peli.vaihe == Vaihe::Alku {
-        p.alkuruutu(peli.vaikeus);
+        p.alkuruutu(peli);
     } else {
         p.pelinakyma(peli);
     }
@@ -227,11 +227,13 @@ pub fn alkumalli() -> Vec<vektori::Tahko> {
 }
 
 impl Piirtaja<'_> {
-    fn alkuruutu(&mut self, vaikeus: Vaikeus) {
+    fn alkuruutu(&mut self, peli: &Peli) {
         self.maisema(kaanna("laivanupotus.banneri"), &alkumalli());
+        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
 
         self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
-        self.tasovalinta(vaikeus);
+        self.tasovalinta(peli.vaikeus);
         self.aloituskehote(ALOITUS);
     }
 
@@ -540,6 +542,10 @@ impl Piirtaja<'_> {
 
     fn paneeli(&mut self, peli: &Peli) {
         self.paneelin_tausta();
+        if peli.vaihe == Vaihe::Nimi {
+            self.nimikysely(peli.pisteet(), &peli.nimi);
+            return;
+        }
 
         let vastaus_kesken = peli.vastaus_kesken();
         let mut y = PANEELI_RIVI_Y;
@@ -570,7 +576,7 @@ impl Piirtaja<'_> {
                 self.suurteksti(TEKSTI_X, y, kaanna(teksti), TULOS, KELTAINEN, true);
                 self.napit(&NAPIT);
             }
-            Vaihe::Voitto | Vaihe::Tappio | Vaihe::Alku => {}
+            Vaihe::Voitto | Vaihe::Tappio | Vaihe::Alku | Vaihe::Nimi => {}
         }
     }
 
@@ -603,6 +609,7 @@ mod tests {
     use super::*;
     use crate::pelit::laivanupotus::peli::tulos_teksti;
     use crate::yhteinen::kieli::kaikilla_kielilla;
+    use klassikot8000::laivanupotus::SUURIN_TULOS;
 
     #[test]
     fn jokainen_ruutu_loytyy_keskipisteestaan() {
@@ -646,6 +653,11 @@ mod tests {
                 let b = tulos_teksti("laivanupotus.vastustaja_ampui", ruutu, tulos);
                 let rivit = rivita(&a, RIVILLE_MERKKEJA).len() + rivita(&b, RIVILLE_MERKKEJA).len();
                 assert!(rivit + 2 <= PANEELI_RIVEJA, "{a} {b}");
+                // Voitossa toisen viestin paikalla on voiton tulos.
+                let voitto = muotoile("laivanupotus.voiton_pisteet", &[&100, &SUURIN_TULOS]);
+                let rivit =
+                    rivita(&a, RIVILLE_MERKKEJA).len() + rivita(&voitto, RIVILLE_MERKKEJA).len();
+                assert!(rivit + 2 <= PANEELI_RIVEJA, "{a} {voitto}");
                 // Nimi ei saa osua tilaston palkkiin.
                 let leveys = laivan_nimi(nimi).chars().count() as i32 * MERKKI;
                 assert!(leveys < TILASTO_PALKKI_X, "{nimi}");
@@ -692,5 +704,17 @@ mod tests {
                 piirra(&peli, &mut kuva);
             }
         }
+        peli.vaihe = Vaihe::Nimi;
+        peli.nimi = "AMIRAALI".to_string();
+        piirra(&peli, &mut kuva);
+        peli.vaihe = Vaihe::Alku;
+        peli.parhaat = vec![
+            crate::yhteinen::tulokset::Tulos {
+                nimi: "AMIRAALI".to_string(),
+                pisteet: SUURIN_TULOS,
+            };
+            3
+        ];
+        piirra(&peli, &mut kuva);
     }
 }

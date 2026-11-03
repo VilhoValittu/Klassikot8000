@@ -36,3 +36,8 @@ test("miinaharavan lista hyväksyy vaikeimman kentän parhaan tuloksen", () => {
   assert.deepEqual(lue_tulos("2997 MIINA", PELIT.miinaharava), { pisteet: 2997, nimi: "MIINA" });
   assert.equal(lue_tulos("3001 MIINA", PELIT.miinaharava), null);
 });
+
+test("laivanupotuksen lista hyväksyy nopeimman vaikean voiton", () => {
+  assert.deepEqual(lue_tulos("252 AMIRAALI", PELIT.laivanupotus), { pisteet: 252, nimi: "AMIRAALI" });
+  assert.equal(lue_tulos("253 A", PELIT.laivanupotus), null);
+});

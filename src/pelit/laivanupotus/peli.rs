@@ -1,14 +1,17 @@
 use klassikot8000::Arpa;
 use klassikot8000::laivanupotus::{
-    KOKO, LAIVAT, Laivasto, Laukaustulos, Ruudut, Ruutu, SARAKKEET, Vaikeus, vastustaja,
+    KOKO, LAIVAT, Laivasto, Laukaustulos, Ruudut, Ruutu, SARAKKEET, Vaikeus, pisteet, vastustaja,
 };
 
 use super::piirto;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::Pelinakyma;
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::Syote;
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 // Kierroksen äänet tulevat peräkkäin, jotta laukaus ja sen seuraus erottuvat.
 pub const TULOS_VIIVE_MS: u32 = 220;
@@ -42,6 +45,15 @@ pub struct Tilasto {
 }
 
 impl Tilasto {
+    /// Tason paras voitto top-listan pisteinä. Nolla, jos voittoa ei ole.
+    pub fn parhaat_pisteet(&self, vaikeus: Vaikeus) -> u32 {
+        if self.vahiten_laukauksia == 0 {
+            0
+        } else {
+            pisteet(vaikeus, self.vahiten_laukauksia)
+        }
+    }
+
     fn kirjaa(&mut self, voitto: bool, laukauksia: u32) {
         if voitto {
             self.voitot += 1;
@@ -70,6 +82,8 @@ pub enum Vaihe {
     Ammunta,
     Voitto,
     Tappio,
+    /// Voitto pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
+    Nimi,
 }
 
 /// Siirrettäväksi nostettu oma laiva. Se seuraa kursoria siitä kohdasta, josta siihen tartuttiin.
@@ -104,6 +118,13 @@ pub struct Peli {
     pub tilastot: [Tilasto; 3],
     /// Tosi, kun päättynyt peli on kirjattu tilastoon: käynnistin tallentaa sen.
     pub uusi_tulos: bool,
+    pub parhaat: Vec<Tulos>,
+    /// Nettilista. `None`, kunnes palvelin on vastannut.
+    pub netti_parhaat: Option<Vec<Tulos>>,
+    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
+    pub lahetys: Option<Tulos>,
+    /// Kirjoitettavana oleva nimimerkki.
+    pub nimi: String,
     arpa: Arpa,
 }
 
@@ -126,7 +147,25 @@ impl Peli {
             kello_ms: 0,
             tilastot: Default::default(),
             uusi_tulos: false,
+            parhaat: Vec::new(),
+            netti_parhaat: None,
+            lahetys: None,
+            nimi: String::new(),
             arpa,
+        }
+    }
+
+    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
+    pub fn nakyva_lista(&self) -> &[Tulos] {
+        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
+    }
+
+    /// Voiton tulos top-listalle. Kesken olevassa tai hävityssä pelissä nolla.
+    pub fn pisteet(&self) -> u32 {
+        if matches!(self.vaihe, Vaihe::Voitto | Vaihe::Nimi) {
+            pisteet(self.vaikeus, self.laukauksia())
+        } else {
+            0
         }
     }
 
@@ -139,6 +178,44 @@ impl Peli {
         let laukauksia = self.laukauksia();
         self.tilastot[tason_numero(self.vaikeus)].kirjaa(voitto, laukauksia);
         self.uusi_tulos = true;
+        if !voitto {
+            return;
+        }
+        let pisteet = self.pisteet();
+        self.viestit[1] = muotoile("laivanupotus.voiton_pisteet", &[&laukauksia, &pisteet]);
+        if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
+            self.nimi.clear();
+            self.vaihe = Vaihe::Nimi;
+        }
+    }
+
+    /// Kirjaa nimeä odottavan voiton.
+    pub fn vahvista_nimi(&mut self) {
+        if self.vaihe != Vaihe::Nimi {
+            return;
+        }
+        let tulos = Tulos {
+            nimi: ota_nimi(&mut self.nimi),
+            pisteet: self.pisteet(),
+        };
+        lisaa_tulos(&mut self.parhaat, tulos.clone());
+        if let Some(lista) = &mut self.netti_parhaat {
+            lisaa_tulos(lista, tulos.clone());
+        }
+        self.lahetys = Some(tulos);
+        self.uusi_tulos = true;
+        self.vaihe = Vaihe::Voitto;
+    }
+
+    /// Kertoo, muuttuiko näkymä.
+    fn kasittele_nimi(&mut self, syote: Syote) -> bool {
+        match syote {
+            // Viimeiseen laukaukseen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
+            Syote::Ammu if self.nimi.is_empty() => return false,
+            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
+            _ => muokkaa_nimea(&mut self.nimi, syote),
+        }
+        true
     }
 
     pub fn edista(&mut self, ms: u32) {
@@ -284,6 +361,10 @@ impl Peli {
 
     /// Käsittelee syötteen ja kertoo, muuttuiko näkymä.
     pub fn kasittele(&mut self, syote: Syote) -> bool {
+        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
+        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
+            return self.kasittele_nimi(syote);
+        }
         if syote == Syote::Peru {
             self.lopeta = true;
             return false;
@@ -298,6 +379,7 @@ impl Peli {
             Vaihe::Sijoitus => self.kasittele_sijoitus(syote),
             Vaihe::Ammunta => self.kasittele_ammunta(syote),
             Vaihe::Voitto | Vaihe::Tappio => self.kasittele_loppu(syote),
+            Vaihe::Nimi => false,
         }
     }
 
@@ -474,6 +556,7 @@ impl Peli {
         });
         if self.vastustaja.kaikki_upotettu() {
             self.vaihe = Vaihe::Voitto;
+            // Kirjaus voi vielä vaihtaa vaiheen nimen kysymiseen.
             self.kirjaa_tulos(true);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
             return;
@@ -570,6 +653,20 @@ impl Pelinakyma for Peli {
 
     fn ota_uusi_tulos(&mut self) -> bool {
         std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Laivanupotus,
+            paras: None,
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
     }
 }
 
@@ -729,7 +826,8 @@ mod tests {
             assert!(peli.uusi_tulos);
             let tilasto = peli.tilastot[0];
             assert_eq!(peli.tilastot[2], Tilasto::default());
-            if peli.vaihe == Vaihe::Voitto {
+            // Tyhjälle listalle jokainen voitto yltää, joten se odottaa nimeä.
+            if peli.vaihe == Vaihe::Nimi {
                 voitot += 1;
                 assert_eq!(tilasto.voitot, 1);
                 assert_eq!(tilasto.vahiten_laukauksia, peli.laukauksia());
@@ -853,9 +951,9 @@ mod tests {
             let omat = peli.oma.ammutut().maara();
             let vastustajan = peli.vastustaja.ammutut().maara();
             match peli.vaihe {
-                Vaihe::Voitto => {
+                Vaihe::Nimi => {
                     voittoja += 1;
-                    assert!(peli.viestit[1].is_empty());
+                    assert!(peli.viestit[1].contains(&peli.pisteet().to_string()));
                     assert_eq!(omat + 1, vastustajan);
                 }
                 Vaihe::Tappio => {
@@ -990,6 +1088,88 @@ mod tests {
         peli.kasittele(Syote::Numero(1));
         assert_eq!(peli.vaikeus, Vaikeus::Normaali);
         assert_eq!(peli.kursori.rivi, 0);
+    }
+
+    /// Ampuu ruudut järjestyksessä, kunnes peli päättyy. `None`, jos se päättyi tappioon.
+    fn voitettu(siemen: u64) -> Option<Peli> {
+        let mut peli = pelissa(siemen);
+        for i in 0..KOKO * KOKO {
+            peli.ammu(Ruutu::new(i / KOKO, i % KOKO).unwrap());
+            if peli.vaihe != Vaihe::Ammunta {
+                break;
+            }
+        }
+        (peli.vaihe != Vaihe::Tappio).then_some(peli)
+    }
+
+    #[test]
+    fn listalle_yltava_voitto_kysyy_nimen_ja_kirjaa_pisteet() {
+        let mut peli = (0..).find_map(voitettu).unwrap();
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        let pisteet = pisteet(peli.vaikeus, peli.laukauksia());
+        assert_eq!(peli.pisteet(), pisteet);
+        // Välilyönti ei kuittaa tyhjää nimeä, eivätkä kirjaimet ammu tai lopeta peliä.
+        assert!(!peli.kasittele(Syote::Ammu));
+        peli.kasittele(Syote::Kirjain('A'));
+        peli.kasittele(Syote::VaihdaAanet);
+        peli.kasittele(Syote::Kirjain('E'));
+        assert!(peli.aanet_paalla);
+        assert!(!peli.lopeta);
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        let tulos = Tulos {
+            nimi: "AME".to_string(),
+            pisteet,
+        };
+        assert_eq!(peli.parhaat, std::slice::from_ref(&tulos));
+        assert_eq!(peli.lahetys, Some(tulos));
+        assert!(peli.uusi_tulos);
+        assert_eq!(peli.pisteet(), pisteet);
+    }
+
+    #[test]
+    fn listalle_yltamaton_voitto_ja_tappio_eivat_kysy_nimea() {
+        let taysi = vec![
+            Tulos {
+                nimi: "X".to_string(),
+                pisteet: 999,
+            };
+            3
+        ];
+        let mut peli = pelissa(0);
+        peli.netti_parhaat = Some(taysi);
+        for i in 0..KOKO * KOKO {
+            peli.ammu(Ruutu::new(i / KOKO, i % KOKO).unwrap());
+            if peli.vaihe != Vaihe::Ammunta {
+                break;
+            }
+        }
+        assert!(matches!(peli.vaihe, Vaihe::Voitto | Vaihe::Tappio));
+        assert_eq!(peli.lahetys, None);
+        if peli.vaihe == Vaihe::Tappio {
+            assert_eq!(peli.pisteet(), 0);
+        }
+    }
+
+    #[test]
+    fn ikkunan_sulkeminen_kirjaa_nimea_odottavan_voiton() {
+        let mut peli = (0..).find_map(voitettu).unwrap();
+        Pelinakyma::viimeistele(&mut peli);
+        assert_eq!(peli.parhaat[0].nimi, "NIMETÖN");
+        let listat = peli.listat();
+        assert_eq!(listat[0].peli, Nettipeli::Laivanupotus);
+        assert!(listat[0].lahetys.as_ref().unwrap().is_some());
+    }
+
+    #[test]
+    fn tilaston_paras_voitto_muuttuu_pisteiksi() {
+        let tilasto = Tilasto {
+            voitot: 2,
+            tappiot: 1,
+            vahiten_laukauksia: 60,
+        };
+        assert_eq!(tilasto.parhaat_pisteet(Vaikeus::Vaikea), 123);
+        assert_eq!(Tilasto::default().parhaat_pisteet(Vaikeus::Vaikea), 0);
     }
 
     #[test]

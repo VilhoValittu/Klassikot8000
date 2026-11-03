@@ -69,6 +69,8 @@ pub struct Liput {
     pub kadet: Option<usize>,
     /// Blackjack ja Hold'em: aloittaa pelin, jossa rahat ovat juuri loppuneet.
     pub konkurssi: bool,
+    /// Toimintapelit ja Palikka: painaa lopuksi Esc, joten kuvassa on tauko.
+    pub tauko: bool,
     /// Kuvakaappauksen hetki viimeisen laukauksen jälkeen, animaatioiden tarkistukseen.
     pub aika_ms: u32,
 }
@@ -138,6 +140,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         napit: None,
         kadet: None,
         konkurssi: false,
+        tauko: false,
         aika_ms: OLETUSAIKA_MS,
     };
     let mut args = std::env::args().skip(1);
@@ -202,6 +205,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             "--keys" => liput.napit = Some(arvo),
             "--hands" => liput.kadet = Some(arvo.parse().map_err(|_| "--hands: ei luku")?),
             "--broke" => liput.konkurssi = arvo == "1",
+            "--pause" => liput.tauko = arvo == "1",
             "--board" => {
                 let luvut = arvo
                     .split(',')

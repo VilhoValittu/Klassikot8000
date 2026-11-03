@@ -80,7 +80,8 @@ pub struct Tallennus {
 }
 
 /// Listan rivien avaimet tiedostossa: erillinen ennätys, top 3 ja jono. Vanhat nimet
-/// säilyvät, jotta aiempi tallennus kelpaa.
+/// säilyvät, jotta aiempi tallennus kelpaa. Ennätys on oma paras tulos silloinkin, kun se ei
+/// yltänyt listalle.
 fn avaimet(peli: Nettipeli) -> (Option<&'static str>, &'static str, &'static str) {
     match peli {
         Nettipeli::Luvut => (Some("paras"), "top", "lukujono"),
@@ -88,13 +89,15 @@ fn avaimet(peli: Nettipeli) -> (Option<&'static str>, &'static str, &'static str
         Nettipeli::Asteroidit => (Some("asteroidit"), "asteroiditop", "asteroidijono"),
         Nettipeli::Silmukka => (Some("silmukka"), "silmukkatop", "silmukkajono"),
         Nettipeli::Palikka => (Some("palikka"), "palikkatop", "palikkajono"),
-        Nettipeli::Pasianssi => (None, "pasianssitop", "pasianssijono"),
-        Nettipeli::Spider => (None, "spidertop", "spiderjono"),
-        Nettipeli::Pyramidi => (None, "pyramiditop", "pyramidijono"),
+        Nettipeli::Pasianssi => (Some("pasianssiparas"), "pasianssitop", "pasianssijono"),
+        Nettipeli::Spider => (Some("spiderparas"), "spidertop", "spiderjono"),
+        Nettipeli::Pyramidi => (Some("pyramidiparas"), "pyramiditop", "pyramidijono"),
         Nettipeli::Haasteet => (None, "haastetop", "haastejono"),
-        Nettipeli::Blackjack => (None, "blackjacktop", "blackjackjono"),
-        Nettipeli::Holdem => (None, "holdemtop", "holdemjono"),
+        Nettipeli::Blackjack => (Some("blackjackparas"), "blackjacktop", "blackjackjono"),
+        Nettipeli::Holdem => (Some("holdemparas"), "holdemtop", "holdemjono"),
+        // Miinaharavan ja laivanupotuksen ennätys lasketaan niiden omista tilastoista.
         Nettipeli::Miinaharava => (None, "miinatop", "miinajono"),
+        Nettipeli::Laivanupotus => (None, "laivatop", "laivajono"),
     }
 }
 

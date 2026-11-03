@@ -498,6 +498,7 @@ impl Piirtaja<'_> {
         let otsikko_y = alarivi - RIVIN_KORKEUS - 12;
         match peli.vaihe {
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
+            Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {

@@ -233,11 +233,16 @@ pub const SUURI: (i32, i32, i32) = (30, 45, 39);
 pub const OTSIKKO: (i32, i32, i32) = (15, 21, 21);
 pub const TULOS: (i32, i32, i32) = (12, 18, 18);
 
-const PARHAAT_RIVI: i32 = 26;
+pub const PARHAAT_RIVI: i32 = 26;
+/// Listan otsikon ja ensimmäisen rivin väli.
+pub const PARHAAT_OTSIKKO: i32 = 30;
 // Alkuruudulla lista on maiseman vasemmassa laidassa, pyörivän mallin vieressä.
 const ALKU_PARHAAT: (i32, i32, i32, i32) = (36, 204, 318, 126);
 const NIMI_OTSIKKO: &str = "yhteinen.nimi_otsikko";
 pub const NIMI_OHJE: &str = "yhteinen.nimi_ohje";
+pub const TAUKO: &str = "yhteinen.tauko";
+pub const TAUON_OHJE: &str = "yhteinen.tauon_ohje";
+pub const TAUON_PALUU: &str = "yhteinen.takaisin";
 const NIMI_IKKUNA_L: i32 = 912;
 const NIMI_IKKUNA_K: i32 = 120;
 
@@ -837,8 +842,20 @@ impl Piirtaja<'_> {
         parhaat: &[Tulos],
     ) {
         self.teksti(x, y, otsikko, KELTAINEN);
+        self.parhaat_rivit(x, y + PARHAAT_OTSIKKO, leveys, koko, parhaat);
+    }
+
+    /// Listan rivit ilman otsikkoa, ensimmäinen kohdassa `y`.
+    pub fn parhaat_rivit(
+        &mut self,
+        x: i32,
+        y: i32,
+        leveys: i32,
+        koko: (i32, i32, i32),
+        parhaat: &[Tulos],
+    ) {
         for i in 0..PARHAITA {
-            let rivi_y = y + 30 + i as i32 * PARHAAT_RIVI;
+            let rivi_y = y + i as i32 * PARHAAT_RIVI;
             let tulos = parhaat.get(i);
             let nimi = tulos.map_or("-", |t| t.nimi.as_str());
             let vasen = format!("{} {nimi}", i + 1);
@@ -856,6 +873,16 @@ impl Piirtaja<'_> {
         let (x, y, l, k) = ALKU_PARHAAT;
         self.ikkuna(x, y, l, k);
         self.parhaat_lista(x + 12, y + 9, l - 24, TULOS, otsikko, parhaat);
+    }
+
+    /// Paneelin sisältö tauolla: otsikko, jatkamisen ohje ja paluu valikkoon. Esc pysäyttää
+    /// pelin ensin, joten vasta toinen painallus palaa valikkoon.
+    pub fn tauko(&mut self) {
+        let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
+        let otsikko_y = alarivi - 2 * RIVIN_KORKEUS - 12;
+        self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
+        self.teksti(TEKSTI_X, alarivi - RIVIN_KORKEUS, kaanna(TAUON_OHJE), HUTI);
+        self.teksti(TEKSTI_X, alarivi, kaanna(TAUON_PALUU), HUTI);
     }
 
     /// Paneelin sisältö, kun tulos pääsi listalle ja odottaa nimimerkkiä.

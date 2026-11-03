@@ -13,8 +13,15 @@ use crate::yhteinen::tulokset::{Nettipeli, Tulos, lista_tekstista};
 
 #[cfg(not(debug_assertions))]
 pub const OSOITE: &str = "https://klassikot8000-tulokset.palvelin.workers.dev";
+macro_rules! julkaisut {
+    () => {
+        "https://github.com/VilhoValittu/Klassikot8000"
+    };
+}
 #[cfg(not(debug_assertions))]
-pub const JULKAISUT: &str = "https://github.com/VilhoValittu/Klassikot8000";
+pub const JULKAISUT: &str = julkaisut!();
+/// Sivu, jonka valikon ilmoitus uudesta versiosta avaa selaimeen.
+pub const JULKAISUSIVU: &str = concat!(julkaisut!(), "/releases/latest");
 /// Julkaisun tagi on tämä luku v-etuliitteellä: `julkaisu.yml` tarkistaa, että ne täsmäävät.
 pub const VERSIO: &str = env!("CARGO_PKG_VERSION");
 const AIKARAJA: Duration = Duration::from_secs(8);

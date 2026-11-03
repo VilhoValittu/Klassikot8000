@@ -136,7 +136,7 @@ fn tason_kuvaus(variantti: Variantti, vaikeus: Vaikeus) -> &'static str {
     }
 }
 
-fn lajin_nimi(variantti: Variantti) -> &'static str {
+pub fn lajin_nimi(variantti: Variantti) -> &'static str {
     let (_, avain, _) = VARIANTIT[variantti as usize];
     kaanna(avain)
 }

@@ -261,7 +261,12 @@ impl Asteroidit {
             return;
         }
         if syote == Syote::Peru {
-            self.poistu();
+            // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
+            if self.vaihe == Vaihe::Pelissa {
+                self.vaihe = Vaihe::Tauko;
+            } else {
+                self.poistu();
+            }
             return;
         }
         let kytkimella = matches!(syote, Syote::Klikkaus(x, y) if aanikytkimella(x, y));
@@ -574,8 +579,11 @@ mod tests {
     }
 
     #[test]
-    fn esc_kesken_pelin_kysyy_nimen_ja_pysayttaa_pelin() {
+    fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
         let mut peli = paattyva(500);
+        peli.kasittele(Syote::Peru);
+        assert_eq!(peli.vaihe, Vaihe::Tauko);
+        assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         assert!(!peli.lopeta);
@@ -602,6 +610,8 @@ mod tests {
             3
         ]);
         peli.kasittele(Syote::Peru);
+        assert!(!peli.lopeta);
+        peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
         assert_eq!(peli.lahetys, None);
 
@@ -624,7 +634,14 @@ mod tests {
         peli.kasittele(Syote::Klikkaus(x, y));
         assert!(peli.lopeta);
 
+        // Esc pysäyttää, välilyönti jatkaa ja tauon aikana Esc palaa valikkoon.
         let mut peli = pelissa();
+        peli.kasittele(Syote::Peru);
+        assert_eq!(peli.vaihe, Vaihe::Tauko);
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Pelissa);
+        peli.kasittele(Syote::Peru);
+        assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
     }

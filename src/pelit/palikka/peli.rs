@@ -30,6 +30,8 @@ const HELINAT: [Aani; 6] = [
 pub enum Vaihe {
     Alku,
     Pelissa,
+    /// Esc pysäytti pelin: toinen Esc palaa valikkoon, muu jatkaa.
+    Tauko,
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
@@ -239,7 +241,7 @@ impl Palikkapeli {
 
     /// Esc tai ikkunan sulkeminen kesken pelin: listalle yltävä tulos ei saa kadota.
     pub fn poistu(&mut self) {
-        if self.vaihe == Vaihe::Pelissa
+        if matches!(self.vaihe, Vaihe::Pelissa | Vaihe::Tauko)
             && mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet)
         {
             self.nimi.clear();
@@ -278,7 +280,12 @@ impl Palikkapeli {
             return;
         }
         if syote == Syote::Peru {
-            self.poistu();
+            // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
+            if self.vaihe == Vaihe::Pelissa {
+                self.vaihe = Vaihe::Tauko;
+            } else {
+                self.poistu();
+            }
             return;
         }
         let kytkimella = matches!(syote, Syote::Klikkaus(x, y) if aanikytkimella(x, y));
@@ -293,6 +300,14 @@ impl Palikkapeli {
                 }
             }
             Vaihe::Pelissa => self.kasittele_pelissa(syote),
+            Vaihe::Tauko => {
+                if matches!(
+                    syote,
+                    Syote::Ammu | Syote::Klikkaus(..) | Syote::Kirjain('P')
+                ) {
+                    self.vaihe = Vaihe::Pelissa;
+                }
+            }
             Vaihe::Tappio => self.kasittele_loppu(syote),
             Vaihe::Nimi => {}
         }
@@ -704,9 +719,18 @@ mod tests {
     }
 
     #[test]
-    fn esc_kesken_pelin_kysyy_nimen_ja_palaa_valikkoon() {
+    fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
         let mut peli = pelissa();
         peli.lauta.pisteet = 500;
+        peli.kasittele(Syote::Peru);
+        assert_eq!(peli.vaihe, Vaihe::Tauko);
+        // Tauolla lauta ei ota siirtoja, ja klikkaus jatkaa peliä.
+        peli.kasittele(Syote::Klikkaus(0, 0));
+        assert_eq!(peli.vaihe, Vaihe::Pelissa);
+        peli.kasittele(Syote::Peru);
+        peli.kasittele(Syote::Nuoli(0, 1));
+        assert_eq!(peli.vaihe, Vaihe::Tauko);
+        assert!(!peli.kursori_nakyy);
         peli.kasittele(Syote::Peru);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         assert!(!peli.lopeta);
@@ -715,8 +739,10 @@ mod tests {
         assert!(peli.lopeta);
         assert_eq!(peli.parhaat[0].nimi, "B");
 
-        // Ilman pisteitä poistutaan heti.
+        // Ilman pisteitä toinen Esc poistuu heti.
         let mut peli = pelissa();
+        peli.kasittele(Syote::Peru);
+        assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
         assert_eq!(peli.lahetys, None);

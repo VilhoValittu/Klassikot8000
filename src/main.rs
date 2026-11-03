@@ -10,8 +10,9 @@ use std::mem::{ManuallyDrop, take};
 use std::path::Path;
 #[cfg(debug_assertions)]
 use std::path::PathBuf;
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Scale, Window, WindowOptions};
@@ -21,7 +22,7 @@ use tinyaudio::{OutputDevice, OutputDeviceParameters, run_output_device};
 use kaynnistin::Kaynnissa;
 #[cfg(debug_assertions)]
 use kaynnistin::netti::Vastaus;
-use kaynnistin::netti::{Netti, Pyynto};
+use kaynnistin::netti::{JULKAISUSIVU, Netti, Pyynto};
 use kaynnistin::tallennus;
 use kaynnistin::{Kaynnistin, piirto};
 #[cfg(debug_assertions)]
@@ -182,6 +183,24 @@ fn tallenna(polku: Option<&Path>, kaynnistin: &Kaynnistin) {
     }
 }
 
+/// Avaa osoitteen oletusselaimeen. Epäonnistuminen ei haittaa peliä, joten siitä vain kerrotaan.
+fn avaa_selaimessa(osoite: &str) {
+    let ohjelma = if cfg!(windows) {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    match Command::new(ohjelma).arg(osoite).spawn() {
+        // Odotus omassa säikeessään, jottei päättynyt prosessi jää roikkumaan eikä peli nyi.
+        Ok(mut lapsi) => {
+            thread::spawn(move || lapsi.wait());
+        }
+        Err(virhe) => eprintln!("{ohjelma}: {virhe}"),
+    }
+}
+
 /// Välittää pyynnöt verkkosäikeelle ja ottaa sen vastaukset. Ilman verkkoa pyynnöt vain unohtuvat.
 fn vaihda_netin_kanssa(kaynnistin: &mut Kaynnistin, netti: Option<&Netti>) {
     let pyynnot = take(&mut kaynnistin.pyynnot);
@@ -299,6 +318,9 @@ fn pelisilmukka(
 
         if take(&mut kaynnistin.tallenna) {
             tallenna(polku, &kaynnistin);
+        }
+        if take(&mut kaynnistin.avaa_julkaisut) {
+            avaa_selaimessa(JULKAISUSIVU);
         }
 
         if kaynnistin.otsikko() != otsikko {
@@ -682,6 +704,11 @@ fn main() -> ExitCode {
                 }
             }
             None => {}
+        }
+        if liput.tauko
+            && let Some(peli) = &mut kaynnistin.peli
+        {
+            peli.nakyma_mut().kasittele(Syote::Peru);
         }
         kaynnistin.ota_aanet();
         if let Some(versio) = liput.uusi_versio {

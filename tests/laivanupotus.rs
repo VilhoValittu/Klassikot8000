@@ -1,6 +1,7 @@
 use klassikot8000::Arpa;
 use klassikot8000::laivanupotus::{
-    KOKO, LAIVAT, Laivasto, Laukaustulos, Ruudut, Ruutu, Vaikeus, vastustaja,
+    KOKO, LAIVARUUTUJA, LAIVAT, Laivasto, Laukaustulos, Ruudut, Ruutu, SUURIN_TULOS, Vaikeus,
+    pisteet, vastustaja,
 };
 
 fn kaikki_ruudut() -> impl Iterator<Item = Ruutu> {
@@ -249,4 +250,24 @@ fn siirto_kelpaa_vain_koskematta_muihin_ja_ennen_laukauksia() {
     assert_eq!(laivasto.laiva_ruudussa(alku), Some(4));
     laivasto.kasittele_laukaus(Ruutu::new(0, 0).unwrap());
     assert!(!laivasto.siirra(4, paikallaan));
+}
+
+#[test]
+fn voiton_pisteet_kasvavat_saastetyista_laukauksista_ja_tasosta() {
+    let ruutuja: usize = LAIVAT.iter().map(|&(_, pituus)| pituus).sum();
+    assert_eq!(ruutuja as u32, LAIVARUUTUJA);
+    assert_eq!(pisteet(Vaikeus::Helppo, 100), 1);
+    assert_eq!(pisteet(Vaikeus::Helppo, 60), 41);
+    assert_eq!(pisteet(Vaikeus::Normaali, 60), 82);
+    assert_eq!(pisteet(Vaikeus::Vaikea, 60), 123);
+    assert_eq!(SUURIN_TULOS, 252);
+    // mahdoton laukausmäärä ei voi ylivuotaa
+    assert_eq!(pisteet(Vaikeus::Vaikea, 1000), 3);
+    for vaikeus in Vaikeus::KAIKKI {
+        for laukauksia in LAIVARUUTUJA..=KOKO as u32 * KOKO as u32 {
+            let nyt = pisteet(vaikeus, laukauksia);
+            assert!(nyt > 0 && nyt <= SUURIN_TULOS);
+            assert!(nyt > pisteet(vaikeus, laukauksia + 1) || laukauksia == 100);
+        }
+    }
 }

@@ -2,12 +2,15 @@
 
 use std::sync::LazyLock;
 
+use klassikot8000::laivanupotus::Vaikeus;
+
 use super::netti::VERSIO;
 use super::{Kaynnistin, PELIT};
+use crate::pelit::laivanupotus::peli::Tilasto;
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::Rasteri;
-use crate::yhteinen::tulokset::Tulos;
+use crate::yhteinen::tulokset::{PARHAITA, Tulos};
 use crate::yhteinen::vektori::{Kangas, Tahko};
 
 // Käynnistin piirtää suoraan ruudulle, joten mitat ovat ruudun pikseleitä.
@@ -56,7 +59,9 @@ const PANEELI_X: i32 = 800;
 const PANEELI_L: i32 = 1072;
 const PANEELI_YLA: i32 =
     KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K - PANEELI_KORKEUS;
-const PANEELI_KORKEUS: i32 = 180;
+// Korkeus mahduttaa lajin nimen ja oman ennätyksen listan ympärille sekä laivanupotuksen
+// tilaston kuvauksen alle. Malli mahtuu silti paneelin yläpuolelle.
+const PANEELI_KORKEUS: i32 = 240;
 const PANEELI_SISENNYS: i32 = 24;
 
 const TEKSTIN_KERROIN: i32 = 4;
@@ -67,8 +72,23 @@ const KAPEA_KUVAUS_MERKKEJA: usize =
     ((PANEELI_L - 3 * PANEELI_SISENNYS - LISTA_L) / SUURI_MERKKI) as usize;
 
 const LISTA_L: i32 = 350;
-const LISTA_Y: i32 = 24;
 const LISTA_KOKO: (i32, i32, i32) = (14, 21, 20);
+/// Lajin nimi on otsikon alla omalla rivillään.
+const LISTA_RIVI: i32 = PARHAAT_OTSIKKO;
+/// Oma ennätys erottuu listasta pienellä välillä.
+const OMA_VALI: i32 = 6;
+const OMA_PARAS: &str = "valikko.oma_paras";
+
+// Laivanupotuksen tilasto kuvauksen alla: tasot riveinä, sarakkeiden oikeat reunat.
+const TAULUKON_VALI: i32 = 16;
+const TAULUKON_SARAKKEET: [(&str, i32); 3] = [
+    ("valikko.voitot", 360),
+    ("valikko.tappiot", 530),
+    ("yhteinen.paras", 650),
+];
+const TASOJEN_NIMET: [&str; 3] = ["yhteinen.helppo", "yhteinen.normaali", "yhteinen.vaikea"];
+/// Otsikkorivi ja kolme tasoa.
+const TAULUKON_KORKEUS: i32 = 3 * PARHAAT_RIVI + LISTA_KOKO.1;
 
 const ALAPALKKI_Y: i32 = 976;
 const OHJE_X: i32 = 48;
@@ -85,6 +105,45 @@ const VERSIO_Y: i32 = KIELI_Y + (NAPPI_K - MERKKI) / 2;
 const ILMOITUS_Y: i32 = 141;
 const ILMOITUS_K: i32 = 28;
 const ILMOITUS_SISENNYS: i32 = 12;
+
+/// Uuden version ilmoituksen kehys: (x, leveys). Leveys seuraa tekstiä.
+fn ilmoituksen_alue(versio: &str) -> (i32, i32) {
+    let leveys = muotoile("valikko.uusi_versio", &[&versio]).chars().count() as i32 * MERKKI;
+    let x = (RUUTU_L - leveys) / 2;
+    (x - ILMOITUS_SISENNYS, leveys + 2 * ILMOITUS_SISENNYS)
+}
+
+/// Ilmoitusta klikkaamalla pääsee julkaisusivulle.
+pub fn ilmoituksella(x: i32, y: i32, versio: &str) -> bool {
+    let (vasen, leveys) = ilmoituksen_alue(versio);
+    (vasen..vasen + leveys).contains(&x) && (ILMOITUS_Y..ILMOITUS_Y + ILMOITUS_K).contains(&y)
+}
+
+#[cfg(test)]
+pub fn ilmoituksen_keskipiste(versio: &str) -> (i32, i32) {
+    let (vasen, leveys) = ilmoituksen_alue(versio);
+    (vasen + leveys / 2, ILMOITUS_Y + ILMOITUS_K / 2)
+}
+
+/// Listan korkeus otsikosta viimeisen rivin alareunaan.
+fn listan_korkeus(laji: bool, oma: bool) -> i32 {
+    let rivit = if oma {
+        PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI
+    } else {
+        (PARHAITA as i32 - 1) * PARHAAT_RIVI
+    };
+    (1 + laji as i32) * LISTA_RIVI + rivit + LISTA_KOKO.1
+}
+
+/// Kuvauksen ja mahdollisen tilaston yhteinen korkeus.
+fn kuvauksen_korkeus(riveja: usize, tilasto: bool) -> i32 {
+    let kuvaus = riveja as i32 * KUVAUS_RIVI - (KUVAUS_RIVI - SUURI_MERKKI);
+    if tilasto {
+        kuvaus + TAULUKON_VALI + TAULUKON_KORKEUS
+    } else {
+        kuvaus
+    }
+}
 
 /// Kytkin on äänikytkimen vasemmalla puolella, ja sen leveys seuraa tekstiä.
 fn kielikytkimen_x() -> i32 {
@@ -157,8 +216,8 @@ impl Piirtaja<'_> {
         self.valikon_otsikko(kaanna("valikko.banneri"));
         let versio = muotoile("valikko.versio", &[&VERSIO]);
         self.teksti(OHJE_X, VERSIO_Y, &versio, VALKOINEN);
-        if let Some(uusi) = &kaynnistin.uusi_versio {
-            self.versioilmoitus(uusi);
+        if let Some(uusi) = kaynnistin.uusi_versio() {
+            self.versioilmoitus(uusi, kaynnistin.ilmoitus_alla());
         }
         for paikka in 0..NAKYVIA_KORTTEJA as usize {
             let i = kaynnistin.alku + paikka;
@@ -166,10 +225,7 @@ impl Piirtaja<'_> {
         }
         let alempana = kaynnistin.alku + NAKYVIA < PELIT.len();
         self.vieritysnuolet(kaynnistin.alku > 0, alempana);
-        self.kuvauspaneeli(
-            PELIT[kaynnistin.valittu].kuvaus,
-            kaynnistin.valitun_parhaat(),
-        );
+        self.kuvauspaneeli(kaynnistin);
         self.ohjepalkki(kaanna("valikko.ohje"));
     }
 
@@ -190,14 +246,14 @@ impl Piirtaja<'_> {
         self.suurteksti(x, OTSIKKO_Y, teksti, OTSIKKO_KOKO, KELTAINEN, true);
     }
 
-    fn versioilmoitus(&mut self, versio: &str) {
+    /// Hiiren alla ilmoitus vaalenee kuin painike, koska klikkaus avaa julkaisusivun.
+    fn versioilmoitus(&mut self, versio: &str, hiiren_alla: bool) {
         let teksti = muotoile("valikko.uusi_versio", &[&versio]);
-        let leveys = teksti.chars().count() as i32 * MERKKI;
-        let x = (RUUTU_L - leveys) / 2;
-        let (reuna_x, reuna_l) = (x - ILMOITUS_SISENNYS, leveys + 2 * ILMOITUS_SISENNYS);
-        self.nappitausta(reuna_x, ILMOITUS_Y, reuna_l, ILMOITUS_K, KELTAINEN);
+        let (reuna_x, reuna_l) = ilmoituksen_alue(versio);
+        let tausta = if hiiren_alla { VALKOINEN } else { KELTAINEN };
+        self.nappitausta(reuna_x, ILMOITUS_Y, reuna_l, ILMOITUS_K, tausta);
         let y = ILMOITUS_Y + (ILMOITUS_K - MERKKI) / 2;
-        self.teksti(x, y, &teksti, MUSTA);
+        self.teksti(reuna_x + ILMOITUS_SISENNYS, y, &teksti, MUSTA);
     }
 
     /// Kortti näkyvällä `paikka`lla. `i` on pelin järjestysnumero `PELIT`-listassa.
@@ -257,27 +313,89 @@ impl Piirtaja<'_> {
         }
     }
 
-    /// Kuvaus keskellä paneelia. Jos pelillä on tuloksia, ne vievät paneelin oikean laidan:
-    /// nettilista, kun se on saapunut, muuten omat tulokset.
-    fn kuvauspaneeli(&mut self, kuvaus: &str, parhaat: Option<(bool, &[Tulos])>) {
+    /// Kuvaus vasemmalla, laivanupotuksella tilasto sen alla. Jos pelillä on tuloksia, ne vievät
+    /// paneelin oikean laidan: nettilista, kun se on saapunut, muuten omat tulokset.
+    fn kuvauspaneeli(&mut self, kaynnistin: &Kaynnistin) {
         self.ikkuna(PANEELI_X, PANEELI_YLA, PANEELI_L, PANEELI_KORKEUS);
-        let merkkeja = if let Some((netista, parhaat)) = parhaat {
-            let x = PANEELI_X + PANEELI_L - PANEELI_SISENNYS - LISTA_L;
-            let y = PANEELI_YLA + LISTA_Y;
-            let otsikko = listan_otsikko(netista);
-            self.parhaat_lista(x, y, LISTA_L, LISTA_KOKO, otsikko, parhaat);
+        let merkkeja = if let Some((netista, parhaat)) = kaynnistin.valitun_parhaat() {
+            self.valikon_lista(
+                netista,
+                kaynnistin.valikon_listan_laji(),
+                parhaat,
+                kaynnistin.valitun_oma_paras(),
+            );
             KAPEA_KUVAUS_MERKKEJA
         } else {
             KUVAUS_MERKKEJA
         };
-        let rivit = rivita(kaanna(kuvaus), merkkeja);
+        let rivit = rivita(kaanna(PELIT[kaynnistin.valittu].kuvaus), merkkeja);
+        let tilastot = kaynnistin.valitun_tilastot();
+        let korkeus = kuvauksen_korkeus(rivit.len(), tilastot.is_some());
         let x = PANEELI_X + PANEELI_SISENNYS;
-        let korkeus = rivit.len() as i32 * KUVAUS_RIVI - (KUVAUS_RIVI - SUURI_MERKKI);
         let mut y = PANEELI_YLA + (PANEELI_KORKEUS - korkeus) / 2;
         for rivi in rivit {
             self.teksti_koossa(x, y, rivi, TEKSTIN_KERROIN, VALKOINEN);
             y += KUVAUS_RIVI;
         }
+        if let Some(tilastot) = tilastot {
+            let y = y - (KUVAUS_RIVI - SUURI_MERKKI) + TAULUKON_VALI;
+            self.laivatilasto(x, y, tilastot);
+        }
+    }
+
+    /// Lista paneelin oikeassa laidassa pystysuunnassa keskellä. Otsikon alla on lajin nimi,
+    /// kun pelin lajeilla on omat listansa, ja listan alla oma ennätys, kun sellainen on.
+    fn valikon_lista(
+        &mut self,
+        netista: bool,
+        laji: Option<&str>,
+        parhaat: &[Tulos],
+        oma: Option<u32>,
+    ) {
+        let x = PANEELI_X + PANEELI_L - PANEELI_SISENNYS - LISTA_L;
+        let korkeus = listan_korkeus(laji.is_some(), oma.is_some());
+        let mut y = PANEELI_YLA + (PANEELI_KORKEUS - korkeus) / 2;
+        self.teksti(x, y, listan_otsikko(netista), KELTAINEN);
+        y += LISTA_RIVI;
+        if let Some(laji) = laji {
+            self.teksti(x, y, laji, LAVENTELI);
+            y += LISTA_RIVI;
+        }
+        self.parhaat_rivit(x, y, LISTA_L, LISTA_KOKO, parhaat);
+        if let Some(oma) = oma {
+            let y = y + PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI;
+            self.suurteksti(x, y, kaanna(OMA_PARAS), LISTA_KOKO, LAVENTELI, false);
+            self.oikealle(x + LISTA_L, y, &oma.to_string(), KELTAINEN);
+        }
+    }
+
+    /// Voitot, tappiot ja paras voitto pisteinä kultakin tasolta.
+    fn laivatilasto(&mut self, x: i32, y: i32, tilastot: &[Tilasto; 3]) {
+        for (avain, oikea) in TAULUKON_SARAKKEET {
+            self.oikealle(x + oikea, y, kaanna(avain), KELTAINEN);
+        }
+        for (i, (tilasto, taso)) in tilastot.iter().zip(Vaikeus::KAIKKI).enumerate() {
+            let y = y + (i as i32 + 1) * PARHAAT_RIVI;
+            self.suurteksti(x, y, kaanna(TASOJEN_NIMET[i]), LISTA_KOKO, VALKOINEN, false);
+            let paras = match tilasto.parhaat_pisteet(taso) {
+                0 => "-".to_string(),
+                pisteet => pisteet.to_string(),
+            };
+            let arvot = [
+                tilasto.voitot.to_string(),
+                tilasto.tappiot.to_string(),
+                paras,
+            ];
+            for (arvo, (_, oikea)) in arvot.iter().zip(TAULUKON_SARAKKEET) {
+                self.oikealle(x + oikea, y, arvo, VALKOINEN);
+            }
+        }
+    }
+
+    /// Listan kokoinen teksti, jonka oikea reuna on kohdassa `oikea`.
+    fn oikealle(&mut self, oikea: i32, y: i32, teksti: &str, vari: u32) {
+        let x = oikea - teksti.chars().count() as i32 * LISTA_KOKO.2;
+        self.suurteksti(x, y, teksti, LISTA_KOKO, vari, false);
     }
 
     fn ohjepalkki(&mut self, ohje: &str) {
@@ -353,6 +471,44 @@ mod tests {
             let ilmoitus = muotoile("valikko.uusi_versio", &[&"100.100.100"]);
             let leveys = ilmoitus.chars().count() as i32 * MERKKI + 2 * ILMOITUS_SISENNYS;
             assert!(leveys <= RUUTU_L);
+        });
+    }
+
+    #[test]
+    fn paneelin_lista_ja_laivanupotuksen_tilasto_mahtuvat_kummallakin_kielella() {
+        let sisa = PANEELI_KORKEUS - 2 * PANEELI_SISENNYS;
+        assert!(listan_korkeus(true, true) <= sisa);
+        let vasen_l = PANEELI_L - 3 * PANEELI_SISENNYS - LISTA_L;
+        let leveys = |teksti: &str| teksti.chars().count() as i32 * LISTA_KOKO.2;
+        kaikilla_kielilla(|| {
+            let kuvaus = rivita(kaanna(PELIT[0].kuvaus), KAPEA_KUVAUS_MERKKEJA).len();
+            assert!(kuvauksen_korkeus(kuvaus, true) <= sisa);
+            // Sarakkeiden väliin jää vähintään merkin verran tilaa, myös nelinumeroisille luvuille.
+            let tasot = TASOJEN_NIMET.map(|avain| leveys(kaanna(avain)));
+            let mut edellinen = *tasot.iter().max().unwrap();
+            for (avain, oikea) in TAULUKON_SARAKKEET {
+                let sarake = leveys(kaanna(avain)).max(leveys("9999"));
+                assert!(edellinen + LISTA_KOKO.2 <= oikea - sarake, "{avain}");
+                edellinen = oikea;
+            }
+            assert!(edellinen <= vasen_l);
+            let oma = leveys(kaanna(OMA_PARAS)) + LISTA_KOKO.2 + leveys("1000000");
+            assert!(oma <= LISTA_L);
+            for variantti in klassikot8000::pasianssi::Variantti::KAIKKI {
+                let laji = crate::pelit::pasianssi::piirto::lajin_nimi(variantti);
+                assert!(laji.chars().count() as i32 * MERKKI <= LISTA_L, "{laji}");
+            }
+        });
+    }
+
+    #[test]
+    fn ilmoitus_loytyy_eika_osu_kortteihin() {
+        kaikilla_kielilla(|| {
+            let (x, y) = ilmoituksen_keskipiste("100.100.100");
+            assert!(ilmoituksella(x, y, "100.100.100"));
+            assert_eq!(kortti_pisteesta(x, y), None);
+            assert!(!ilmoituksella(x, KORTTI_Y, "100.100.100"));
+            assert!(!ilmoituksella(x, ILMOITUS_Y - 1, "100.100.100"));
         });
     }
 

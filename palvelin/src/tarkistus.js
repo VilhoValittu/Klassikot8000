@@ -3,6 +3,7 @@
 // voitettu vaikea peli, ja Hold'emissa voi voittaa vain neljän koneen rahat. Haasteissa tulos on
 // 60 haasteen summa, joten sama pelaaja nostaa omaa tulostaan: `YKSI_PER_NIMI` pitää listan
 // tasapuolisena. Miinaharavan huippu on sekunnissa voitettu vaikea kenttä (999 * 3).
+// Laivanupotuksen huippu on vaikean tason voitto 17 laukauksella ((101 - 17) * 3).
 export const PELIT = {
   luvut: 4000000,
   tiilirikko: 1000000,
@@ -16,6 +17,7 @@ export const PELIT = {
   blackjack: 1000000,
   holdem: 4000,
   miinaharava: 3000,
+  laivanupotus: 252,
 };
 
 export const YKSI_PER_NIMI = new Set(["haasteet"]);

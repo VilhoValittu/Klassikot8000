@@ -20,6 +20,15 @@ impl Vaikeus {
             Vaikeus::Vaikea => "Vaikea",
         }
     }
+
+    /// Voiton pisteiden kerroin: vaikeampi vastustaja on vaikeampi voittaa.
+    pub const fn kerroin(self) -> u32 {
+        match self {
+            Vaikeus::Helppo => 1,
+            Vaikeus::Normaali => 2,
+            Vaikeus::Vaikea => 3,
+        }
+    }
 }
 
 /// Se, minkä ampuja näkee laudasta. Kelluvien laivojen paikkoja ei ole mukana,

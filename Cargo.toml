@@ -22,6 +22,11 @@ minifb = { version = "0.29.0", default-features = false, features = ["x11"] }
 
 # Piirto on ohjelman raskain työ: nopeusoptimointi kasvattaa exeä noin 400 kt, mutta pitää
 # paketin selvästi alle 10 Mt:n rajan.
+# Testit piirtävät tuhansia kuvia: kevyt optimointi lyhentää testiajon muutoksen jälkeen noin
+# 90 sekunnista noin 15:een. Tarkistukset (debug_assertions, ylivuodot) pysyvät päällä.
+[profile.test]
+opt-level = 1
+
 [profile.release]
 opt-level = 3
 lto = true

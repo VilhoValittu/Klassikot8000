@@ -100,8 +100,6 @@ const PURKU_MS: u32 = 450;
 const LEIMAHDUKSEN_VIIVE_MS: i32 = 12;
 
 const OHJE: &str = "silmukka.ohje";
-const TAUKO: &str = "yhteinen.tauko";
-const TAUON_OHJE: &str = "yhteinen.tauon_ohje";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
 
 const NAPIT: [(Nappi, &str, i32); 2] = [
@@ -683,10 +681,7 @@ impl Piirtaja<'_> {
         let otsikko_y = alarivi - RIVIN_KORKEUS - 12;
         match peli.vaihe {
             Vaihe::Pelissa => self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI),
-            Vaihe::Tauko => {
-                self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAUKO), TULOS, KELTAINEN, true);
-                self.teksti(TEKSTI_X, alarivi, kaanna(TAUON_OHJE), HUTI);
-            }
+            Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
                 for (_, teksti, x) in NAPIT {

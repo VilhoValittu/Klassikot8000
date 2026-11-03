@@ -62,6 +62,8 @@ pub struct Holdem {
     pub netti_parhaat: Option<Vec<Tulos>>,
     /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
     pub lahetys: Option<Tulos>,
+    /// Suurin pöydästä viety voitto, myös listalle yltämätön.
+    pub paras: u32,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
@@ -89,6 +91,7 @@ impl Holdem {
             parhaat: Vec::new(),
             netti_parhaat: None,
             lahetys: None,
+            paras: 0,
             nimi: String::new(),
             uusi_tulos: false,
             poistuu: false,
@@ -117,8 +120,20 @@ impl Holdem {
         self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
+    /// Pöydästä viety voitto on oma ennätys, vaikkei se yltäisi listalle.
+    fn kirjaa_paras(&mut self) {
+        let pisteet = self.poyta.pisteet();
+        if pisteet > self.paras {
+            self.paras = pisteet;
+            self.uusi_tulos = true;
+        }
+    }
+
     /// Pöydästä lähtö lunastaa voiton. Pöydässä oleva panos jää sinne.
     pub fn poistu(&mut self) {
+        if self.vaihe == Vaihe::Pelissa {
+            self.kirjaa_paras();
+        }
         if self.vaihe == Vaihe::Pelissa
             && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
         {
@@ -229,6 +244,7 @@ impl Holdem {
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
         } else if self.poyta.rahoissa() == 1 {
             self.vaihe = Vaihe::Voitto;
+            self.kirjaa_paras();
             let kaikki = ALKURAHA * PELAAJIA as u32;
             self.viesti = muotoile("holdem.voitto", &[&kaikki]);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
@@ -446,7 +462,7 @@ impl Pelinakyma for Holdem {
     fn listat(&mut self) -> Vec<Lista<'_>> {
         vec![Lista {
             peli: Nettipeli::Holdem,
-            paras: None,
+            paras: Some(&mut self.paras),
             parhaat: &mut self.parhaat,
             netti: &mut self.netti_parhaat,
             lahetys: Some(&mut self.lahetys),

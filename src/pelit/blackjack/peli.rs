@@ -55,6 +55,8 @@ pub struct Blackjack {
     pub netti_parhaat: Option<Vec<tulokset::Tulos>>,
     /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
     pub lahetys: Option<tulokset::Tulos>,
+    /// Suurin pöydästä viety voitto, myös listalle yltämätön.
+    pub paras: u32,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
@@ -81,6 +83,7 @@ impl Blackjack {
             parhaat: Vec::new(),
             netti_parhaat: None,
             lahetys: None,
+            paras: 0,
             nimi: String::new(),
             uusi_tulos: false,
             viesti: String::new(),
@@ -108,8 +111,20 @@ impl Blackjack {
         self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
+    /// Pöydästä viety voitto on oma ennätys, vaikkei se yltäisi listalle.
+    fn kirjaa_paras(&mut self) {
+        let pisteet = self.poyta.pisteet();
+        if pisteet > self.paras {
+            self.paras = pisteet;
+            self.uusi_tulos = true;
+        }
+    }
+
     /// Pöydästä lähtö on ainoa hetki, jolloin voitto lunastetaan. Kesken jäänyt panos jää pöytään.
     pub fn poistu(&mut self) {
+        if self.vaihe == Vaihe::Pelissa {
+            self.kirjaa_paras();
+        }
         if self.vaihe == Vaihe::Pelissa
             && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
         {
@@ -396,7 +411,7 @@ impl Pelinakyma for Blackjack {
     fn listat(&mut self) -> Vec<Lista<'_>> {
         vec![Lista {
             peli: Nettipeli::Blackjack,
-            paras: None,
+            paras: Some(&mut self.paras),
             parhaat: &mut self.parhaat,
             netti: &mut self.netti_parhaat,
             lahetys: Some(&mut self.lahetys),

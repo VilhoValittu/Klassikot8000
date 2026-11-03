@@ -13,7 +13,7 @@ use crate::pelit::blackjack::peli::Blackjack;
 use crate::pelit::blackjack::piirto::pelimerkkipinot;
 use crate::pelit::holdem::peli::Holdem;
 use crate::pelit::holdem::piirto::poytamalli;
-use crate::pelit::laivanupotus::peli::Peli;
+use crate::pelit::laivanupotus::peli::{Peli, Tilasto};
 use crate::pelit::laivanupotus::piirto::alkumalli as laivamalli;
 use crate::pelit::luvut::peli::Luvut;
 use crate::pelit::luvut::piirto::lukupino;
@@ -22,7 +22,7 @@ use crate::pelit::miinaharava::piirto::miinamalli;
 use crate::pelit::palikka::peli::Palikkapeli;
 use crate::pelit::palikka::piirto::jalokivi;
 use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
-use crate::pelit::pasianssi::piirto::korttipinot;
+use crate::pelit::pasianssi::piirto::{korttipinot, lajin_nimi};
 use crate::pelit::silmukka::peli::Silmukka;
 use crate::pelit::silmukka::piirto::ouroboros;
 use crate::pelit::tiilirikko::peli::Tiilirikko;
@@ -34,6 +34,7 @@ use crate::yhteinen::piirto::ruudulta_kuvaan;
 use crate::yhteinen::syote::Syote;
 use crate::yhteinen::tulokset::{NETTIPELEJA, Nettipeli, Tulos, lisaa_tulos, paivita_nimen_tulos};
 use crate::yhteinen::vektori::Tahko;
+use klassikot8000::{laivanupotus, miinaharava};
 
 /// Valikon mallia ja vilkkua piirretään harvemmin kuin silmukka kiertää: joka toinen
 /// kierros riittää hitaaseen pyörintään ja puolittaa ruudun lähettämisen.
@@ -48,6 +49,7 @@ pub enum KuvanAvain {
         aanet: bool,
         kieli: Kieli,
         uusi_versio: bool,
+        ilmoitus_alla: bool,
         listoja: u32,
         askel: u32,
     },
@@ -253,6 +255,10 @@ pub struct Kaynnistin {
     listoja: u32,
     /// Uusin julkaistu versio, jos se on uudempi kuin tämä ohjelma.
     uusi_versio: Option<String>,
+    /// Hiiri on uuden version ilmoituksen päällä, joten ilmoitus näyttää napilta.
+    ilmoitus_alla: bool,
+    /// Tosi, kun `main.rs`:n kuuluu avata julkaisusivu selaimeen.
+    pub avaa_julkaisut: bool,
     siemen: u64,
 }
 
@@ -276,6 +282,8 @@ impl Kaynnistin {
             haettu: [false; NETTIPELEJA],
             listoja: 0,
             uusi_versio: None,
+            ilmoitus_alla: false,
+            avaa_julkaisut: false,
             siemen,
         }
     }
@@ -298,6 +306,7 @@ impl Kaynnistin {
     /// Lista, jonka valikon paneeli näyttää valitulle pelille.
     pub fn valikon_lista(&self) -> Option<Nettipeli> {
         Some(match PELIT[self.valittu].laji {
+            Laji::Laivanupotus => Nettipeli::Laivanupotus,
             Laji::Luvut => Nettipeli::Luvut,
             Laji::Tiilirikko => Nettipeli::Tiilirikko,
             Laji::Asteroidit => Nettipeli::Asteroidit,
@@ -308,8 +317,56 @@ impl Kaynnistin {
             Laji::Miinaharava => Nettipeli::Miinaharava,
             Laji::Blackjack => Nettipeli::Blackjack,
             Laji::Holdem => Nettipeli::Holdem,
-            Laji::Laivanupotus => return None,
         })
+    }
+
+    /// Listan laji, kun saman pelin lajeilla on omat listansa.
+    pub fn valikon_listan_laji(&self) -> Option<&'static str> {
+        (PELIT[self.valittu].laji == Laji::Pasianssi)
+            .then(|| lajin_nimi(self.tallennus.asetukset.variantti))
+    }
+
+    /// Valitun pelin oma paras tulos, myös listalle yltämätön. `None`, jos tulosta ei ole.
+    pub fn valitun_oma_paras(&self) -> Option<u32> {
+        let lista = self.valikon_lista()?;
+        let tallennettu = self.tallennus.lista(lista);
+        let tilastoista = match lista {
+            Nettipeli::Laivanupotus => self
+                .tallennus
+                .laivatilasto
+                .iter()
+                .zip(laivanupotus::Vaikeus::KAIKKI)
+                .map(|(tilasto, taso)| tilasto.parhaat_pisteet(taso))
+                .max(),
+            Nettipeli::Miinaharava => self
+                .tallennus
+                .miinaajat
+                .iter()
+                .zip(miinaharava::Vaikeus::KAIKKI)
+                .filter(|&(&aika, _)| aika > 0)
+                .map(|(&aika, taso)| miinaharava::aikapisteet(taso, aika))
+                .max(),
+            _ => None,
+        };
+        let listalta = tallennettu.parhaat.iter().map(|tulos| tulos.pisteet).max();
+        [Some(tallennettu.paras), tilastoista, listalta]
+            .into_iter()
+            .flatten()
+            .max()
+            .filter(|&paras| paras > 0)
+    }
+
+    /// Laivanupotuksen voitot, tappiot ja ennätykset tasoittain, kun se on valittuna.
+    pub fn valitun_tilastot(&self) -> Option<&[Tilasto; 3]> {
+        (PELIT[self.valittu].laji == Laji::Laivanupotus).then_some(&self.tallennus.laivatilasto)
+    }
+
+    pub fn uusi_versio(&self) -> Option<&str> {
+        self.uusi_versio.as_deref()
+    }
+
+    pub fn ilmoitus_alla(&self) -> bool {
+        self.ilmoitus_alla
     }
 
     /// Valitun pelin top 3: nettilista, kun se on saapunut, muuten omat tulokset. Tosi
@@ -341,6 +398,7 @@ impl Kaynnistin {
                     aanet: self.aanet_paalla,
                     kieli: kieli::nykyinen(),
                     uusi_versio: self.uusi_versio.is_some(),
+                    ilmoitus_alla: self.ilmoitus_alla,
                     listoja: self.listoja,
                     askel,
                 })
@@ -625,6 +683,19 @@ impl Kaynnistin {
         if syote == Syote::Kirjain('L') || kielikytkimella {
             kieli::aseta(kieli::nykyinen().toinen());
             return;
+        }
+        let ilmoituksella = |x, y| {
+            self.uusi_versio
+                .as_deref()
+                .is_some_and(|versio| piirto::ilmoituksella(x, y, versio))
+        };
+        match syote {
+            Syote::Hiiri(x, y) => self.ilmoitus_alla = ilmoituksella(x, y),
+            Syote::Klikkaus(x, y) if ilmoituksella(x, y) => {
+                self.avaa_julkaisut = true;
+                return;
+            }
+            _ => {}
         }
         match syote {
             Syote::Peru => self.lopeta = true,
@@ -987,7 +1058,7 @@ mod tests {
     fn valinta_vaihtaa_mallin() {
         let mut k = Kaynnistin::new(1);
         let laiva = k.malli.len();
-        assert!(k.valitun_parhaat().is_none());
+        assert_eq!(k.valitun_parhaat(), Some((false, &[][..])));
         k.edista(1000);
         k.kasittele(Syote::Numero(5));
         assert_ne!(k.malli.len(), laiva);
@@ -1002,7 +1073,7 @@ mod tests {
         assert!(!netista);
         assert_eq!(parhaat.len(), 1);
         k.kasittele(Syote::Numero(1));
-        assert!(k.valitun_parhaat().is_none());
+        assert_eq!(k.valitun_parhaat(), Some((false, &[][..])));
     }
 
     /// Nimi vahvistetaan, ja tulos on kirjattu tallennukseen ja jonoon. Sama läpi uuden käynnistyksen.
@@ -1180,6 +1251,7 @@ mod tests {
         assert!(k.peli.is_some());
         tarkista_korttipelin_tulos(&mut k, Nettipeli::Holdem, 250);
         assert!(k.peli.is_none());
+        assert_eq!(k.tallennus.lista(Nettipeli::Holdem).paras, 250);
     }
 
     #[test]
@@ -1693,7 +1765,8 @@ mod tests {
         for ruutu in laivat {
             peli.ammu(ruutu);
         }
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        // Tyhjälle listalle voitto yltää aina, joten se odottaa nimeä.
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
         k.kasittele(Syote::Hiiri(0, 0));
         assert!(k.tallenna);
         let odotettu = Tilasto {
@@ -1702,19 +1775,136 @@ mod tests {
             vahiten_laukauksia: 17,
         };
         assert_eq!(k.tallennus.laivatilasto[1], odotettu);
+        let pisteet = klassikot8000::laivanupotus::pisteet(Vaikeus::Normaali, 17);
+        tarkista_korttipelin_tulos(&mut k, Nettipeli::Laivanupotus, pisteet);
 
         let mut uusi = Kaynnistin::new(2);
         uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+        assert_eq!(uusi.valitun_oma_paras(), Some(pisteet));
         uusi.kaynnista(Laji::Laivanupotus);
         assert_eq!(laivanupotus(&uusi).tilastot[1], odotettu);
+        assert_eq!(laivanupotus(&uusi).parhaat[0].pisteet, pisteet);
+    }
+
+    #[test]
+    fn valikko_nayttaa_oman_ennatyksen_myos_listalle_yltamattomana() {
+        let mut k = Kaynnistin::new(1);
+        assert_eq!(k.valitun_oma_paras(), None);
+        assert!(k.valitun_tilastot().is_some());
+        // Laivanupotuksen ennätys on parhaan tason voitto pisteinä.
+        k.tallennus.laivatilasto[0].vahiten_laukauksia = 20;
+        k.tallennus.laivatilasto[2].vahiten_laukauksia = 60;
+        assert_eq!(k.valitun_oma_paras(), Some(123));
+
+        let paikka = |laji| PELIT.iter().position(|kortti| kortti.laji == laji).unwrap();
+        k.valitse(paikka(Laji::Miinaharava));
+        assert!(k.valitun_tilastot().is_none());
+        assert_eq!(k.valitun_oma_paras(), None);
+        k.tallennus.miinaajat = [0, 30, 0];
+        let ajasta = miinaharava::aikapisteet(miinaharava::Vaikeus::Normaali, 30);
+        assert_eq!(k.valitun_oma_paras(), Some(ajasta));
+
+        // Erillinen ennätys voittaa listan, ja listan paras käy, jos ennätystä ei ole.
+        k.valitse(paikka(Laji::Blackjack));
+        let lista = k.tallennus.lista_mut(Nettipeli::Blackjack);
+        lista.parhaat = vec![Tulos {
+            nimi: "A".to_string(),
+            pisteet: 40,
+        }];
+        assert_eq!(k.valitun_oma_paras(), Some(40));
+        k.tallennus.lista_mut(Nettipeli::Blackjack).paras = 90;
+        assert_eq!(k.valitun_oma_paras(), Some(90));
+    }
+
+    #[test]
+    fn listalle_yltamaton_poytavoitto_jaa_omaksi_ennatykseksi() {
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Blackjack);
+        k.kasittele(Syote::Ammu);
+        let Some(Kaynnissa::Blackjack(peli)) = &mut k.peli else {
+            panic!("blackjack ei ole käynnissä");
+        };
+        let taysi = vec![
+            Tulos {
+                nimi: "X".to_string(),
+                pisteet: 1000,
+            };
+            3
+        ];
+        peli.netti_parhaat = Some(taysi);
+        peli.poyta.rahat += 40 * klassikot8000::blackjack::YKSI;
+        k.kasittele(Syote::Peru);
+        assert!(k.peli.is_none());
+        assert!(k.tallenna);
+        let lista = k.tallennus.lista(Nettipeli::Blackjack);
+        assert_eq!(lista.paras, 40);
+        assert!(lista.parhaat.is_empty() && lista.jono.is_empty());
+    }
+
+    #[test]
+    fn pasianssin_lajien_ennatykset_tallentuvat_ja_valikko_nimeaa_lajin() {
+        let mut k = Kaynnistin::new(1);
+        assert_eq!(k.valikon_listan_laji(), None);
+        k.valitse(
+            PELIT
+                .iter()
+                .position(|kortti| kortti.laji == Laji::Pasianssi)
+                .unwrap(),
+        );
+        assert_eq!(k.valikon_listan_laji(), Some("Klondike"));
+        k.kaynnista(Laji::Pasianssi);
+        let Some(Kaynnissa::Pasianssi(peli)) = &mut k.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        peli.omat_parhaat[Variantti::Spider as usize] = 77;
+        // alas vaihtaa alkuruudulla lajin Klondikesta Spideriin
+        k.kasittele(Syote::Nuoli(1, 0));
+        k.kasittele(Syote::Peru);
+        assert_eq!(k.tallennus.lista(Nettipeli::Spider).paras, 77);
+        assert_eq!(k.valikon_listan_laji(), Some("Spider"));
+        assert_eq!(k.valitun_oma_paras(), Some(77));
+
+        let mut uusi = Kaynnistin::new(2);
+        uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+        uusi.kaynnista(Laji::Pasianssi);
+        let Some(Kaynnissa::Pasianssi(peli)) = &uusi.peli else {
+            panic!("pasianssi ei ole käynnissä");
+        };
+        assert_eq!(peli.omat_parhaat, [0, 77, 0]);
+    }
+
+    #[test]
+    fn uuden_version_ilmoitus_korostuu_hiiren_alla_ja_klikkaus_avaa_sivun() {
+        let mut k = Kaynnistin::new(1);
+        let (x, y) = piirto::ilmoituksen_keskipiste("9.9.9");
+        // Ilman ilmoitusta kohta on tyhjää.
+        k.kasittele(Syote::Hiiri(x, y));
+        k.kasittele(Syote::Klikkaus(x, y));
+        assert!(!k.ilmoitus_alla && !k.avaa_julkaisut);
+
+        k.vastaanota(Vastaus::UusiVersio("9.9.9".to_string()));
+        let ennen = k.kuvan_avain(false);
+        k.kasittele(Syote::Hiiri(x, y));
+        assert!(k.ilmoitus_alla);
+        assert_ne!(k.kuvan_avain(false), ennen);
+        k.kasittele(Syote::Klikkaus(x, y));
+        assert!(k.avaa_julkaisut);
+        assert!(k.peli.is_none());
+        assert_eq!(k.valittu, 0);
+
+        let (x, y) = piirto::kortin_keskipiste(0);
+        k.kasittele(Syote::Hiiri(x, y));
+        assert!(!k.ilmoitus_alla);
     }
 
     #[test]
     fn valikko_hakee_valitun_pelin_nettilistan_kerran_ja_nayttaa_sen() {
         let mut k = Kaynnistin::new(1);
         k.edista(1);
-        // laivanupotuksella ei ole listaa
-        assert!(k.pyynnot.is_empty());
+        assert_eq!(
+            std::mem::take(&mut k.pyynnot),
+            [Pyynto::Hae(Nettipeli::Laivanupotus)]
+        );
         k.kasittele(Syote::Numero(4));
         k.edista(1);
         assert_eq!(

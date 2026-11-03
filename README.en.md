@@ -9,7 +9,7 @@ Runs even on a potato.
 ## Games
 
 ### Battleships
-You against the computer. Each side has five ships, and you take turns firing until one fleet lies on the bottom. Ships never touch, not even at corners, so the waters around a sunk ship get marked on the board. Before the battle you can move and turn your own ships or shuffle them again. The game keeps track of wins, losses and your fewest shots for each level. Who sails home to their family?
+You against the computer. Each side has five ships, and you take turns firing until one fleet lies on the bottom. Ships never touch, not even at corners, so the waters around a sunk ship get marked on the board. Before the battle you can move and turn your own ships or shuffle them again. The game keeps track of wins, losses and your fewest shots for each level. A win scores points for the Top 3: every shot you save is a point, and a harder level multiplies them (normal by two, hard by three). Who sails home to their family?
 
 *Mouse, or arrows and space. While placing, 1-5 lifts a ship, R or the right mouse button turns it and A shuffles.*
 
@@ -69,10 +69,10 @@ No-limit poker against four computers. Everyone starts with 1000, and the last o
 ## Good to know
 
 - In the menu, pick a game with the arrows, the keys 1-0, the mouse wheel or by pointing, and start it with space or a click.
-- `Esc` returns from a game to the menu, and a good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
+- `Esc` returns from a game to the menu. In the action games and Palikka8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
 - Your chosen levels, solitaire game and last picked game are kept for next time.
-- All games except Battleships also have an online Top 3, and the menu shows it for the selected game. Without a connection the games play just as well.
-- The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts.
+- Every game has an online Top 3, and the menu shows it for the selected game together with your own best. For Battleships the menu also shows wins and losses for each level. Without a connection the games play just as well.
+- The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts, and clicking the notice opens the release page in your browser.
 
 ## Get playing
 

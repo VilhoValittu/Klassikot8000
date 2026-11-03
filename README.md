@@ -10,7 +10,7 @@ Pyörii vaikka perunalla. AB:n OG ideasta.
 
 ### Laivanupotus
 
-Sinä vastaan tietokone. Kummallakin on viisi laivaa, ja ammutte vuorotellen, kunnes toisen laivasto makaa pohjassa. Laivat eivät kosketa toisiaan edes kulmittain, joten uponneen laivan ympärys merkitään laudalle. Ennen taistelua voit siirtää ja kääntää omia laivojasi tai arpoa ne uudelleen. Peli pitää kirjaa voitoista, tappioista ja vähimmistä laukauksista tasoittain. Kumpi purjehtii kotiin perheensä luo?
+Sinä vastaan tietokone. Kummallakin on viisi laivaa, ja ammutte vuorotellen, kunnes toisen laivasto makaa pohjassa. Laivat eivät kosketa toisiaan edes kulmittain, joten uponneen laivan ympärys merkitään laudalle. Ennen taistelua voit siirtää ja kääntää omia laivojasi tai arpoa ne uudelleen. Peli pitää kirjaa voitoista, tappioista ja vähimmistä laukauksista tasoittain. Voitto antaa top-listalle pisteitä: jokainen säästetty laukaus tuo pisteen, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella). Kumpi purjehtii kotiin perheensä luo?
 
 *Hiiri tai nuolet ja välilyönti. Sijoittaessa 1–5 nostaa laivan, R tai hiiren oikea kääntää ja A arpoo.*
 
@@ -74,15 +74,15 @@ Sinä vastaan tietokonejakaja, ja pelivälineenä leikkiraha. Alussa on 300 raha
 
 No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, ja viimeinen rahoissa voittaa. Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi vie potin. Blindit alkavat 10/20 ja tuplaantuvat kymmenen jaon välein, joten peli päättyy aina. Säännöt ovat turnauksista tutut sivupotteineen, pienimpine korotuksineen ja kuolleine nappeineen. Koneet eivät kurki: ne näkevät vain omat ja yhteiset kortit. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
 
-*Hiiri tai näppäimet: V tarkistaa tai maksaa, K kippaa, R korottaa, nuolet ja 1–4 muuttavat korotusta, välilyönti hoputtaa koneita ja jakaa seuraavan käden.*
+*Hiiri tai näppäimet: V tarkistaa tai maksaa, K skippaa, R korottaa, nuolet ja 1–4 muuttavat korotusta, välilyönti hoputtaa koneita ja jakaa seuraavan käden.*
 
 ## Hyvä tietää
 
 - Valikossa peli valitaan nuolilla, numeroilla 1–0, hiiren rullalla tai osoittamalla, ja välilyönti tai klikkaus aloittaa sen.
-- `Esc` palaa pelistä valikkoon, ja kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
+- `Esc` palaa pelistä valikkoon. Toimintapeleissä ja Palikka8000:ssa se pysäyttää ensin pelin, jottei vahinkopainallus vie peliä, ja toinen painallus palaa valikkoon. Kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
 - Valittu taso, pasianssin laji ja viimeksi valittu peli säilyvät seuraavaan kertaan.
-- Laivanupotusta lukuun ottamatta peleissä on Top 3 -lista myös netissä, ja valikko näyttää sen valitun pelin kohdalla. Ilman nettiä pelaat ihan yhtä hyvin.
-- Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään.
+- Jokaisella pelillä on Top 3 -lista myös netissä, ja valikko näyttää sen valitun pelin kohdalla yhdessä oman ennätyksesi kanssa. Laivanupotuksen kohdalla valikko näyttää myös voitot ja tappiot tasoittain. Ilman nettiä pelaat ihan yhtä hyvin.
+- Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään, ja ilmoitusta klikkaamalla julkaisusivu aukeaa selaimeen.
 
 ## Pelaamaan
 

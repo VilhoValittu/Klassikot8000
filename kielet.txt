@@ -33,6 +33,9 @@ valikko.palikka = Vaihda palikoita, kolme samaa suoraan.
 valikko.miinaharava = Avaa ruudut, älä osu miinaan.
 valikko.blackjack = Lähelle 21:tä, leikkirahalla jakajaa vastaan.
 valikko.holdem = Pokeria neljää konetta vastaan, 1000 rahaa.
+valikko.oma_paras = OMA PARAS
+valikko.voitot = VOITOT
+valikko.tappiot = TAPPIOT
 
 yhteinen.netti_top = NETTI TOP
 yhteinen.top3 = TOP 3
@@ -87,6 +90,7 @@ laivanupotus.sijoitus_2 = 1-5 nosta, nuolet siirrä, väli laske.
 laivanupotus.sijoitus_3 = R tai hiiren oikea kääntää laivaa.
 laivanupotus.tilasto = Tilasto: {} voittoa, {} tappiota.
 laivanupotus.ennatys = Paras voitto: {} laukausta.
+laivanupotus.voiton_pisteet = Voitto {} laukauksella. Pisteet: {}.
 laivanupotus.arvo = A = Arvo
 laivanupotus.taisteluun = Väli = Taisteluun!
 laivanupotus.lentotukialus = Lentotukialus
@@ -424,6 +428,9 @@ valikko.palikka = Swap blocks, line up three of a kind.
 valikko.miinaharava = Open every cell, avoid the mines.
 valikko.blackjack = Get near 21, play money against the dealer.
 valikko.holdem = Poker against four computers, 1000 to start.
+valikko.oma_paras = YOUR BEST
+valikko.voitot = WINS
+valikko.tappiot = LOSSES
 
 yhteinen.netti_top = NET TOP 3
 yhteinen.top3 = TOP 3
@@ -478,6 +485,7 @@ laivanupotus.sijoitus_2 = 1-5 lift, arrows move, space drops.
 laivanupotus.sijoitus_3 = R or right mouse turns a ship.
 laivanupotus.tilasto = Record: {} wins, {} losses.
 laivanupotus.ennatys = Best win: {} shots.
+laivanupotus.voiton_pisteet = Won in {} shots. Score: {}.
 laivanupotus.arvo = A = Random
 laivanupotus.taisteluun = Space = Battle!
 laivanupotus.lentotukialus = Carrier

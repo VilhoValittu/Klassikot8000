@@ -127,6 +127,8 @@ pub struct Pasianssi {
     pub parhaat: [Vec<Tulos>; VARIANTTEJA],
     /// Nettilistat. `None`, kunnes palvelin on vastannut.
     pub netti_parhaat: [Option<Vec<Tulos>>; VARIANTTEJA],
+    /// Kunkin lajin paras voitto, myös listalle yltämätön.
+    pub omat_parhaat: [u32; VARIANTTEJA],
     /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
     pub lahetys: Option<Tulos>,
     /// Käynnissä oleva haaste. `None` on tavallinen peli.
@@ -180,6 +182,7 @@ impl Pasianssi {
             pyramidi_pito: None,
             parhaat: Default::default(),
             netti_parhaat: Default::default(),
+            omat_parhaat: [0; VARIANTTEJA],
             lahetys: None,
             haaste: None,
             haaste_kursori: 0,
@@ -756,6 +759,11 @@ impl Pasianssi {
                 return;
             }
             let pisteet = self.pisteet();
+            let oma = &mut self.omat_parhaat[self.variantti as usize];
+            if pisteet > *oma {
+                *oma = pisteet;
+                self.uusi_tulos = true;
+            }
             let viesti = if self.variantti == Variantti::Pyramidi {
                 PYRAMIDI_VOITTOVIESTI
             } else {
@@ -1009,9 +1017,10 @@ impl Pelinakyma for Pasianssi {
         let mut listat: Vec<Lista<'_>> = Variantti::KAIKKI
             .into_iter()
             .zip(self.parhaat.iter_mut().zip(&mut self.netti_parhaat))
-            .map(|(variantti, (parhaat, netti))| Lista {
+            .zip(&mut self.omat_parhaat)
+            .map(|((variantti, (parhaat, netti)), paras)| Lista {
                 peli: nettipeli(variantti),
-                paras: None,
+                paras: Some(paras),
                 parhaat,
                 netti,
                 lahetys: if variantti == nykyinen {
@@ -1570,6 +1579,10 @@ mod tests {
         peli.kasittele(Syote::Kirjain('A'));
         assert_eq!(peli.vaihe, Vaihe::Voitto);
         assert_eq!(peli.lahetys, None);
+        // Listalle yltämätönkin voitto on oma ennätys, ja se tallennetaan.
+        let pisteet = aikapisteet(Vaikeus::Normaali, 0);
+        assert_eq!(peli.omat_parhaat, [pisteet, 0, 0]);
+        assert!(peli.uusi_tulos);
 
         let mut peli = pelissa();
         peli.kasittele(Syote::Peru);
