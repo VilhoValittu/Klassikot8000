@@ -106,6 +106,27 @@ impl Ruudut {
     pub fn maara(self) -> usize {
         self.0.count_ones() as usize
     }
+
+    /// Ylimmän rivin vasemmanpuoleisin ruutu: suoran laivan alku.
+    pub fn ensimmainen(self) -> Option<Ruutu> {
+        let i = self.0.trailing_zeros() as usize;
+        Ruutu::new(i / KOKO, i % KOKO)
+    }
+
+    /// Suora jono ruutuja alkaen `alku`sta oikealle tai alas. `None`, jos jono ei mahdu laudalle.
+    pub fn suora(alku: Ruutu, pituus: usize, vaaka: bool) -> Option<Ruudut> {
+        let (rivi, sarake) = (alku.rivi as usize, alku.sarake as usize);
+        let mut ruudut = Ruudut::default();
+        for i in 0..pituus {
+            let ruutu = if vaaka {
+                Ruutu::new(rivi, sarake + i)
+            } else {
+                Ruutu::new(rivi + i, sarake)
+            };
+            ruudut.lisaa(ruutu?);
+        }
+        Some(ruudut)
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +149,19 @@ mod tests {
         for teksti in ["", "A", "A0", "A11", "A01", "K1", "a1", "1A", "A1 "] {
             assert!(teksti.parse::<Ruutu>().is_err(), "{teksti}");
         }
+    }
+
+    #[test]
+    fn suora_jono_alkaa_ensimmaisesta_ja_pysyy_laudalla() {
+        let alku = Ruutu::new(2, 7).unwrap();
+        let vaaka = Ruudut::suora(alku, 3, true).unwrap();
+        assert_eq!(vaaka.maara(), 3);
+        assert_eq!(vaaka.ensimmainen(), Some(alku));
+        assert!(vaaka.sisaltaa(Ruutu::new(2, 9).unwrap()));
+        assert_eq!(Ruudut::suora(alku, 4, true), None);
+        let pysty = Ruudut::suora(alku, 4, false).unwrap();
+        assert!(pysty.sisaltaa(Ruutu::new(5, 7).unwrap()));
+        assert_eq!(Ruudut::default().ensimmainen(), None);
     }
 
     #[test]

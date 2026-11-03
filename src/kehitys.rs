@@ -63,6 +63,7 @@ pub struct Liput {
     pub pamaus: bool,
     /// Blackjack ja Hold'em: aloittaa pelin ja antaa nämä näppäimet: kirjaimet ja numerot
     /// sellaisinaan, välilyönti jakaa tai jatkaa. Koneet ehtivät pelata joka näppäimen jälkeen.
+    /// Laivanupotus (`--game laivanupotus`): näppäimet alkuruudulta alkaen, `^v<>` ovat nuolet.
     pub napit: Option<String>,
     /// Blackjack: aloittaa pelin ja asettaa pöydälle näin monta kättä.
     pub kadet: Option<usize>,

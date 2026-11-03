@@ -2,7 +2,7 @@
 // Silmukka, Palikka ja Blackjack rajaavat tuloksen itse lukuun 999 999. Pasianssien huippu on heti
 // voitettu vaikea peli, ja Hold'emissa voi voittaa vain neljän koneen rahat. Haasteissa tulos on
 // 60 haasteen summa, joten sama pelaaja nostaa omaa tulostaan: `YKSI_PER_NIMI` pitää listan
-// tasapuolisena.
+// tasapuolisena. Miinaharavan huippu on sekunnissa voitettu vaikea kenttä (999 * 3).
 export const PELIT = {
   luvut: 4000000,
   tiilirikko: 1000000,
@@ -15,6 +15,7 @@ export const PELIT = {
   haasteet: 648000,
   blackjack: 1000000,
   holdem: 4000,
+  miinaharava: 3000,
 };
 
 export const YKSI_PER_NIMI = new Set(["haasteet"]);

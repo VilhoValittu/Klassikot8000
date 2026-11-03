@@ -3,11 +3,7 @@
 use std::sync::LazyLock;
 
 use super::netti::VERSIO;
-use super::{Kaynnissa, Kaynnistin, PELIT};
-use crate::pelit::{
-    asteroidit, blackjack, holdem, laivanupotus, luvut, miinaharava, palikka, pasianssi, silmukka,
-    tiilirikko,
-};
+use super::{Kaynnistin, PELIT};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::Rasteri;
@@ -25,6 +21,16 @@ const KORTTI_ASKEL: i32 = KORTTI_K + 8;
 const KORTIN_NUMERO_X: i32 = 60;
 const KORTIN_NIMI: (i32, i32, i32) = (24, 36, 32);
 const KORTIN_VARJO: i32 = 6;
+/// Valikkoon mahtuvat kortit. Pidempi lista vierii, ja nuolet kertovat piiloon jääneistä.
+pub const NAKYVIA: usize = 10;
+const NAKYVIA_KORTTEJA: i32 = if PELIT.len() < NAKYVIA {
+    PELIT.len()
+} else {
+    NAKYVIA
+} as i32;
+const NUOLI_X: i32 = (KORTTI_X + KORTTI_L + KORTIN_VARJO + PANEELI_X) / 2;
+const NUOLI_L: i32 = 24;
+const NUOLI_K: i32 = 16;
 
 const OTSIKKO_KOKO: (i32, i32, i32) = (60, 88, 78);
 const OTSIKKO_Y: i32 = 48;
@@ -49,7 +55,7 @@ const MALLIN_ALKUKOKO: f32 = 0.6;
 const PANEELI_X: i32 = 800;
 const PANEELI_L: i32 = 1072;
 const PANEELI_YLA: i32 =
-    KORTTI_Y + (PELIT.len() as i32 - 1) * KORTTI_ASKEL + KORTTI_K - PANEELI_KORKEUS;
+    KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K - PANEELI_KORKEUS;
 const PANEELI_KORKEUS: i32 = 180;
 const PANEELI_SISENNYS: i32 = 24;
 
@@ -109,13 +115,14 @@ pub fn kielikytkimen_keskipiste() -> (i32, i32) {
     )
 }
 
+/// Näkyvä paikka, jonka kortin kohdalla piste on. Käynnistin tietää, mikä peli paikalla on.
 pub fn kortti_pisteesta(x: i32, y: i32) -> Option<usize> {
     if !(KORTTI_X..KORTTI_X + KORTTI_L).contains(&x) {
         return None;
     }
     let i = (y - KORTTI_Y).div_euclid(KORTTI_ASKEL);
     let sisalla = (y - KORTTI_Y).rem_euclid(KORTTI_ASKEL) < KORTTI_K;
-    (sisalla && (0..PELIT.len() as i32).contains(&i)).then_some(i as usize)
+    (sisalla && (0..NAKYVIA_KORTTEJA).contains(&i)).then_some(i as usize)
 }
 
 #[cfg(test)]
@@ -128,42 +135,18 @@ pub fn kortin_keskipiste(i: usize) -> (i32, i32) {
 
 /// Piirtää esillä olevan näkymän ruudulle. Pelien klassiset näkymät kulkevat välikuvan kautta.
 pub fn piirra(kaynnistin: &Kaynnistin, kehys: &mut Kehys) {
-    let kuva = &mut kehys.kuva;
-    match &kaynnistin.peli {
-        Some(Kaynnissa::Pasianssi(peli)) if peli.vaihe != pasianssi::peli::Vaihe::Alku => {
-            pasianssi::piirto::piirra(peli, &mut kehys.ruutu);
-            return kehys.piirretty_suoraan();
-        }
-        Some(Kaynnissa::Pasianssi(peli)) => pasianssi::piirto::piirra_alku(peli, kuva),
-        Some(Kaynnissa::Blackjack(peli)) if peli.vaihe != blackjack::peli::Vaihe::Alku => {
-            blackjack::piirto::piirra(peli, &mut kehys.ruutu);
-            return kehys.piirretty_suoraan();
-        }
-        Some(Kaynnissa::Blackjack(peli)) => blackjack::piirto::piirra_alku(peli, kuva),
-        Some(Kaynnissa::Holdem(peli)) if peli.vaihe != holdem::peli::Vaihe::Alku => {
-            holdem::piirto::piirra(peli, &mut kehys.ruutu);
-            return kehys.piirretty_suoraan();
-        }
-        Some(Kaynnissa::Holdem(peli)) => holdem::piirto::piirra_alku(peli, kuva),
-        Some(Kaynnissa::Laivanupotus(peli)) => laivanupotus::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Luvut(peli)) => luvut::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Tiilirikko(peli)) => tiilirikko::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Asteroidit(peli)) => asteroidit::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Silmukka(peli)) => silmukka::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Palikka(peli)) => palikka::piirto::piirra(peli, kuva),
-        Some(Kaynnissa::Miinaharava(peli)) => miinaharava::piirto::piirra(peli, kuva),
-        None => {
-            let mut p = Piirtaja {
-                k: Kangas::kokoinen(&mut kehys.ruutu, RUUDUN_LEVEYS, RUUDUN_KORKEUS),
-                kello: kaynnistin.kello_ms,
-            };
-            p.valikko(kaynnistin);
-            p.aanikytkin(kaynnistin.aanet_paalla);
-            p.nappi(kielikytkimen_x(), KIELI_Y, KIELIKYTKIN, VALKOINEN, MUSTA);
-            return kehys.piirretty_suoraan();
-        }
+    if let Some(peli) = &kaynnistin.peli {
+        peli.nakyma().piirra(kehys);
+        return;
     }
-    kehys.venyta();
+    let mut p = Piirtaja {
+        k: Kangas::kokoinen(&mut kehys.ruutu, RUUDUN_LEVEYS, RUUDUN_KORKEUS),
+        kello: kaynnistin.kello_ms,
+    };
+    p.valikko(kaynnistin);
+    p.aanikytkin(kaynnistin.aanet_paalla);
+    p.nappi(kielikytkimen_x(), KIELI_Y, KIELIKYTKIN, VALKOINEN, MUSTA);
+    kehys.piirretty_suoraan();
 }
 
 impl Piirtaja<'_> {
@@ -177,9 +160,12 @@ impl Piirtaja<'_> {
         if let Some(uusi) = &kaynnistin.uusi_versio {
             self.versioilmoitus(uusi);
         }
-        for i in 0..PELIT.len() {
-            self.valikkokortti(i, i == kaynnistin.valittu);
+        for paikka in 0..NAKYVIA_KORTTEJA as usize {
+            let i = kaynnistin.alku + paikka;
+            self.valikkokortti(paikka, i, i == kaynnistin.valittu);
         }
+        let alempana = kaynnistin.alku + NAKYVIA < PELIT.len();
+        self.vieritysnuolet(kaynnistin.alku > 0, alempana);
         self.kuvauspaneeli(
             PELIT[kaynnistin.valittu].kuvaus,
             kaynnistin.valitun_parhaat(),
@@ -214,8 +200,9 @@ impl Piirtaja<'_> {
         self.teksti(x, y, &teksti, MUSTA);
     }
 
-    fn valikkokortti(&mut self, i: usize, valittu: bool) {
-        let y = KORTTI_Y + i as i32 * KORTTI_ASKEL;
+    /// Kortti näkyvällä `paikka`lla. `i` on pelin järjestysnumero `PELIT`-listassa.
+    fn valikkokortti(&mut self, paikka: usize, i: usize, valittu: bool) {
+        let y = KORTTI_Y + paikka as i32 * KORTTI_ASKEL;
         let keski_y = y + KORTTI_K / 2;
         let (numero_vari, nimi_vari) = if valittu {
             self.k.laatikko(
@@ -243,19 +230,42 @@ impl Piirtaja<'_> {
         let teksti_y = keski_y - koko.1 / 2;
         let x = KORTTI_X + KORTIN_NUMERO_X;
         // Kymmenes kortti on nolla, kuten numerorivillä.
-        let numero = ((i + 1) % 10).to_string();
+        let numero = ((paikka + 1) % 10).to_string();
         self.suurteksti(x, teksti_y, &numero, koko, numero_vari, true);
         let nimi = kaanna(PELIT[i].nimi).to_uppercase();
         self.suurteksti(x + 2 * koko.2, teksti_y, &nimi, koko, nimi_vari, true);
     }
 
-    /// Kuvaus keskellä paneelia. Jos pelillä on tuloksia, ne vievät paneelin oikean laidan.
-    fn kuvauspaneeli(&mut self, kuvaus: &str, parhaat: Option<&[Tulos]>) {
+    /// Nuolet listan vieressä, kun sen ylä- tai alapuolelle jää pelejä piiloon.
+    fn vieritysnuolet(&mut self, ylempana: bool, alempana: bool) {
+        let (vasen, oikea) = (NUOLI_X - NUOLI_L / 2, NUOLI_X + NUOLI_L / 2);
+        if ylempana {
+            let y = KORTTI_Y;
+            let karki = (NUOLI_X, y);
+            self.k.monikulmio(
+                &[karki, (oikea, y + NUOLI_K), (vasen, y + NUOLI_K)],
+                KELTAINEN,
+            );
+        }
+        if alempana {
+            let y = KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K;
+            let karki = (NUOLI_X, y);
+            self.k.monikulmio(
+                &[(vasen, y - NUOLI_K), (oikea, y - NUOLI_K), karki],
+                KELTAINEN,
+            );
+        }
+    }
+
+    /// Kuvaus keskellä paneelia. Jos pelillä on tuloksia, ne vievät paneelin oikean laidan:
+    /// nettilista, kun se on saapunut, muuten omat tulokset.
+    fn kuvauspaneeli(&mut self, kuvaus: &str, parhaat: Option<(bool, &[Tulos])>) {
         self.ikkuna(PANEELI_X, PANEELI_YLA, PANEELI_L, PANEELI_KORKEUS);
-        let merkkeja = if let Some(parhaat) = parhaat {
+        let merkkeja = if let Some((netista, parhaat)) = parhaat {
             let x = PANEELI_X + PANEELI_L - PANEELI_SISENNYS - LISTA_L;
             let y = PANEELI_YLA + LISTA_Y;
-            self.parhaat_lista(x, y, LISTA_L, LISTA_KOKO, listan_otsikko(false), parhaat);
+            let otsikko = listan_otsikko(netista);
+            self.parhaat_lista(x, y, LISTA_L, LISTA_KOKO, otsikko, parhaat);
             KAPEA_KUVAUS_MERKKEJA
         } else {
             KUVAUS_MERKKEJA
@@ -290,8 +300,9 @@ mod tests {
 
     #[test]
     fn kortit_ja_paneelit_mahtuvat_kuvaan() {
-        const { assert!(KORTTI_Y + PELIT.len() as i32 * KORTTI_ASKEL <= ALAPALKKI_Y) };
-        const { assert!(KORTTI_X + KORTTI_L + KORTIN_VARJO < PANEELI_X) };
+        const { assert!(KORTTI_Y + NAKYVIA as i32 * KORTTI_ASKEL <= ALAPALKKI_Y) };
+        const { assert!(KORTTI_X + KORTTI_L + KORTIN_VARJO < NUOLI_X - NUOLI_L / 2) };
+        const { assert!(NUOLI_X + NUOLI_L / 2 < PANEELI_X) };
         const { assert!(PANEELI_X + PANEELI_L < RUUTU_L) };
         const { assert!(OHJE_RIVI_Y + SUURI_MERKKI < RUUDUN_KORKEUS as i32) };
         const { assert!(OTSIKKO_Y + OTSIKKO_KOKO.1 <= ILMOITUS_Y) };
@@ -328,8 +339,10 @@ mod tests {
             // pisin nimi ja seitsennumeroiset pisteet samalle riville
             let rivi = (2 + NIMEN_PITUUS as i32 + 7) * LISTA_KOKO.2;
             assert!(rivi <= LISTA_L);
-            let otsikko = listan_otsikko(false).chars().count() as i32 * MERKKI;
-            assert!(otsikko <= LISTA_L);
+            for netista in [false, true] {
+                let otsikko = listan_otsikko(netista).chars().count() as i32 * MERKKI;
+                assert!(otsikko <= LISTA_L);
+            }
             let ohje = kaanna("valikko.ohje").chars().count() as i32 + 1;
             assert!(OHJE_X + ohje * SUURI_MERKKI <= RUUTU_L);
             let otsikko = kaanna("valikko.banneri").chars().count() as i32;
@@ -345,14 +358,14 @@ mod tests {
 
     #[test]
     fn jokainen_kortti_loytyy_ja_valit_eivat_ole_kohteita() {
-        for i in 0..PELIT.len() {
+        for i in 0..NAKYVIA_KORTTEJA as usize {
             let (x, y) = kortin_keskipiste(i);
             assert_eq!(kortti_pisteesta(x, y), Some(i));
         }
         assert_eq!(kortti_pisteesta(KORTTI_X, KORTTI_Y + KORTTI_K), None);
         assert_eq!(kortti_pisteesta(KORTTI_X, KORTTI_Y - 1), None);
         assert_eq!(kortti_pisteesta(KORTTI_X - 1, KORTTI_Y), None);
-        let alin = KORTTI_Y + PELIT.len() as i32 * KORTTI_ASKEL;
+        let alin = KORTTI_Y + NAKYVIA_KORTTEJA * KORTTI_ASKEL;
         assert_eq!(kortti_pisteesta(KORTTI_X, alin), None);
     }
 }

@@ -1,18 +1,29 @@
 use klassikot8000::Arpa;
-use klassikot8000::luvut::{Lukulauta, Siirto, Suunta, TAVOITE};
+use klassikot8000::luvut::{Lukulauta, Ruudut, Siirto, Suunta, TAVOITE};
 
 use super::piirto;
-use super::tallennus::Kesken;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::aanikytkimella;
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::Syote;
-use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 pub const LIUKU_MS: u32 = 110;
 pub const KIPINA_MS: u32 = 450;
 const YHDISTYS_VIIVE_MS: u32 = 60;
 const LOPPU_VIIVE_MS: u32 = 250;
+
+/// Kesken jäänyt peli, joka jatkuu seuraavalla kerralla.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Kesken {
+    pub ruudut: Ruudut,
+    pub pisteet: u32,
+    pub siirrot: u32,
+    pub jatkettu: bool,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vaihe {
@@ -307,6 +318,59 @@ impl Luvut {
             self.paata_peli();
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
         }
+    }
+}
+
+impl Pelinakyma for Luvut {
+    fn kasittele(&mut self, syote: Syote) {
+        Luvut::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Luvut::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        piirto::piirra(self, &mut kehys.kuva);
+        kehys.venyta();
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Luvut,
+            paras: Some(&mut self.paras),
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
+    }
+
+    fn nuolet_toistuvat(&self) -> bool {
+        false
     }
 }
 

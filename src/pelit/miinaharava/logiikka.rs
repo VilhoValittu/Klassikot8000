@@ -46,6 +46,23 @@ impl Vaikeus {
             Vaikeus::Vaikea => 99,
         }
     }
+
+    /// Pisteiden kerroin: isompi kenttä vie pidempään, joten sen aika on arvokkaampaa.
+    pub fn kerroin(self) -> u32 {
+        match self {
+            Vaikeus::Helppo => 1,
+            Vaikeus::Normaali => 2,
+            Vaikeus::Vaikea => 3,
+        }
+    }
+}
+
+/// Kello pysähtyy tähän, kuten klassisessa miinaharavassa.
+pub const SUURIN_AIKA: u32 = 999;
+
+/// Voiton pisteet top-listalle: mitä nopeammin, sitä enemmän. Voitto antaa aina jotain.
+pub fn aikapisteet(vaikeus: Vaikeus, sekunnit: u32) -> u32 {
+    (SUURIN_AIKA + 1).saturating_sub(sekunnit).max(1) * vaikeus.kerroin()
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

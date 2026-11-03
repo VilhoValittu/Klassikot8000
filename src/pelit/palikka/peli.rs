@@ -4,9 +4,12 @@ use klassikot8000::palikka::{Paikka, Palikkalauta, SIVU, Vaihto, vierekkain};
 use super::piirto;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::{VILKKU_MS, aanikytkimella};
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::Syote;
-use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 pub const VAIHTO_MS: u32 = 130;
 pub const POKSAHDUS_MS: u32 = 170;
@@ -408,6 +411,65 @@ impl Palikkapeli {
             Some(Nappi::Valikko) => self.lopeta = true,
             None => {}
         }
+    }
+}
+
+impl Pelinakyma for Palikkapeli {
+    fn kasittele(&mut self, syote: Syote) {
+        Palikkapeli::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Palikkapeli::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        piirto::piirra(self, &mut kehys.kuva);
+        kehys.venyta();
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.poistu();
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Palikka,
+            paras: Some(&mut self.paras),
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
+    }
+
+    fn kuvan_avain(&self) -> Option<(u32, u32)> {
+        self.kuvan_askel().map(|askel| (askel, 0))
+    }
+
+    /// Palikat liikkuvat vain vaihdon jälkeen, muuten lauta seisoo.
+    fn toimintapeli(&self) -> bool {
+        self.animoi()
     }
 }
 

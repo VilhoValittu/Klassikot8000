@@ -4,9 +4,12 @@ use klassikot8000::holdem::{ALKURAHA, Kulku, PELAAJA, PELAAJIA, Poyta, Toimi};
 use super::piirto::{self, kaden_nimi, pelaajan_nimi};
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::VILKKU_MS;
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::Syote;
-use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 /// Koneen teko, kortin käännös ja käden näyttö etenevät tässä tahdissa.
 const ASKEL_MS: u32 = 900;
@@ -393,6 +396,69 @@ impl Holdem {
     fn muuta_korotusta(&mut self, muutos: i64) {
         let uusi = (self.korotus as i64 + muutos).max(0) as u32;
         self.aseta_korotus(uusi);
+    }
+}
+
+impl Pelinakyma for Holdem {
+    fn kasittele(&mut self, syote: Syote) {
+        Holdem::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Holdem::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        if self.suoraan_ruudulle() {
+            piirto::piirra(self, &mut kehys.ruutu);
+            kehys.piirretty_suoraan();
+        } else {
+            piirto::piirra_alku(self, &mut kehys.kuva);
+            kehys.venyta();
+        }
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.poistu();
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Holdem,
+            paras: None,
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
+    }
+
+    fn kuvan_avain(&self) -> Option<(u32, u32)> {
+        self.kuvan_askel().map(|askel| (askel, 0))
+    }
+
+    fn suoraan_ruudulle(&self) -> bool {
+        self.vaihe != Vaihe::Alku
     }
 }
 

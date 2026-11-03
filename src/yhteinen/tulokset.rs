@@ -15,6 +15,66 @@ pub struct Tulos {
     pub pisteet: u32,
 }
 
+/// Top-lista, jolla on oma rivinsä tallennuksessa ja oma tunnuksensa nettipalvelimella.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Nettipeli {
+    Luvut,
+    Tiilirikko,
+    Asteroidit,
+    Silmukka,
+    Palikka,
+    Pasianssi,
+    Spider,
+    Pyramidi,
+    Haasteet,
+    Blackjack,
+    Holdem,
+    Miinaharava,
+}
+
+pub const NETTIPELEJA: usize = Nettipeli::KAIKKI.len();
+
+impl Nettipeli {
+    /// Järjestys on sama kuin luvuilla, joten `peli as usize` osoittaa listaan.
+    pub const KAIKKI: [Nettipeli; 12] = [
+        Nettipeli::Luvut,
+        Nettipeli::Tiilirikko,
+        Nettipeli::Asteroidit,
+        Nettipeli::Silmukka,
+        Nettipeli::Palikka,
+        Nettipeli::Pasianssi,
+        Nettipeli::Spider,
+        Nettipeli::Pyramidi,
+        Nettipeli::Haasteet,
+        Nettipeli::Blackjack,
+        Nettipeli::Holdem,
+        Nettipeli::Miinaharava,
+    ];
+
+    /// Pelin tunnus palvelimella.
+    pub fn tunnus(self) -> &'static str {
+        match self {
+            Nettipeli::Luvut => "luvut",
+            Nettipeli::Tiilirikko => "tiilirikko",
+            Nettipeli::Asteroidit => "asteroidit",
+            Nettipeli::Silmukka => "silmukka",
+            Nettipeli::Palikka => "palikka",
+            Nettipeli::Pasianssi => "pasianssi",
+            Nettipeli::Spider => "spider",
+            Nettipeli::Pyramidi => "pyramidi",
+            Nettipeli::Haasteet => "haasteet",
+            Nettipeli::Blackjack => "blackjack",
+            Nettipeli::Holdem => "holdem",
+            Nettipeli::Miinaharava => "miinaharava",
+        }
+    }
+
+    /// Listalla on kullakin nimellä yksi rivi, jonka uusi tulos korvaa.
+    pub fn yksi_per_nimi(self) -> bool {
+        self == Nettipeli::Haasteet
+    }
+}
+
 /// Lukee rivin muodossa "pisteet NIMI". Tallennustiedosto ja nettilista käyttävät samaa muotoa.
 pub fn tulos_tekstista(teksti: &str) -> Option<Tulos> {
     let (pisteet, nimi) = teksti.split_once(' ')?;
@@ -122,6 +182,17 @@ mod tests {
         let mut lista = vec![tulos("A", 300), tulos("B", 200), tulos("C", 100)];
         paivita_nimen_tulos(&mut lista, tulos("C", 400));
         assert_eq!(lista, [tulos("C", 400), tulos("A", 300), tulos("B", 200)]);
+    }
+
+    #[test]
+    fn nettipelien_jarjestys_ja_tunnukset_tasmaavat() {
+        for (i, peli) in Nettipeli::KAIKKI.into_iter().enumerate() {
+            assert_eq!(peli as usize, i);
+            let samat = Nettipeli::KAIKKI
+                .iter()
+                .filter(|p| p.tunnus() == peli.tunnus());
+            assert_eq!(samat.count(), 1, "{peli:?}");
+        }
     }
 
     #[test]

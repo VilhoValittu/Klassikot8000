@@ -15,6 +15,20 @@ pub struct Laiva {
     pub ruudut: Ruudut,
 }
 
+impl Laiva {
+    /// Ylin tai vasemmanpuoleisin ruutu.
+    pub fn alku(&self) -> Option<Ruutu> {
+        self.ruudut.ensimmainen()
+    }
+
+    pub fn vaaka(&self) -> bool {
+        self.alku().is_some_and(|alku| {
+            let seuraava = Ruutu::new(alku.rivi as usize, alku.sarake as usize + 1);
+            seuraava.is_some_and(|ruutu| self.ruudut.sisaltaa(ruutu))
+        })
+    }
+}
+
 /// Yhden pelaajan laivat ja niihin ammutut laukaukset.
 #[derive(Clone, Debug)]
 pub struct Laivasto {
@@ -71,6 +85,34 @@ impl Laivasto {
 
     pub fn on_laiva(&self, ruutu: Ruutu) -> bool {
         self.laivat.iter().any(|l| l.ruudut.sisaltaa(ruutu))
+    }
+
+    /// Laiva, johon ruutu kuuluu, järjestysnumerona.
+    pub fn laiva_ruudussa(&self, ruutu: Ruutu) -> Option<usize> {
+        self.laivat.iter().position(|l| l.ruudut.sisaltaa(ruutu))
+    }
+
+    /// Mahtuuko laiva `i` ruutuihin koskematta muihin laivoihin, ei edes kulmittain.
+    pub fn mahtuu(&self, i: usize, ruudut: Ruudut) -> bool {
+        self.laivat
+            .iter()
+            .enumerate()
+            .all(|(j, muu)| j == i || !muu.ruudut.ymparys().leikkaako(ruudut))
+    }
+
+    /// Siirtää laivan `i` uuteen paikkaan ennen ensimmäistä laukausta. Epäkelpo paikka
+    /// palauttaa epätoden, eikä mikään muutu.
+    pub fn siirra(&mut self, i: usize, ruudut: Ruudut) -> bool {
+        let kelpaa = self.ammutut == Ruudut::default()
+            && self
+                .laivat
+                .get(i)
+                .is_some_and(|laiva| laiva.ruudut.maara() == ruudut.maara())
+            && self.mahtuu(i, ruudut);
+        if kelpaa {
+            self.laivat[i].ruudut = ruudut;
+        }
+        kelpaa
     }
 
     /// Palauttaa `None`, jos ruutuun on jo ammuttu.

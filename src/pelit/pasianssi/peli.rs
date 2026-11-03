@@ -5,13 +5,13 @@ use klassikot8000::{pyramidi as pyramidilogiikka, spider as spiderlogiikka};
 
 use super::piirto::{self, Kohta};
 use super::{haastenakyma, pyramidi, spider};
-use crate::pelit::luvut::tallennus::Haastepisteet;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::VILKKU_MS;
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::Syote;
 use crate::yhteinen::tulokset::{
-    Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi, paivita_nimen_tulos,
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi, paivita_nimen_tulos,
 };
 
 const TUPLAKLIKKAUS_MS: u32 = 400;
@@ -19,6 +19,18 @@ const TUPLAKLIKKAUS_MS: u32 = 400;
 const VETO_RAJA: i32 = 5;
 const VOITTO_VIIVE_MS: u32 = 250;
 pub const VARIANTTEJA: usize = Variantti::KAIKKI.len();
+
+/// Kunkin lajin haasteiden parhaat tulokset. Nolla tarkoittaa, ettei haastetta ole läpäisty.
+pub type Haastepisteet = [[u32; HAASTEITA]; VARIANTTEJA];
+
+/// Lajin oma top-lista.
+pub fn nettipeli(variantti: Variantti) -> Nettipeli {
+    match variantti {
+        Variantti::Klondike => Nettipeli::Pasianssi,
+        Variantti::Spider => Nettipeli::Spider,
+        Variantti::Pyramidi => Nettipeli::Pyramidi,
+    }
+}
 // Ylärivin kolmas paikka on tyhjä: pakka ja jäte ovat vasemmalla, perustat oikealla.
 const TYHJA_YLASARAKE: usize = 2;
 const PERUSTA_ALKAA: usize = 3;
@@ -945,6 +957,86 @@ impl Pasianssi {
         } else {
             self.valittu = self.kohdan_lahde(kohta);
         }
+    }
+}
+
+impl Pelinakyma for Pasianssi {
+    fn kasittele(&mut self, syote: Syote) {
+        Pasianssi::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Pasianssi::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        if self.suoraan_ruudulle() {
+            piirto::piirra(self, &mut kehys.ruutu);
+            kehys.piirretty_suoraan();
+        } else {
+            piirto::piirra_alku(self, &mut kehys.kuva);
+            kehys.venyta();
+        }
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        let nykyinen = self.variantti;
+        let mut lahetys = Some(&mut self.lahetys);
+        let mut listat: Vec<Lista<'_>> = Variantti::KAIKKI
+            .into_iter()
+            .zip(self.parhaat.iter_mut().zip(&mut self.netti_parhaat))
+            .map(|(variantti, (parhaat, netti))| Lista {
+                peli: nettipeli(variantti),
+                paras: None,
+                parhaat,
+                netti,
+                lahetys: if variantti == nykyinen {
+                    lahetys.take()
+                } else {
+                    None
+                },
+            })
+            .collect();
+        listat.push(Lista {
+            peli: Nettipeli::Haasteet,
+            paras: None,
+            parhaat: &mut self.haasteiden_parhaat,
+            netti: &mut self.netti_haasteet,
+            lahetys: Some(&mut self.haaste_lahetys),
+        });
+        listat
+    }
+
+    fn kuvan_avain(&self) -> Option<(u32, u32)> {
+        self.ajan_avain()
+    }
+
+    fn suoraan_ruudulle(&self) -> bool {
+        self.vaihe != Vaihe::Alku
     }
 }
 

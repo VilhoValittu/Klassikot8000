@@ -22,6 +22,7 @@ use kaynnistin::Kaynnissa;
 #[cfg(debug_assertions)]
 use kaynnistin::netti::Vastaus;
 use kaynnistin::netti::{Netti, Pyynto};
+use kaynnistin::tallennus;
 use kaynnistin::{Kaynnistin, piirto};
 #[cfg(debug_assertions)]
 use klassikot8000::Arpa;
@@ -43,7 +44,6 @@ use klassikot8000::tiilirikko::{self, Tiilipeli};
 use pelit::laivanupotus::peli::Vaihe;
 #[cfg(debug_assertions)]
 use pelit::luvut::peli as luvut;
-use pelit::luvut::tallennus;
 #[cfg(debug_assertions)]
 use pelit::palikka::peli as palikka_peli;
 #[cfg(debug_assertions)]
@@ -263,15 +263,23 @@ fn pelisilmukka(
                 kaynnistin.kasittele(Syote::OikeaKlikkaus(nakyma.0, nakyma.1));
             }
             oikea_alhaalla = oikea;
+            // Rulla ylös vie listassa ylöspäin.
+            if let Some((_, rulla)) = ikkuna.get_scroll_wheel()
+                && rulla != 0.0
+            {
+                kaynnistin.kasittele(Syote::Rulla(if rulla > 0.0 { -1 } else { 1 }));
+            }
         } else {
             nappi_alhaalla = false;
             oikea_alhaalla = false;
         }
 
+        // WASD käy nuolten tavoin, kuten Silmukassa.
+        let pohjassa = |nappaimet: [Key; 2]| nappaimet.iter().any(|&n| ikkuna.is_key_down(n));
         kaynnistin.aseta_ohjaus(
-            ikkuna.is_key_down(Key::Left),
-            ikkuna.is_key_down(Key::Right),
-            ikkuna.is_key_down(Key::Up) || ikkuna.get_mouse_down(MouseButton::Right),
+            pohjassa([Key::Left, Key::A]),
+            pohjassa([Key::Right, Key::D]),
+            pohjassa([Key::Up, Key::W]) || ikkuna.get_mouse_down(MouseButton::Right),
         );
         if !ikkuna.is_active() {
             kaynnistin.keskeyta();
@@ -369,8 +377,22 @@ fn main() -> ExitCode {
                 if let Some(vaikeus) = liput.vaikeus {
                     peli.vaikeus = vaikeus;
                 }
+                // Alkuruutu ja arvottujen laivojen hyväksyntä.
                 if !liput.siirrot.is_empty() {
                     peli.kasittele(Syote::Ammu);
+                    peli.kasittele(Syote::Ammu);
+                }
+                // Välilyönti, numerot ja kirjaimet sellaisinaan, ^v<> ovat nuolet.
+                for merkki in liput.napit.unwrap_or_default().chars() {
+                    peli.kasittele(match merkki {
+                        ' ' => Syote::Ammu,
+                        '^' => Syote::Nuoli(-1, 0),
+                        'v' => Syote::Nuoli(1, 0),
+                        '<' => Syote::Nuoli(0, -1),
+                        '>' => Syote::Nuoli(0, 1),
+                        '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+                        _ => Syote::Kirjain(merkki),
+                    });
                 }
                 for ruutu in liput.siirrot {
                     if peli.vaihe == Vaihe::Ammunta {

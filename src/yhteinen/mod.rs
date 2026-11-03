@@ -5,6 +5,7 @@ pub mod aanet;
 pub mod fontti;
 pub mod kieli;
 pub mod kortit;
+pub mod pelinakyma;
 pub mod piirto;
 pub mod rasteri;
 pub mod syote;

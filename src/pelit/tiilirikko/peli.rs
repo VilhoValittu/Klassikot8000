@@ -4,9 +4,12 @@ use klassikot8000::tiilirikko::{ASKEL_MS, Tapahtuma, Tiilipeli, Tila};
 use super::piirto;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::aanikytkimella;
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::Syote;
-use crate::yhteinen::tulokset::{Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi};
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 pub const KIPINA_MS: u32 = 350;
 // Ikkunan raahaus voi pysäyttää silmukan: pallo ei saa sen jälkeen hypätä kerralla pitkälle.
@@ -278,6 +281,68 @@ impl Tiilirikko {
             Some(Nappi::Valikko) => self.lopeta = true,
             None => {}
         }
+    }
+}
+
+impl Pelinakyma for Tiilirikko {
+    fn kasittele(&mut self, syote: Syote) {
+        Tiilirikko::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Tiilirikko::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        piirto::piirra(self, &mut kehys.kuva);
+        kehys.venyta();
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.poistu();
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Tiilirikko,
+            paras: Some(&mut self.paras),
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
+    }
+
+    fn toimintapeli(&self) -> bool {
+        self.vaihe != Vaihe::Alku
+    }
+
+    fn aseta_ohjaus(&mut self, suunta: i8, _ylos: bool) {
+        self.ohjaus = suunta;
+    }
+
+    fn keskeyta(&mut self) {
+        Self::keskeyta(self);
     }
 }
 

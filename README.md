@@ -10,9 +10,9 @@ Pyörii vaikka perunalla. AB:n OG ideasta.
 
 ### Laivanupotus
 
-Sinä vastaan tietokone. Kummallakin on viisi laivaa, ja ammutte vuorotellen, kunnes toisen laivasto makaa pohjassa. Laivat eivät kosketa toisiaan edes kulmittain, joten uponneen laivan ympärys merkitään laudalle. Kumpi purjehtii kotiin perheensä luo?
+Sinä vastaan tietokone. Kummallakin on viisi laivaa, ja ammutte vuorotellen, kunnes toisen laivasto makaa pohjassa. Laivat eivät kosketa toisiaan edes kulmittain, joten uponneen laivan ympärys merkitään laudalle. Ennen taistelua voit siirtää ja kääntää omia laivojasi tai arpoa ne uudelleen. Peli pitää kirjaa voitoista, tappioista ja vähimmistä laukauksista tasoittain. Kumpi purjehtii kotiin perheensä luo?
 
-*Hiiri tai nuolet ja välilyönti.*
+*Hiiri tai nuolet ja välilyönti. Sijoittaessa 1–5 nostaa laivan, R tai hiiren oikea kääntää ja A arpoo.*
 
 ### 2048
 
@@ -38,13 +38,13 @@ Kolme peliä saman kortin alla, ja jokaisella on oma top-listansa. Pisteet tulev
 
 Pidä pallo kentällä ja riko tiilet. 50 kenttää, kolme palloa, ja nopeasta läpäisystä saa lisäpisteitä. Valkoinen tiili tuo toisen pallon ja kasvattaa mailaa, ja niin kauan kuin molemmat pallot ovat kentällä, tiilistä saa tuplapisteet. Musta tiili tekee pallosta 30 % nopeamman superpallon, joka menee kaikkien tiilien läpi ja antaa nelinkertaiset pisteet. Valkoinen tiili tuplaa myös superpallon. Kahden pallon vahtiminen on juuri niin vaikeaa kuin miltä se kuulostaa.
 
-*Hiiri tai nuolet, laukaisu välilyönnillä tai klikkauksella.*
+*Hiiri, nuolet tai A/D, laukaisu välilyönnillä tai klikkauksella.*
 
 ### Asteroidit
 
 Yksinäinen alus, loputtomasti kiviä. Iso kivi hajoaa pienemmiksi, lentävät lautaset ampuvat takaisin, ja kun tilanne käy mahdottomaksi, voit aina hypätä sokkona jonnekin muualle. Aluksia on kolme. 10 000 pistettä tuo uuden, ja jokainen seuraava maksaa edellistä enemmän.
 
-*Nuolet tai hiiri, hiiren oikea kiihdyttää, välilyönti ampuu, H hyppää.*
+*Nuolet, WASD tai hiiri, hiiren oikea kiihdyttää, välilyönti ampuu, H hyppää.*
 
 ### Mato8000
 
@@ -60,7 +60,7 @@ Vaihda kahta vierekkäistä palikkaa, ja kolme samaa suorassa katoaa. Yläpuolel
 
 ### Miinaharava
 
-Se toinen tuttu toimistoklassikko. Numero kertoo, montako miinaa ruudun ympärillä on, ja loput pitää päätellä. Ensimmäinen avaus on aina turvallinen, joten ensimmäistä räjähdystä ei voi laittaa huonon tuurin piikkiin. Kolme tasoa, ja jokaisella oma ennätysaikansa.
+Se toinen tuttu toimistoklassikko. Numero kertoo, montako miinaa ruudun ympärillä on, ja loput pitää päätellä. Ensimmäinen avaus on aina turvallinen, joten ensimmäistä räjähdystä ei voi laittaa huonon tuurin piikkiin. Kolme tasoa, ja jokaisella oma ennätysaikansa. Voitto antaa top-listalle pisteitä: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
 
 *Hiiren vasen avaa ja oikea liputtaa, tai nuolet, välilyönti ja F.*
 
@@ -78,8 +78,10 @@ No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, 
 
 ## Hyvä tietää
 
+- Valikossa peli valitaan nuolilla, numeroilla 1–0, hiiren rullalla tai osoittamalla, ja välilyönti tai klikkaus aloittaa sen.
 - `Esc` palaa pelistä valikkoon, ja kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
-- Laivanupotusta ja Miinaharavaa lukuun ottamatta peleissä on Top 3 -lista myös netissä. Ilman nettiä pelaat ihan yhtä hyvin.
+- Valittu taso, pasianssin laji ja viimeksi valittu peli säilyvät seuraavaan kertaan.
+- Laivanupotusta lukuun ottamatta peleissä on Top 3 -lista myös netissä, ja valikko näyttää sen valitun pelin kohdalla. Ilman nettiä pelaat ihan yhtä hyvin.
 - Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään.
 
 ## Pelaamaan

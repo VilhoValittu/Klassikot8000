@@ -1,12 +1,13 @@
 use klassikot8000::Arpa;
 use klassikot8000::laivanupotus::{
-    KOKO, Laivasto, Laukaustulos, Ruudut, Ruutu, SARAKKEET, Vaikeus, vastustaja,
+    KOKO, LAIVAT, Laivasto, Laukaustulos, Ruudut, Ruutu, SARAKKEET, Vaikeus, vastustaja,
 };
 
 use super::piirto;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::aanikytkimella;
+use crate::yhteinen::pelinakyma::Pelinakyma;
+use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::Syote;
 
 // Kierroksen äänet tulevat peräkkäin, jotta laukaus ja sen seuraus erottuvat.
@@ -31,12 +32,53 @@ impl Tehoste {
     }
 }
 
+/// Voitot, tappiot ja ennätys yhdellä vaikeustasolla.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Tilasto {
+    pub voitot: u32,
+    pub tappiot: u32,
+    /// Vähiten laukauksia voittoon. Nolla tarkoittaa, ettei voittoa ole vielä.
+    pub vahiten_laukauksia: u32,
+}
+
+impl Tilasto {
+    fn kirjaa(&mut self, voitto: bool, laukauksia: u32) {
+        if voitto {
+            self.voitot += 1;
+            if self.vahiten_laukauksia == 0 || laukauksia < self.vahiten_laukauksia {
+                self.vahiten_laukauksia = laukauksia;
+            }
+        } else {
+            self.tappiot += 1;
+        }
+    }
+}
+
+/// Tason paikka tilastotaulukossa.
+pub fn tason_numero(vaikeus: Vaikeus) -> usize {
+    Vaikeus::KAIKKI
+        .iter()
+        .position(|&t| t == vaikeus)
+        .unwrap_or(0)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vaihe {
     Alku,
+    /// Pelaaja voi siirtää omia laivojaan ennen ensimmäistä laukausta.
+    Sijoitus,
     Ammunta,
     Voitto,
     Tappio,
+}
+
+/// Siirrettäväksi nostettu oma laiva. Se seuraa kursoria siitä kohdasta, josta siihen tartuttiin.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Nostettu {
+    pub laiva: usize,
+    pub vaaka: bool,
+    /// Monesko laivan ruutu on kursorin kohdalla.
+    pub tartunta: usize,
 }
 
 pub struct Peli {
@@ -44,7 +86,9 @@ pub struct Peli {
     pub vaikeus: Vaikeus,
     pub oma: Laivasto,
     pub vastustaja: Laivasto,
+    /// Sijoituksessa oman laudan ruutu, ammunnassa vastustajan.
     pub kursori: Ruutu,
+    pub nostettu: Option<Nostettu>,
     /// Edellisen kierroksen tulokset: ensin pelaajan, sitten vastustajan laukaus.
     pub viestit: [String; 2],
     pub ammuttu_jo: bool,
@@ -56,6 +100,10 @@ pub struct Peli {
     pub tehosteet: Vec<Tehoste>,
     /// Pelin alusta kulunut aika, josta kaikki animaatiot lasketaan.
     pub kello_ms: u32,
+    /// Tasoittain, järjestys kuten `Vaikeus::KAIKKI`.
+    pub tilastot: [Tilasto; 3],
+    /// Tosi, kun päättynyt peli on kirjattu tilastoon: käynnistin tallentaa sen.
+    pub uusi_tulos: bool,
     arpa: Arpa,
 }
 
@@ -68,6 +116,7 @@ impl Peli {
             oma: Laivasto::satunnainen(&mut arpa),
             vastustaja: Laivasto::satunnainen(&mut arpa),
             kursori: Ruutu { rivi: 0, sarake: 0 },
+            nostettu: None,
             viestit: Default::default(),
             ammuttu_jo: false,
             lopeta: false,
@@ -75,8 +124,21 @@ impl Peli {
             aanijono: Vec::new(),
             tehosteet: Vec::new(),
             kello_ms: 0,
+            tilastot: Default::default(),
+            uusi_tulos: false,
             arpa,
         }
+    }
+
+    /// Pelaajan ammuttujen laukausten määrä.
+    pub fn laukauksia(&self) -> u32 {
+        self.vastustaja.ammutut().maara() as u32
+    }
+
+    fn kirjaa_tulos(&mut self, voitto: bool) {
+        let laukauksia = self.laukauksia();
+        self.tilastot[tason_numero(self.vaikeus)].kirjaa(voitto, laukauksia);
+        self.uusi_tulos = true;
     }
 
     pub fn edista(&mut self, ms: u32) {
@@ -120,9 +182,104 @@ impl Peli {
         self.oma = Laivasto::satunnainen(&mut self.arpa);
         self.vastustaja = Laivasto::satunnainen(&mut self.arpa);
         self.kursori = Ruutu { rivi: 0, sarake: 0 };
+        self.nostettu = None;
         self.viestit = Default::default();
         self.ammuttu_jo = false;
         self.tehosteet.clear();
+    }
+
+    /// Nostetun laivan ruudut kursorin kohdalla ja kelpaako paikka. Laudan reunalla laiva
+    /// pysähtyy, vaikka kursori jatkaisi.
+    pub fn haamu(&self) -> Option<(usize, Ruudut, bool)> {
+        let nostettu = self.nostettu?;
+        let pituus = self.oma.laivat().get(nostettu.laiva)?.ruudut.maara();
+        let alkuun = |kohta: u8| {
+            (kohta as usize)
+                .saturating_sub(nostettu.tartunta)
+                .min(KOKO - pituus)
+        };
+        let (rivi, sarake) = (self.kursori.rivi as usize, self.kursori.sarake as usize);
+        let alku = if nostettu.vaaka {
+            Ruutu::new(rivi, alkuun(self.kursori.sarake))
+        } else {
+            Ruutu::new(alkuun(self.kursori.rivi), sarake)
+        }?;
+        let ruudut = Ruudut::suora(alku, pituus, nostettu.vaaka)?;
+        Some((
+            nostettu.laiva,
+            ruudut,
+            self.oma.mahtuu(nostettu.laiva, ruudut),
+        ))
+    }
+
+    /// Nostaa laivan `i`. Kursori siirtyy ruutuun, josta siihen tartutaan.
+    fn nosta(&mut self, i: usize, tartuntaruutu: Ruutu) -> bool {
+        let Some(laiva) = self.oma.laivat().get(i).copied() else {
+            return false;
+        };
+        let Some(alku) = laiva.alku() else {
+            return false;
+        };
+        let tartunta =
+            (tartuntaruutu.rivi - alku.rivi + tartuntaruutu.sarake - alku.sarake) as usize;
+        self.kursori = tartuntaruutu;
+        self.nostettu = Some(Nostettu {
+            laiva: i,
+            vaaka: laiva.vaaka(),
+            tartunta,
+        });
+        true
+    }
+
+    /// Laskee nostetun laivan kursorin kohdalle. Muihin koskeva paikka ei kelpaa.
+    fn laske(&mut self) -> bool {
+        let Some((laiva, ruudut, kelpaa)) = self.haamu() else {
+            return false;
+        };
+        if kelpaa && self.oma.siirra(laiva, ruudut) {
+            self.nostettu = None;
+        } else {
+            self.aanijono.push((Aani::Ahkaisy, 0));
+        }
+        true
+    }
+
+    /// Nostettu laiva kääntyy kädessä, laudalla oleva paikallaan tartuntakohtansa ympäri.
+    fn kaanna(&mut self) -> bool {
+        if let Some(nostettu) = &mut self.nostettu {
+            nostettu.vaaka = !nostettu.vaaka;
+            return true;
+        }
+        let Some(i) = self.oma.laiva_ruudussa(self.kursori) else {
+            return false;
+        };
+        self.nosta(i, self.kursori);
+        if let Some(nostettu) = &mut self.nostettu {
+            nostettu.vaaka = !nostettu.vaaka;
+        }
+        match self.haamu() {
+            Some((i, ruudut, true)) => {
+                self.oma.siirra(i, ruudut);
+            }
+            _ => self.aanijono.push((Aani::Ahkaisy, 0)),
+        }
+        self.nostettu = None;
+        true
+    }
+
+    fn arvo_laivat(&mut self) -> bool {
+        self.oma = Laivasto::satunnainen(&mut self.arpa);
+        self.nostettu = None;
+        true
+    }
+
+    /// Kesken jäänyt nosto perutaan: laiva jää entiselle paikalleen.
+    fn aloita_ammunta(&mut self) -> bool {
+        self.nostettu = None;
+        self.kursori = Ruutu { rivi: 0, sarake: 0 };
+        self.vaihe = Vaihe::Ammunta;
+        self.aanijono.push((Aani::Ovi, 0));
+        true
     }
 
     /// Käsittelee syötteen ja kertoo, muuttuiko näkymä.
@@ -138,6 +295,7 @@ impl Peli {
         }
         match self.vaihe {
             Vaihe::Alku => self.kasittele_alku(syote),
+            Vaihe::Sijoitus => self.kasittele_sijoitus(syote),
             Vaihe::Ammunta => self.kasittele_ammunta(syote),
             Vaihe::Voitto | Vaihe::Tappio => self.kasittele_loppu(syote),
         }
@@ -163,11 +321,66 @@ impl Peli {
             return muuttui;
         }
         if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
-            self.vaihe = Vaihe::Ammunta;
-            self.aanijono.push((Aani::Ovi, 0));
+            self.vaihe = Vaihe::Sijoitus;
             return true;
         }
         false
+    }
+
+    fn kasittele_sijoitus(&mut self, syote: Syote) -> bool {
+        match syote {
+            Syote::Hiiri(x, y) => match piirto::oma_ruutu_pisteesta(x, y) {
+                Some(ruutu) if ruutu != self.kursori => {
+                    self.kursori = ruutu;
+                    true
+                }
+                _ => false,
+            },
+            Syote::Klikkaus(x, y) => {
+                match piirto::nappi_pisteesta(Vaihe::Sijoitus, x, y) {
+                    Some(piirto::Nappi::Arvo) => return self.arvo_laivat(),
+                    Some(piirto::Nappi::Taisteluun) => return self.aloita_ammunta(),
+                    _ => {}
+                }
+                let Some(ruutu) = piirto::oma_ruutu_pisteesta(x, y) else {
+                    return false;
+                };
+                self.kursori = ruutu;
+                if self.nostettu.is_some() {
+                    return self.laske();
+                }
+                match self.oma.laiva_ruudussa(ruutu) {
+                    Some(i) => self.nosta(i, ruutu),
+                    None => false,
+                }
+            }
+            Syote::OikeaKlikkaus(x, y) => {
+                if let Some(ruutu) = piirto::oma_ruutu_pisteesta(x, y) {
+                    self.kursori = ruutu;
+                }
+                self.kaanna()
+            }
+            Syote::Kirjain('R') => self.kaanna(),
+            Syote::Kirjain('A') => self.arvo_laivat(),
+            // Numero nostaa laivan sen alusta, samassa järjestyksessä kuin laudan alla.
+            Syote::Numero(numero @ 1..) if (numero as usize) <= LAIVAT.len() => {
+                let i = numero as usize - 1;
+                match self.oma.laivat()[i].alku() {
+                    Some(alku) => self.nosta(i, alku),
+                    None => false,
+                }
+            }
+            Syote::Nuoli(drivi, dsarake) => {
+                self.kursori = Ruutu {
+                    rivi: siirra(self.kursori.rivi, drivi),
+                    sarake: siirra(self.kursori.sarake, dsarake),
+                };
+                true
+            }
+            Syote::Ammu if self.nostettu.is_some() => self.laske(),
+            Syote::Ammu => self.aloita_ammunta(),
+            _ => false,
+        }
     }
 
     fn kasittele_ammunta(&mut self, syote: Syote) -> bool {
@@ -211,7 +424,8 @@ impl Peli {
             | Syote::VaihdaAanet
             | Syote::Pyyhi
             | Syote::Vapautus(..)
-            | Syote::OikeaKlikkaus(..) => return false,
+            | Syote::OikeaKlikkaus(..)
+            | Syote::Rulla(_) => return false,
         };
         let muuttui = uusi != self.kursori || self.ammuttu_jo;
         self.kursori = uusi;
@@ -223,10 +437,10 @@ impl Peli {
         let uudestaan = match syote {
             Syote::Kirjain('K') => true,
             Syote::Kirjain('E') => false,
-            Syote::Klikkaus(x, y) => match piirto::nappi_pisteesta(x, y) {
+            Syote::Klikkaus(x, y) => match piirto::nappi_pisteesta(self.vaihe, x, y) {
                 Some(piirto::Nappi::Uudestaan) => true,
                 Some(piirto::Nappi::Lopeta) => false,
-                None => return false,
+                _ => return false,
             },
             _ => return false,
         };
@@ -260,6 +474,7 @@ impl Peli {
         });
         if self.vastustaja.kaikki_upotettu() {
             self.vaihe = Vaihe::Voitto;
+            self.kirjaa_tulos(true);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
             return;
         }
@@ -280,6 +495,7 @@ impl Peli {
         }
         if self.oma.kaikki_upotettu() {
             self.vaihe = Vaihe::Tappio;
+            self.kirjaa_tulos(false);
             self.aanijono
                 .push((Aani::Tappio, VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS));
         }
@@ -322,16 +538,222 @@ pub fn tulos_teksti(ampuja: &str, ruutu: Ruutu, tulos: Laukaustulos) -> String {
     }
 }
 
+impl Pelinakyma for Peli {
+    fn kasittele(&mut self, syote: Syote) {
+        Peli::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Peli::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        piirto::piirra(self, &mut kehys.kuva);
+        kehys.venyta();
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::yhteinen::piirto::aanikytkimen_keskipiste;
 
-    fn pelissa(siemen: u64) -> Peli {
+    fn sijoituksessa(siemen: u64) -> Peli {
         let mut peli = Peli::new(siemen);
+        assert!(peli.kasittele(Syote::Ammu));
+        assert_eq!(peli.vaihe, Vaihe::Sijoitus);
+        peli
+    }
+
+    fn pelissa(siemen: u64) -> Peli {
+        let mut peli = sijoituksessa(siemen);
         assert!(peli.kasittele(Syote::Ammu));
         assert_eq!(peli.vaihe, Vaihe::Ammunta);
         peli
+    }
+
+    /// Ruutu, jossa ei ole laivaa eikä laivan vieressä.
+    fn vapaa_ruutu(peli: &Peli) -> Ruutu {
+        let varatut = peli
+            .oma
+            .laivat()
+            .iter()
+            .fold(Ruudut::default(), |kaikki, l| {
+                kaikki.yhdiste(l.ruudut.ymparys())
+            });
+        (0..KOKO * KOKO)
+            .filter_map(|i| Ruutu::new(i / KOKO, i % KOKO))
+            .find(|&r| !varatut.sisaltaa(r))
+            .unwrap()
+    }
+
+    #[test]
+    fn laiva_nostetaan_ja_lasketaan_hiirella_vain_vapaaseen_paikkaan() {
+        let mut peli = sijoituksessa(1);
+        let laiva = peli.oma.laivat()[4];
+        let alku = laiva.alku().unwrap();
+        let (x, y) = piirto::oman_ruudun_keskipiste(alku);
+        assert!(peli.kasittele(Syote::Klikkaus(x, y)));
+        assert_eq!(peli.nostettu.map(|n| n.laiva), Some(4));
+
+        // toisen laivan päälle ei voi laskea
+        let toinen = peli.oma.laivat()[0].alku().unwrap();
+        let (x, y) = piirto::oman_ruudun_keskipiste(toinen);
+        peli.kasittele(Syote::Hiiri(x, y));
+        assert!(!peli.haamu().unwrap().2);
+        peli.aanijono.clear();
+        peli.kasittele(Syote::Klikkaus(x, y));
+        assert_eq!(peli.aanijono, [(Aani::Ahkaisy, 0)]);
+        assert!(peli.nostettu.is_some());
+        assert_eq!(peli.oma.laivat()[4].ruudut, laiva.ruudut);
+
+        // Vapaa paikka löytyy aina kahden ruudun laivalle, kun se on nostettu pois.
+        let ruudut = (0..KOKO * KOKO)
+            .filter_map(|i| Ruutu::new(i / KOKO, i % KOKO))
+            .find(|&r| {
+                peli.kursori = r;
+                peli.haamu()
+                    .is_some_and(|(_, ruudut, kelpaa)| kelpaa && ruudut != laiva.ruudut)
+            })
+            .unwrap();
+        let (x, y) = piirto::oman_ruudun_keskipiste(ruudut);
+        peli.kasittele(Syote::Klikkaus(x, y));
+        assert!(peli.nostettu.is_none());
+        assert_ne!(peli.oma.laivat()[4].ruudut, laiva.ruudut);
+        assert!(peli.oma.mahtuu(4, peli.oma.laivat()[4].ruudut));
+    }
+
+    #[test]
+    fn nappaimisto_nostaa_kaantaa_ja_laskee_laivan() {
+        let mut peli = sijoituksessa(2);
+        assert!(peli.kasittele(Syote::Numero(5)));
+        let ennen = peli.oma.laivat()[4];
+        assert_eq!(peli.kursori, ennen.alku().unwrap());
+        peli.kasittele(Syote::Kirjain('R'));
+        assert_eq!(peli.nostettu.map(|n| n.vaaka), Some(!ennen.vaaka()));
+        peli.kasittele(Syote::Kirjain('R'));
+        // Nuolet vievät haamun vapaaseen kohtaan, ja välilyönti laskee sen.
+        let kohde = vapaa_ruutu(&peli);
+        while peli.kursori != kohde {
+            let d = |a: u8, b: u8| (b as i8 - a as i8).signum();
+            peli.kasittele(Syote::Nuoli(
+                d(peli.kursori.rivi, kohde.rivi),
+                d(peli.kursori.sarake, kohde.sarake),
+            ));
+        }
+        if peli.haamu().unwrap().2 {
+            peli.kasittele(Syote::Ammu);
+            assert!(peli.nostettu.is_none());
+            assert_eq!(peli.vaihe, Vaihe::Sijoitus);
+        }
+        // Välilyönti ilman nostettua laivaa aloittaa taistelun.
+        peli.nostettu = None;
+        peli.aanijono.clear();
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Ammunta);
+        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+    }
+
+    #[test]
+    fn laudalla_oleva_laiva_kaantyy_paikallaan_jos_mahtuu() {
+        let mut kaantyi = 0;
+        for siemen in 0..50 {
+            let mut peli = sijoituksessa(siemen);
+            let ennen = peli.oma.laivat()[4];
+            peli.kursori = ennen.alku().unwrap();
+            peli.kasittele(Syote::Kirjain('R'));
+            assert!(peli.nostettu.is_none());
+            let jalkeen = peli.oma.laivat()[4];
+            if jalkeen.ruudut != ennen.ruudut {
+                kaantyi += 1;
+                assert_eq!(jalkeen.vaaka(), !ennen.vaaka());
+                assert!(jalkeen.ruudut.sisaltaa(ennen.alku().unwrap()));
+            } else {
+                assert_eq!(peli.aanijono.last(), Some(&(Aani::Ahkaisy, 0)));
+            }
+        }
+        assert!(kaantyi > 0);
+    }
+
+    #[test]
+    fn arvonta_ja_taistelunappi_toimivat_ja_nosto_peruuntuu() {
+        let mut peli = sijoituksessa(1);
+        let ennen: Vec<_> = peli.oma.laivat().iter().map(|l| l.ruudut).collect();
+        let (x, y) = piirto::napin_keskipiste(piirto::Nappi::Arvo);
+        assert!(peli.kasittele(Syote::Klikkaus(x, y)));
+        let jalkeen: Vec<_> = peli.oma.laivat().iter().map(|l| l.ruudut).collect();
+        assert_ne!(ennen, jalkeen);
+
+        peli.kasittele(Syote::Numero(1));
+        let (x, y) = piirto::napin_keskipiste(piirto::Nappi::Taisteluun);
+        peli.kasittele(Syote::Klikkaus(x, y));
+        assert_eq!(peli.vaihe, Vaihe::Ammunta);
+        assert!(peli.nostettu.is_none());
+        let lopuksi: Vec<_> = peli.oma.laivat().iter().map(|l| l.ruudut).collect();
+        assert_eq!(lopuksi, jalkeen);
+    }
+
+    #[test]
+    fn tilasto_kirjaa_voitot_tappiot_ja_vahimmat_laukaukset() {
+        let mut voitot = 0;
+        let mut tappiot = 0;
+        for siemen in 0..60 {
+            let mut peli = pelissa(siemen);
+            peli.vaikeus = Vaikeus::Helppo;
+            for i in 0..KOKO * KOKO {
+                peli.ammu(Ruutu::new(i / KOKO, i % KOKO).unwrap());
+                if peli.vaihe != Vaihe::Ammunta {
+                    break;
+                }
+            }
+            assert!(peli.uusi_tulos);
+            let tilasto = peli.tilastot[0];
+            assert_eq!(peli.tilastot[2], Tilasto::default());
+            if peli.vaihe == Vaihe::Voitto {
+                voitot += 1;
+                assert_eq!(tilasto.voitot, 1);
+                assert_eq!(tilasto.vahiten_laukauksia, peli.laukauksia());
+            } else {
+                tappiot += 1;
+                assert_eq!(tilasto.tappiot, 1);
+                assert_eq!(tilasto.vahiten_laukauksia, 0);
+            }
+        }
+        assert!(voitot > 0 && tappiot > 0);
+
+        let mut tilasto = Tilasto::default();
+        tilasto.kirjaa(true, 50);
+        tilasto.kirjaa(true, 40);
+        tilasto.kirjaa(true, 60);
+        tilasto.kirjaa(false, 30);
+        assert_eq!(
+            tilasto,
+            Tilasto {
+                voitot: 3,
+                tappiot: 1,
+                vahiten_laukauksia: 40
+            }
+        );
     }
 
     #[test]
@@ -556,7 +978,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Alku);
 
         peli.kasittele(Syote::Klikkaus(0, 0));
-        assert_eq!(peli.vaihe, Vaihe::Ammunta);
+        assert_eq!(peli.vaihe, Vaihe::Sijoitus);
         peli.vaihe = Vaihe::Voitto;
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaikeus, Vaikeus::Helppo);

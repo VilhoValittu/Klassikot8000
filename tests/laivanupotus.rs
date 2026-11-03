@@ -211,3 +211,42 @@ fn tiedot_eivat_paljasta_kelluvia_laivoja() {
     assert_eq!(tiedot.upotetut, partioalus.ruudut);
     assert_eq!(tiedot.jaljella, [5, 4, 3, 3]);
 }
+
+#[test]
+fn siirto_kelpaa_vain_koskematta_muihin_ja_ennen_laukauksia() {
+    for siemen in 0..300 {
+        let mut arpa = Arpa::new(siemen);
+        let mut laivasto = Laivasto::satunnainen(&mut arpa);
+        // Satunnaisia siirtoyrityksiä: hyväksytyn jälkeen sääntö pätee yhä.
+        for _ in 0..40 {
+            let i = arpa.alle(LAIVAT.len());
+            let pituus = LAIVAT[i].1;
+            let alku = Ruutu::new(arpa.alle(KOKO), arpa.alle(KOKO)).unwrap();
+            let Some(ruudut) = Ruudut::suora(alku, pituus, arpa.alle(2) == 0) else {
+                continue;
+            };
+            let kelpaa = laivasto.mahtuu(i, ruudut);
+            assert_eq!(laivasto.siirra(i, ruudut), kelpaa);
+            if kelpaa {
+                assert_eq!(laivasto.laivat()[i].ruudut, ruudut);
+                assert_eq!(laivasto.laivat()[i].alku(), Some(alku));
+            }
+            for (j, laiva) in laivasto.laivat().iter().enumerate() {
+                for (k, muu) in laivasto.laivat().iter().enumerate() {
+                    assert!(j == k || !laiva.ruudut.ymparys().leikkaako(muu.ruudut));
+                }
+            }
+        }
+    }
+
+    // väärän pituinen jono ja ammuttu laivasto eivät kelpaa
+    let mut laivasto = Laivasto::satunnainen(&mut Arpa::new(1));
+    let alku = laivasto.laivat()[4].alku().unwrap();
+    let vaaka = laivasto.laivat()[4].vaaka();
+    assert!(!laivasto.siirra(4, Ruudut::suora(alku, 3, vaaka).unwrap_or_default()));
+    let paikallaan = laivasto.laivat()[4].ruudut;
+    assert!(laivasto.siirra(4, paikallaan));
+    assert_eq!(laivasto.laiva_ruudussa(alku), Some(4));
+    laivasto.kasittele_laukaus(Ruutu::new(0, 0).unwrap());
+    assert!(!laivasto.siirra(4, paikallaan));
+}

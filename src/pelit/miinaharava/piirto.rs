@@ -229,6 +229,8 @@ pub fn piirra(peli: &Miinaharava, kuva: &mut [u32]) {
 impl Piirtaja<'_> {
     fn miinan_alkuruutu(&mut self, peli: &Miinaharava) {
         self.maisema(kaanna("miinaharava.banneri"), &miinamalli());
+        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
         let taso = peli.vaikeus;
         let kuvaus = muotoile(
@@ -398,6 +400,10 @@ impl Piirtaja<'_> {
 
     fn miinan_paneeli(&mut self, peli: &Miinaharava) {
         self.paneelin_tausta();
+        if peli.vaihe == Vaihe::Nimi {
+            self.nimikysely(peli.pisteet(), &peli.nimi);
+            return;
+        }
         self.teksti(TEKSTI_X, PANEELI_RIVI_Y, &peli.viesti, VALKOINEN);
 
         let paras = peli
@@ -422,7 +428,7 @@ impl Piirtaja<'_> {
         let otsikko = match peli.vaihe {
             Vaihe::Voitto => Some("yhteinen.voitit"),
             Vaihe::Tappio => Some("miinaharava.tappio"),
-            Vaihe::Pelissa | Vaihe::Alku => None,
+            Vaihe::Pelissa | Vaihe::Alku | Vaihe::Nimi => None,
         };
         if let Some(otsikko) = otsikko {
             self.suurteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
@@ -492,8 +498,8 @@ mod tests {
                 kaanna(OHJE).to_string(),
                 kaanna("miinaharava.aloita").to_string(),
                 kaanna("miinaharava.pamaus").to_string(),
-                muotoile("miinaharava.ennatys", &[&999]),
-                muotoile("miinaharava.aika_viesti", &[&999]),
+                muotoile("miinaharava.ennatys", &[&999, &2997]),
+                muotoile("miinaharava.aika_viesti", &[&999, &2997]),
                 muotoile("miinaharava.kuvaus", &[&30, &16, &99]),
             ] {
                 assert!(viesti.chars().count() <= RIVILLE_MERKKEJA, "{viesti}");
@@ -554,6 +560,9 @@ mod tests {
             peli.edista(10_000);
             piirra(&peli, &mut kuva);
             peli.vaihe = Vaihe::Voitto;
+            piirra(&peli, &mut kuva);
+            peli.vaihe = Vaihe::Nimi;
+            peli.nimi = "VÄINÖ".to_string();
             piirra(&peli, &mut kuva);
         }
     }

@@ -143,3 +143,18 @@ fn kulman_naapureita_on_kolme_ja_keskella_kahdeksan() {
     assert_eq!(kentta.naapurit((5, 5)).count(), 8);
     assert_eq!(kentta.naapurit((0, 5)).count(), 5);
 }
+
+#[test]
+fn nopeampi_voitto_ja_vaikeampi_taso_antavat_enemman_pisteita() {
+    use klassikot8000::miinaharava::{SUURIN_AIKA, aikapisteet};
+
+    for vaikeus in Vaikeus::KAIKKI {
+        assert!(aikapisteet(vaikeus, 10) > aikapisteet(vaikeus, 11));
+        assert!(aikapisteet(vaikeus, SUURIN_AIKA) > 0);
+        assert!(aikapisteet(vaikeus, u32::MAX) > 0);
+    }
+    assert!(aikapisteet(Vaikeus::Vaikea, 100) > aikapisteet(Vaikeus::Normaali, 100));
+    assert!(aikapisteet(Vaikeus::Normaali, 100) > aikapisteet(Vaikeus::Helppo, 100));
+    // Palvelin hylkää tätä suuremmat tulokset.
+    assert!(aikapisteet(Vaikeus::Vaikea, 1) <= 3000);
+}

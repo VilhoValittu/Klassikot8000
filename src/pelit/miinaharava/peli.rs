@@ -1,20 +1,25 @@
 use klassikot8000::Arpa;
-use klassikot8000::miinaharava::{Avaus, Miinakentta, Paikka, Vaikeus};
+use klassikot8000::miinaharava::{Avaus, Miinakentta, Paikka, SUURIN_AIKA, Vaikeus, aikapisteet};
 
 use super::piirto;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::piirto::{VILKKU_MS, aanikytkimella};
+use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::Syote;
+use crate::yhteinen::tulokset::{
+    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
+};
 
 pub const RAJAHDYS_MS: u32 = 500;
 const LOPPU_VIIVE_MS: u32 = 250;
-pub const SUURIN_AIKA: u32 = 999;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vaihe {
     Alku,
     Pelissa,
+    /// Voitto pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
+    Nimi,
     Voitto,
     Tappio,
 }
@@ -33,6 +38,14 @@ pub struct Miinaharava {
     pub ajat: [u32; 3],
     /// Tosi, kun uusi ennätys odottaa tiedostoon kirjoitusta.
     pub uusi_tulos: bool,
+    /// Top 3 pisteinä, suurin ensin. Pisteet tulevat ajasta ja tasosta.
+    pub parhaat: Vec<Tulos>,
+    /// Nettilista, kun palvelin on vastannut.
+    pub netti_parhaat: Option<Vec<Tulos>>,
+    /// Nimetty tulos, jonka käynnistin lähettää nettilistalle.
+    pub lahetys: Option<Tulos>,
+    /// Kirjoitettavana oleva nimimerkki.
+    pub nimi: String,
     pub viesti: String,
     pub kursori: Paikka,
     /// Kursori näkyy vasta, kun näppäimistöä on käytetty.
@@ -67,6 +80,10 @@ impl Miinaharava {
             lauta: Miinakentta::new(Vaikeus::Helppo),
             ajat: [0; 3],
             uusi_tulos: false,
+            parhaat: Vec::new(),
+            netti_parhaat: None,
+            lahetys: None,
+            nimi: String::new(),
             viesti: String::new(),
             kursori: (0, 0),
             kursori_nakyy: false,
@@ -101,6 +118,43 @@ impl Miinaharava {
         self.loppuaika.unwrap_or(kulunut).min(SUURIN_AIKA)
     }
 
+    /// Nettilista, kun se on saatu, muuten omat tulokset.
+    pub fn nakyva_lista(&self) -> &[Tulos] {
+        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
+    }
+
+    /// Päättyneen pelin pisteet top-listalle.
+    pub fn pisteet(&self) -> u32 {
+        aikapisteet(self.vaikeus, self.aika())
+    }
+
+    /// Kirjaa nimeä odottavan voiton.
+    pub fn vahvista_nimi(&mut self) {
+        if self.vaihe != Vaihe::Nimi {
+            return;
+        }
+        let tulos = Tulos {
+            nimi: ota_nimi(&mut self.nimi),
+            pisteet: self.pisteet(),
+        };
+        lisaa_tulos(&mut self.parhaat, tulos.clone());
+        if let Some(lista) = &mut self.netti_parhaat {
+            lisaa_tulos(lista, tulos.clone());
+        }
+        self.lahetys = Some(tulos);
+        self.uusi_tulos = true;
+        self.vaihe = Vaihe::Voitto;
+    }
+
+    fn kasittele_nimi(&mut self, syote: Syote) {
+        match syote {
+            // Avaukseen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
+            Syote::Ammu if self.nimi.is_empty() => {}
+            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
+            _ => muokkaa_nimea(&mut self.nimi, syote),
+        }
+    }
+
     /// Nykyisen tason paras aika, jos taso on läpäisty.
     pub fn paras_aika(&self) -> Option<u32> {
         Some(self.ajat[tason_indeksi(self.vaikeus)]).filter(|&aika| aika > 0)
@@ -130,6 +184,11 @@ impl Miinaharava {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
+        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
+        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
+            self.kasittele_nimi(syote);
+            return;
+        }
         if syote == Syote::Peru {
             self.lopeta = true;
             return;
@@ -143,6 +202,7 @@ impl Miinaharava {
             Vaihe::Alku => self.kasittele_alku(syote),
             Vaihe::Pelissa => self.kasittele_pelissa(syote),
             Vaihe::Voitto | Vaihe::Tappio => self.kasittele_loppu(syote),
+            Vaihe::Nimi => {}
         }
     }
 
@@ -247,13 +307,18 @@ impl Miinaharava {
         self.loppuaika = Some(aika);
         self.vaihe = Vaihe::Voitto;
         self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+        let pisteet = self.pisteet();
         let paras = &mut self.ajat[tason_indeksi(self.vaikeus)];
         if *paras == 0 || aika < *paras {
             *paras = aika;
             self.uusi_tulos = true;
-            self.viesti = muotoile("miinaharava.ennatys", &[&aika]);
+            self.viesti = muotoile("miinaharava.ennatys", &[&aika, &pisteet]);
         } else {
-            self.viesti = muotoile("miinaharava.aika_viesti", &[&aika]);
+            self.viesti = muotoile("miinaharava.aika_viesti", &[&aika, &pisteet]);
+        }
+        if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
+            self.nimi.clear();
+            self.vaihe = Vaihe::Nimi;
         }
     }
 
@@ -278,6 +343,59 @@ impl Miinaharava {
     }
 }
 
+impl Pelinakyma for Miinaharava {
+    fn kasittele(&mut self, syote: Syote) {
+        Miinaharava::kasittele(self, syote);
+    }
+
+    fn edista(&mut self, ms: u32) {
+        Miinaharava::edista(self, ms);
+    }
+
+    fn piirra(&self, kehys: &mut Kehys) {
+        piirto::piirra(self, &mut kehys.kuva);
+        kehys.venyta();
+    }
+
+    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
+        &mut self.aanijono
+    }
+
+    fn aanet_paalla(&self) -> bool {
+        self.aanet_paalla
+    }
+
+    fn aseta_aanet(&mut self, paalla: bool) {
+        self.aanet_paalla = paalla;
+    }
+
+    fn lopeta(&self) -> bool {
+        self.lopeta
+    }
+
+    fn ota_uusi_tulos(&mut self) -> bool {
+        std::mem::take(&mut self.uusi_tulos)
+    }
+
+    fn viimeistele(&mut self) {
+        self.vahvista_nimi();
+    }
+
+    fn listat(&mut self) -> Vec<Lista<'_>> {
+        vec![Lista {
+            peli: Nettipeli::Miinaharava,
+            paras: None,
+            parhaat: &mut self.parhaat,
+            netti: &mut self.netti_parhaat,
+            lahetys: Some(&mut self.lahetys),
+        }]
+    }
+
+    fn kuvan_avain(&self) -> Option<(u32, u32)> {
+        self.kuvan_askel().map(|askel| (askel, 0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -291,6 +409,54 @@ mod tests {
         peli.aanijono.clear();
         peli.lauta = Miinakentta::miinoista(vaikeus, miinat);
         peli
+    }
+
+    #[test]
+    fn listalle_yltava_voitto_kysyy_nimen_ja_lahtee_nettiin() {
+        let mut peli = pelissa(Vaikeus::Normaali, &[(0, 0)]);
+        peli.avaa((1, 1));
+        peli.edista(40_000);
+        peli.avaa((15, 15));
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        let pisteet = aikapisteet(Vaikeus::Normaali, 40);
+        assert_eq!(peli.pisteet(), pisteet);
+        // tyhjää nimeä ei kuitata välilyönnillä
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        peli.kasittele(Syote::Kirjain('V'));
+        peli.kasittele(Syote::Ammu);
+        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        let tulos = Tulos {
+            nimi: "V".to_string(),
+            pisteet,
+        };
+        assert_eq!(peli.parhaat, std::slice::from_ref(&tulos));
+        assert_eq!(peli.lahetys, Some(tulos));
+        assert!(peli.uusi_tulos);
+
+        // täydelle listalle heikompi tulos ei pääse, eikä nimeä kysytä
+        let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0)]);
+        peli.parhaat = vec![
+            Tulos {
+                nimi: "A".to_string(),
+                pisteet: 5000,
+            };
+            3
+        ];
+        peli.avaa((1, 1));
+        peli.avaa((8, 8));
+        assert_eq!(peli.vaihe, Vaihe::Voitto);
+        assert!(peli.lahetys.is_none());
+    }
+
+    #[test]
+    fn suljettu_ikkuna_kirjaa_nimea_odottavan_voiton() {
+        let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0)]);
+        peli.avaa((1, 1));
+        peli.avaa((8, 8));
+        assert_eq!(peli.vaihe, Vaihe::Nimi);
+        Pelinakyma::viimeistele(&mut peli);
+        assert_eq!(peli.parhaat[0].nimi, kaanna("yhteinen.oletusnimi"));
     }
 
     fn klikkaa(peli: &mut Miinaharava, ruutu: Paikka) {
@@ -396,6 +562,14 @@ mod tests {
     #[test]
     fn voitto_kirjaa_parhaan_ajan_vain_jos_se_paranee() {
         let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0)]);
+        // Täysi top 3, jottei nimikysely tule väliin.
+        peli.parhaat = vec![
+            Tulos {
+                nimi: "A".to_string(),
+                pisteet: 100_000,
+            };
+            3
+        ];
         pelaa_voittoon(&mut peli, 40_000);
         assert_eq!(peli.ajat, [40, 0, 0]);
         assert!(peli.uusi_tulos);

@@ -9,7 +9,7 @@ use std::time::Duration;
 use ureq::Agent;
 use ureq::tls::{TlsConfig, TlsProvider};
 
-use crate::yhteinen::tulokset::{Tulos, lista_tekstista};
+use crate::yhteinen::tulokset::{Nettipeli, Tulos, lista_tekstista};
 
 #[cfg(not(debug_assertions))]
 pub const OSOITE: &str = "https://klassikot8000-tulokset.palvelin.workers.dev";
@@ -19,40 +19,6 @@ pub const JULKAISUT: &str = "https://github.com/VilhoValittu/Klassikot8000";
 pub const VERSIO: &str = env!("CARGO_PKG_VERSION");
 const AIKARAJA: Duration = Duration::from_secs(8);
 const KELVOTON_PYYNTO: u16 = 400;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nettipeli {
-    Luvut,
-    Tiilirikko,
-    Asteroidit,
-    Silmukka,
-    Palikka,
-    Pasianssi,
-    Spider,
-    Pyramidi,
-    Haasteet,
-    Blackjack,
-    Holdem,
-}
-
-impl Nettipeli {
-    /// Pelin tunnus palvelimella.
-    fn tunnus(self) -> &'static str {
-        match self {
-            Nettipeli::Luvut => "luvut",
-            Nettipeli::Tiilirikko => "tiilirikko",
-            Nettipeli::Asteroidit => "asteroidit",
-            Nettipeli::Silmukka => "silmukka",
-            Nettipeli::Palikka => "palikka",
-            Nettipeli::Pasianssi => "pasianssi",
-            Nettipeli::Spider => "spider",
-            Nettipeli::Pyramidi => "pyramidi",
-            Nettipeli::Haasteet => "haasteet",
-            Nettipeli::Blackjack => "blackjack",
-            Nettipeli::Holdem => "holdem",
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pyynto {

@@ -9,9 +9,9 @@ Runs even on a potato.
 ## Games
 
 ### Battleships
-You against the computer. Each side has five ships, and you take turns firing until one fleet lies on the bottom. Ships never touch, not even at corners, so the waters around a sunk ship get marked on the board. Who sails home to their family?
+You against the computer. Each side has five ships, and you take turns firing until one fleet lies on the bottom. Ships never touch, not even at corners, so the waters around a sunk ship get marked on the board. Before the battle you can move and turn your own ships or shuffle them again. The game keeps track of wins, losses and your fewest shots for each level. Who sails home to their family?
 
-*Mouse, or arrows and space.*
+*Mouse, or arrows and space. While placing, 1-5 lifts a ship, R or the right mouse button turns it and A shuffles.*
 
 ### 2048
 Push the numbers around the board, merge equal ones and chase 2048. One more move and then you'll stop. Maybe. An unfinished game waits for next time.
@@ -34,12 +34,12 @@ Three games under one card, each with its own top list. Your score comes from ti
 ### Laatan murskain
 Keep the ball in play and break the bricks. 50 stages, three balls, and a fast clear earns bonus points. A white brick brings a second ball and grows the paddle, and as long as both balls stay in play, bricks score double. A black brick turns the ball into a super ball that moves 30% faster, goes through every brick and scores quadruple. A white brick doubles a super ball too. Watching two balls at once is exactly as hard as it sounds.
 
-*Mouse or arrows, launch with space or a click.*
+*Mouse, arrows or A/D, launch with space or a click.*
 
 ### Asteroids
 A lonely ship, endless rocks. Big rocks split into smaller ones, flying saucers shoot back, and when things get impossible you can always jump blindly somewhere else. You have three ships. 10,000 points gives you a new one, and each one after that costs more than the last.
 
-*Arrows or mouse, right mouse button thrusts, space fires, H jumps.*
+*Arrows, WASD or mouse, right mouse button thrusts, space fires, H jumps.*
 
 ### Mato8000
 A worm game where hitting yourself is the whole idea. A hit closes a loop, and everything caught inside it is yours. The loop uses up the worm's length, though, so eat some apples now and then. The more you catch at once, the bigger the multiplier. Watch out for walls and mosquitoes.
@@ -52,7 +52,7 @@ Swap two neighbouring blocks, and three of a kind in a row disappear. The new on
 *Mouse, or arrows and space.*
 
 ### Minesweeper
-The other office classic. A number tells how many mines touch the cell, and the rest is up to you. The first open is always safe, so you can't blame your first explosion on bad luck. Three levels, each with its own best time.
+The other office classic. A number tells how many mines touch the cell, and the rest is up to you. The first open is always safe, so you can't blame your first explosion on bad luck. Three levels, each with its own best time. A win scores points for the Top 3: the faster you win, the more you get, and a harder level multiplies them (normal by two, hard by three).
 
 *Left mouse opens and right flags, or arrows, space and F.*
 
@@ -68,8 +68,10 @@ No-limit poker against four computers. Everyone starts with 1000, and the last o
 
 ## Good to know
 
+- In the menu, pick a game with the arrows, the keys 1-0, the mouse wheel or by pointing, and start it with space or a click.
 - `Esc` returns from a game to the menu, and a good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
-- All games except Battleships and Minesweeper also have an online Top 3. Without a connection the games play just as well.
+- Your chosen levels, solitaire game and last picked game are kept for next time.
+- All games except Battleships also have an online Top 3, and the menu shows it for the selected game. Without a connection the games play just as well.
 - The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts.
 
 ## Get playing

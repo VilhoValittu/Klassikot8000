@@ -1,9 +1,11 @@
 use std::f32::consts::PI;
 use std::sync::LazyLock;
 
-use klassikot8000::laivanupotus::{KOKO, Laiva, Laivasto, Laukaustulos, Ruutu, SARAKKEET, Vaikeus};
+use klassikot8000::laivanupotus::{
+    KOKO, Laiva, Laivasto, Laukaustulos, Ruudut, Ruutu, SARAKKEET, Vaikeus,
+};
 
-use super::peli::{Peli, TULOS_VIIVE_MS, Tehoste, Vaihe, laivan_nimi};
+use super::peli::{Peli, TULOS_VIIVE_MS, Tehoste, Vaihe, laivan_nimi, tason_numero};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::{Rasteri, liukuvari};
@@ -20,6 +22,9 @@ const TILASTO_SISENNYS: i32 = 48;
 const TILASTO_PALKKI_X: i32 = 14 * MERKKI;
 
 const TEHOSTE_KESTO_MS: f32 = super::peli::TEHOSTE_KESTO_MS as f32;
+/// Nostetun laivan kehys: vihreä käy, punainen koskettaisi toista laivaa.
+const KELPAA: u32 = 0x58E070;
+const EI_KELPAA: u32 = OSUMA;
 const MERKINTA: (i32, i32, i32) = (12, 18, 18);
 
 // Vesi on paikallaan pysyvä valmiiksi laskettu kuva, jotta laivat ja merkit erottuvat rauhassa.
@@ -49,6 +54,8 @@ const TAPPIO: &str = "laivanupotus.tappio";
 pub enum Nappi {
     Uudestaan,
     Lopeta,
+    Arvo,
+    Taisteluun,
 }
 
 const NAPIT: [(Nappi, &str, i32); 2] = [
@@ -59,6 +66,22 @@ const NAPIT: [(Nappi, &str, i32); 2] = [
         NAPPI_X + 13 * MERKKI + 48,
     ),
 ];
+
+const SIJOITUSNAPIT: [(Nappi, &str, i32); 2] = [
+    (Nappi::Arvo, "laivanupotus.arvo", NAPPI_X),
+    (
+        Nappi::Taisteluun,
+        "laivanupotus.taisteluun",
+        NAPPI_X + 13 * MERKKI + 48,
+    ),
+];
+const SIJOITUS_OHJEET: [&str; 3] = [
+    "laivanupotus.sijoitus_1",
+    "laivanupotus.sijoitus_2",
+    "laivanupotus.sijoitus_3",
+];
+const TILASTO: &str = "laivanupotus.tilasto";
+const ENNATYS: &str = "laivanupotus.ennatys";
 
 const TASO_OTSIKKO: &str = "yhteinen.taso";
 const TASO_Y: i32 = ALOITUS_Y - NAPPI_K - 6;
@@ -115,17 +138,35 @@ pub fn vaikeuden_keskipiste(vaikeus: Vaikeus) -> (i32, i32) {
     (x + napin_leveys(teksti) / 2, TASO_Y + NAPPI_K / 2)
 }
 
-/// Vastustajan laudan ruutu annetussa pikselissä.
-pub fn ruutu_pisteesta(x: i32, y: i32) -> Option<Ruutu> {
-    let (dx, dy) = (x - VASTUSTAJA_X, y - LAUTA_Y);
+fn laudan_ruutu(x0: i32, x: i32, y: i32) -> Option<Ruutu> {
+    let (dx, dy) = (x - x0, y - LAUTA_Y);
     if dx < 0 || dy < 0 {
         return None;
     }
     Ruutu::new((dy / SOLU) as usize, (dx / SOLU) as usize)
 }
 
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
+/// Vastustajan laudan ruutu annetussa pikselissä.
+pub fn ruutu_pisteesta(x: i32, y: i32) -> Option<Ruutu> {
+    laudan_ruutu(VASTUSTAJA_X, x, y)
+}
+
+/// Oman laudan ruutu annetussa pikselissä.
+pub fn oma_ruutu_pisteesta(x: i32, y: i32) -> Option<Ruutu> {
+    laudan_ruutu(OMA_X, x, y)
+}
+
+/// Sijoituksen napit ovat samalla paikalla kuin lopun napit.
+fn vaiheen_napit(vaihe: Vaihe) -> &'static [(Nappi, &'static str, i32)] {
+    if vaihe == Vaihe::Sijoitus {
+        &SIJOITUSNAPIT
+    } else {
+        &NAPIT
+    }
+}
+
+pub fn nappi_pisteesta(vaihe: Vaihe, x: i32, y: i32) -> Option<Nappi> {
+    vaiheen_napit(vaihe)
         .iter()
         .find(|&&(_, teksti, nx)| {
             let leveys = napin_leveys(teksti);
@@ -139,6 +180,16 @@ pub fn ruudun_keskipiste(ruutu: Ruutu) -> (i32, i32) {
     solun_keskipiste(VASTUSTAJA_X, ruutu)
 }
 
+#[cfg(test)]
+pub fn oman_ruudun_keskipiste(ruutu: Ruutu) -> (i32, i32) {
+    solun_keskipiste(OMA_X, ruutu)
+}
+
+/// Vaakasuora, kun laivan kaksi ensimmäistä ruutua ovat samalla rivillä.
+fn laivan_suunta(ruudut: Ruudut) -> bool {
+    Laiva { nimi: "", ruudut }.vaaka()
+}
+
 fn solun_keskipiste(x0: i32, ruutu: Ruutu) -> (i32, i32) {
     (
         x0 + ruutu.sarake as i32 * SOLU + SOLU / 2,
@@ -148,7 +199,12 @@ fn solun_keskipiste(x0: i32, ruutu: Ruutu) -> (i32, i32) {
 
 #[cfg(test)]
 pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
+    let (_, teksti, x) = NAPIT
+        .iter()
+        .chain(&SIJOITUSNAPIT)
+        .find(|n| n.0 == nappi)
+        .copied()
+        .unwrap();
     (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
 }
 
@@ -206,8 +262,10 @@ impl Piirtaja<'_> {
         self.suurteksti(OMA_X, OTSIKKO_Y, oma_lauta, OTSIKKO, VALKOINEN, false);
         self.lauta(VASTUSTAJA_X, &peli.vastustaja, false, peli);
         self.lauta(OMA_X, &peli.oma, true, peli);
-        if peli.vaihe == Vaihe::Ammunta {
-            self.tahtain(peli.kursori);
+        match peli.vaihe {
+            Vaihe::Ammunta => self.tahtain(VASTUSTAJA_X, peli.kursori),
+            Vaihe::Sijoitus if peli.nostettu.is_none() => self.tahtain(OMA_X, peli.kursori),
+            _ => {}
         }
         self.tilasto(VASTUSTAJA_X - TILASTO_SISENNYS, &peli.vastustaja);
         self.tilasto(OMA_X - TILASTO_SISENNYS, &peli.oma);
@@ -263,9 +321,12 @@ impl Piirtaja<'_> {
         }
 
         VESI_KUVA.piirra(&mut self.k, x0, LAUTA_Y);
+        let nostettu = peli.nostettu.map(|n| n.laiva);
         if omalle {
-            for laiva in laivasto.laivat() {
-                self.laiva(x0, laiva);
+            for (i, laiva) in laivasto.laivat().iter().enumerate() {
+                if nostettu != Some(i) {
+                    self.laiva(x0, laiva);
+                }
             }
         }
         let tyhjat = if omalle {
@@ -286,7 +347,30 @@ impl Piirtaja<'_> {
                 }
             }
         }
+        if omalle && let Some((i, ruudut, kelpaa)) = peli.haamu() {
+            self.nostettu_laiva(x0, laivasto.laivat()[i].nimi, ruudut, kelpaa);
+        }
         self.upotus(x0, LAUTA_Y, LAUDAN_KOKO, LAUDAN_KOKO);
+    }
+
+    /// Nostettu laiva kursorin kohdalla ja kehys, joka kertoo, käykö paikka.
+    fn nostettu_laiva(&mut self, x0: i32, nimi: &'static str, ruudut: Ruudut, kelpaa: bool) {
+        self.laiva(x0, &Laiva { nimi, ruudut });
+        let Some(alku) = ruudut.ensimmainen() else {
+            return;
+        };
+        let pituus = ruudut.maara() as i32 * SOLU;
+        let vaaka = laivan_suunta(ruudut);
+        let (leveys, korkeus) = if vaaka {
+            (pituus, SOLU)
+        } else {
+            (SOLU, pituus)
+        };
+        let x = x0 + alku.sarake as i32 * SOLU;
+        let y = LAUTA_Y + alku.rivi as i32 * SOLU;
+        let vari = if kelpaa { KELPAA } else { EI_KELPAA };
+        self.k.kehys(x, y, leveys + 1, korkeus + 1, vari);
+        self.k.kehys(x + 3, y + 3, leveys - 5, korkeus - 5, vari);
     }
 
     /// Laiva ylhäältä: suippo keula, kansirakenne ja tykkitornit joka ruudussa.
@@ -386,8 +470,8 @@ impl Piirtaja<'_> {
     }
 
     /// Tähtäin: kulmat ja keskelle osoittavat viivat sykkivät.
-    fn tahtain(&mut self, kursori: Ruutu) {
-        let keski = solun_keskipiste(VASTUSTAJA_X, kursori);
+    fn tahtain(&mut self, x0: i32, kursori: Ruutu) {
+        let keski = solun_keskipiste(x0, kursori);
         let vari = if self.vilkku() { KELTAINEN } else { WB_ORANSSI };
         let (sade, kulma) = (SOLU / 2 + 1, 8);
         let (cx, cy) = keski;
@@ -471,6 +555,7 @@ impl Piirtaja<'_> {
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
         match peli.vaihe {
+            Vaihe::Sijoitus => self.sijoitusohje(peli),
             Vaihe::Ammunta if peli.ammuttu_jo => {
                 self.teksti(TEKSTI_X, alarivi, kaanna(AMMUIT_JO), WB_ORANSSI);
             }
@@ -483,14 +568,31 @@ impl Piirtaja<'_> {
                 };
                 let y = alarivi - RIVIN_KORKEUS - 2;
                 self.suurteksti(TEKSTI_X, y, kaanna(teksti), TULOS, KELTAINEN, true);
-                self.napit();
+                self.napit(&NAPIT);
             }
             Vaihe::Voitto | Vaihe::Tappio | Vaihe::Alku => {}
         }
     }
 
-    fn napit(&mut self) {
-        for (_, teksti, x) in NAPIT {
+    /// Ohjeet, tämän tason tilasto ja napit ennen taistelua.
+    fn sijoitusohje(&mut self, peli: &Peli) {
+        let mut y = PANEELI_RIVI_Y;
+        for avain in SIJOITUS_OHJEET {
+            self.teksti(TEKSTI_X, y, kaanna(avain), VALKOINEN);
+            y += RIVIN_KORKEUS;
+        }
+        let tilasto = peli.tilastot[tason_numero(peli.vaikeus)];
+        let rivi = muotoile(TILASTO, &[&tilasto.voitot, &tilasto.tappiot]);
+        self.teksti(TEKSTI_X, y, &rivi, HUTI);
+        if tilasto.vahiten_laukauksia > 0 {
+            let rivi = muotoile(ENNATYS, &[&tilasto.vahiten_laukauksia]);
+            self.teksti(TEKSTI_X, y + RIVIN_KORKEUS, &rivi, HUTI);
+        }
+        self.napit(&SIJOITUSNAPIT);
+    }
+
+    fn napit(&mut self, napit: &[(Nappi, &str, i32)]) {
+        for &(_, teksti, x) in napit {
             self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
         }
     }
@@ -509,6 +611,19 @@ mod tests {
                 let ruutu = Ruutu::new(rivi, sarake).unwrap();
                 let (x, y) = ruudun_keskipiste(ruutu);
                 assert_eq!(ruutu_pisteesta(x, y), Some(ruutu));
+            }
+        }
+    }
+
+    #[test]
+    fn oman_laudan_ruudut_loytyvat_eivatka_osu_vastustajan_laudalle() {
+        for rivi in 0..KOKO {
+            for sarake in 0..KOKO {
+                let ruutu = Ruutu::new(rivi, sarake).unwrap();
+                let (x, y) = oman_ruudun_keskipiste(ruutu);
+                assert_eq!(oma_ruutu_pisteesta(x, y), Some(ruutu));
+                let (x, y) = ruudun_keskipiste(ruutu);
+                assert_eq!(oma_ruutu_pisteesta(x, y), None);
             }
         }
     }
@@ -536,6 +651,17 @@ mod tests {
                 assert!(leveys < TILASTO_PALKKI_X, "{nimi}");
             }
             assert!(kaanna(OHJE).chars().count() <= RIVILLE_MERKKEJA);
+            for rivi in SIJOITUS_OHJEET.map(kaanna).into_iter().chain([
+                muotoile(TILASTO, &[&999, &999]).as_str(),
+                muotoile(ENNATYS, &[&100]).as_str(),
+            ]) {
+                assert!(rivi.chars().count() <= RIVILLE_MERKKEJA, "{rivi}");
+            }
+            for pari in SIJOITUSNAPIT.windows(2) {
+                assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
+            }
+            let (_, viimeinen, x) = SIJOITUSNAPIT[1];
+            assert!(x + napin_leveys(viimeinen) <= LEVEYS as i32);
             assert!(kaanna(AMMUIT_JO).chars().count() <= RIVILLE_MERKKEJA);
             assert!(kaanna(TASO_OTSIKKO).chars().count() <= 6);
             for pari in NAPIT.windows(2) {
@@ -552,6 +678,11 @@ mod tests {
     fn kaikki_vaiheet_piirtyvat_kaatumatta_tehosteiden_aikana() {
         let mut kuva = vec![0; LEVEYS * KORKEUS];
         let mut peli = Peli::new(3);
+        piirra(&peli, &mut kuva);
+        peli.vaihe = Vaihe::Sijoitus;
+        piirra(&peli, &mut kuva);
+        peli.kasittele(crate::yhteinen::syote::Syote::Numero(1));
+        peli.tilastot[1].vahiten_laukauksia = 40;
         piirra(&peli, &mut kuva);
         peli.vaihe = Vaihe::Ammunta;
         for i in 0..KOKO * KOKO {

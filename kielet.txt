@@ -19,7 +19,7 @@ peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 
 valikko.banneri = **** PELIKONE ****
-valikko.ohje = Väli: pelaa. M: äänet. Esc: lopeta.
+valikko.ohje = Nuolet/1-0: valitse. Väli: pelaa. M: äänet. Esc: lopeta.
 valikko.kielikytkin = L = English
 valikko.versio = Versio {}
 valikko.uusi_versio = Uusi versio {}: github.com/VilhoValittu/Klassikot8000/releases
@@ -82,6 +82,13 @@ laivanupotus.vastustaja_ampui = Vastustaja ampui
 laivanupotus.ohi = {} {}: ohi.
 laivanupotus.osuma = {} {}: OSUMA!
 laivanupotus.upposi = {} {}: OSUMA! {} upposi!
+laivanupotus.sijoitus_1 = Klikkaa laivaa, sitten uutta paikkaa.
+laivanupotus.sijoitus_2 = 1-5 nosta, nuolet siirrä, väli laske.
+laivanupotus.sijoitus_3 = R tai hiiren oikea kääntää laivaa.
+laivanupotus.tilasto = Tilasto: {} voittoa, {} tappiota.
+laivanupotus.ennatys = Paras voitto: {} laukausta.
+laivanupotus.arvo = A = Arvo
+laivanupotus.taisteluun = Väli = Taisteluun!
 laivanupotus.lentotukialus = Lentotukialus
 laivanupotus.taistelulaiva = Taistelulaiva
 laivanupotus.havittaja = Hävittäjä
@@ -193,9 +200,9 @@ tiilirikko.ohje_3 = Kenttiä on 50, palloja kolme.
 tiilirikko.ohje_4 = Nopea läpäisy antaa lisäpisteitä.
 tiilirikko.ohje_5 = Valkotiili: 2 palloa, tuplapisteet.
 tiilirikko.ohje_6 = Mustatiili: superpallo, 4x pisteet.
-tiilirikko.nappain_hiiri = Hiiri tai nuolet: liikuta mailaa.
+tiilirikko.nappain_hiiri = Hiiri, nuolet, A/D: liikuta mailaa.
 tiilirikko.nappain_laukaisu = Välilyönti tai klikkaus: laukaise.
-tiilirikko.ohje = Ohjaa: hiiri tai nuolet. P = tauko.
+tiilirikko.ohje = Hiiri, nuolet tai A/D. P = tauko.
 tiilirikko.laukaisu = Laukaise: välilyönti tai klikkaus.
 tiilirikko.voitto = ****KAIKKI KENTÄT LÄPI!****
 tiilirikko.kentta = KENTTÄ
@@ -212,11 +219,11 @@ asteroidit.banneri = **** ASTEROIDIT ****
 asteroidit.tervetuloa = Tervetuloa pelaamaan Asteroideja.
 asteroidit.ohje_1 = Ammu kivet ja lentävät lautaset. Iso kivi hajoaa kahdeksi pienemmäksi.
 asteroidit.ohje_2 = Aluksia on kolme. 10000 pistettä tuo uuden, ja seuraava maksaa enemmän.
-asteroidit.nappain_kaanto = Vasen, oikea tai hiiri: käännä.
-asteroidit.nappain_tyonto = Ylös tai hiiren oikea: kiihdytä.
+asteroidit.nappain_kaanto = Vasen/oikea, A/D, hiiri: käännä.
+asteroidit.nappain_tyonto = Ylös, W tai hiiren oikea: kiihdytä.
 asteroidit.nappain_ammu = Välilyönti tai klikkaus: ammu.
 asteroidit.nappain_muut = H: hyppy. P: tauko. M: äänet.
-asteroidit.ohje = Nuolet, H = hyppy, P = tauko.
+asteroidit.ohje = Nuolet/WASD, H = hyppy, P = tauko.
 asteroidit.aalto = AALTO
 asteroidit.alukset = ALUKSET
 asteroidit.alus_tuhoutui = Alus tuhoutui! Aluksia jäljellä: {}.
@@ -271,8 +278,8 @@ miinaharava.aika = AIKA
 miinaharava.aloita = Avaa ensimmäinen ruutu.
 miinaharava.pamaus = Pum! Astuit miinaan.
 miinaharava.tappio = OSUIT MIINAAN!
-miinaharava.ennatys = Uusi ennätys: {} s!
-miinaharava.aika_viesti = Aika: {} s.
+miinaharava.ennatys = Uusi ennätys: {} s! {} pistettä.
+miinaharava.aika_viesti = Aika: {} s, {} pistettä.
 
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Tervetuloa pelaamaan blackjackia.
@@ -403,7 +410,7 @@ peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 
 valikko.banneri = **** GAME MACHINE ****
-valikko.ohje = Space: play. M: sound. Esc: quit.
+valikko.ohje = Arrows/1-0: pick. Space: play. M: sound. Esc: quit.
 valikko.kielikytkin = L = Suomi
 valikko.versio = Version {}
 valikko.uusi_versio = New version {}: github.com/VilhoValittu/Klassikot8000/releases
@@ -466,6 +473,13 @@ laivanupotus.vastustaja_ampui = Enemy fired at
 laivanupotus.ohi = {} {}: miss.
 laivanupotus.osuma = {} {}: HIT!
 laivanupotus.upposi = {} {}: HIT! {} sunk!
+laivanupotus.sijoitus_1 = Click a ship, then its new place.
+laivanupotus.sijoitus_2 = 1-5 lift, arrows move, space drops.
+laivanupotus.sijoitus_3 = R or right mouse turns a ship.
+laivanupotus.tilasto = Record: {} wins, {} losses.
+laivanupotus.ennatys = Best win: {} shots.
+laivanupotus.arvo = A = Random
+laivanupotus.taisteluun = Space = Battle!
 laivanupotus.lentotukialus = Carrier
 laivanupotus.taistelulaiva = Battleship
 laivanupotus.havittaja = Destroyer
@@ -577,9 +591,9 @@ tiilirikko.ohje_3 = There are 50 stages and three balls.
 tiilirikko.ohje_4 = A fast clear earns bonus points.
 tiilirikko.ohje_5 = White brick: 2 balls, double points.
 tiilirikko.ohje_6 = Black brick: super ball, 4x points.
-tiilirikko.nappain_hiiri = Mouse or arrows: move the paddle.
+tiilirikko.nappain_hiiri = Mouse, arrows, A/D: move the paddle.
 tiilirikko.nappain_laukaisu = Space or click: launch.
-tiilirikko.ohje = Steer: mouse or arrows. P = pause.
+tiilirikko.ohje = Mouse, arrows or A/D. P = pause.
 tiilirikko.laukaisu = Launch: space or click.
 tiilirikko.voitto = ****ALL STAGES CLEARED!****
 tiilirikko.kentta = STAGE
@@ -596,11 +610,11 @@ asteroidit.banneri = **** ASTEROIDS ****
 asteroidit.tervetuloa = Welcome to Asteroids.
 asteroidit.ohje_1 = Shoot the rocks and flying saucers. A big rock splits into two smaller ones.
 asteroidit.ohje_2 = You have three ships. 10000 points gives a new one, and the next costs more.
-asteroidit.nappain_kaanto = Left, right or mouse: turn.
-asteroidit.nappain_tyonto = Up or right mouse: thrust.
+asteroidit.nappain_kaanto = Left/right, A/D, mouse: turn.
+asteroidit.nappain_tyonto = Up, W or right mouse: thrust.
 asteroidit.nappain_ammu = Space or click: fire.
 asteroidit.nappain_muut = H: jump. P: pause. M: sound.
-asteroidit.ohje = Arrows, H = jump, P = pause.
+asteroidit.ohje = Arrows/WASD, H = jump, P = pause.
 asteroidit.aalto = WAVE
 asteroidit.alukset = SHIPS
 asteroidit.alus_tuhoutui = Ship destroyed! Ships left: {}.
@@ -655,8 +669,8 @@ miinaharava.aika = TIME
 miinaharava.aloita = Open your first cell.
 miinaharava.pamaus = Boom! You hit a mine.
 miinaharava.tappio = YOU HIT A MINE!
-miinaharava.ennatys = New record: {} s!
-miinaharava.aika_viesti = Time: {} s.
+miinaharava.ennatys = New record: {} s! {} points.
+miinaharava.aika_viesti = Time: {} s, {} points.
 
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Welcome to Blackjack.

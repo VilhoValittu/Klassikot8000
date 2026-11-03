@@ -31,3 +31,8 @@ test("haasteiden lista kattaa 60 haasteen summan", () => {
   assert.ok(YKSI_PER_NIMI.has("haasteet"));
   assert.ok(!YKSI_PER_NIMI.has("pasianssi"));
 });
+
+test("miinaharavan lista hyväksyy vaikeimman kentän parhaan tuloksen", () => {
+  assert.deepEqual(lue_tulos("2997 MIINA", PELIT.miinaharava), { pisteet: 2997, nimi: "MIINA" });
+  assert.equal(lue_tulos("3001 MIINA", PELIT.miinaharava), null);
+});
