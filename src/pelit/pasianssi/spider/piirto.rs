@@ -39,10 +39,11 @@ const NAPIT_X: i32 = TILASTO_X + TILASTOJA * TILASTO_ASKEL;
 const NAPIT_Y: i32 = YLARIVI_Y + 6;
 const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 
-const NAPIT: [(Nappi, &str); 4] = [
+const NAPIT: [(Nappi, &str); 5] = [
     (Nappi::Nosta, "spider.nappi_jaa"),
     (Nappi::Peruuta, "pasianssi.nappi_peruuta"),
     (Nappi::Uusi, "pasianssi.nappi_uusi"),
+    (Nappi::Alusta, "pasianssi.nappi_alusta"),
     (Nappi::Valikko, "yhteinen.valikkoon"),
 ];
 
@@ -202,7 +203,8 @@ impl Piirtaja<'_> {
         for (i, (nappi, teksti)) in NAPIT.into_iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let kaytossa = peli.vaihe == Vaihe::Pelissa
-                || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
+                || (peli.vaihe != Vaihe::Nimi
+                    && matches!(nappi, Nappi::Uusi | Nappi::Alusta | Nappi::Valikko));
             let vari = if kaytossa { WB_SININEN } else { KANSI };
             let teksti = uuden_napin_teksti(peli, nappi, teksti);
             self.nappi(NAPIT_X, y, teksti, VALKOINEN, vari);

@@ -44,8 +44,9 @@ const SIVU_OHJEET: [&str; 6] = [
     "pasianssi.sivu_valikko",
 ];
 
-const NAPIT: [(Nappi, &str); 4] = [
+const NAPIT: [(Nappi, &str); 5] = [
     (Nappi::Uusi, "pasianssi.nappi_uusi"),
+    (Nappi::Alusta, "pasianssi.nappi_alusta"),
     (Nappi::Peruuta, "pasianssi.nappi_peruuta"),
     (Nappi::Keraa, "pasianssi.nappi_keraa"),
     (Nappi::Valikko, "yhteinen.valikkoon"),
@@ -663,7 +664,8 @@ impl Piirtaja<'_> {
         for (i, &(nappi, teksti)) in napit.iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;
             let kaytossa = peli.vaihe == Vaihe::Pelissa
-                || (peli.vaihe != Vaihe::Nimi && matches!(nappi, Nappi::Uusi | Nappi::Valikko));
+                || (peli.vaihe != Vaihe::Nimi
+                    && matches!(nappi, Nappi::Uusi | Nappi::Alusta | Nappi::Valikko));
             let kaytossa = kaytossa && (nappi != Nappi::Peruuta || peruutus);
             let vari = if kaytossa { WB_SININEN } else { KANSI };
             let teksti = uuden_napin_teksti(peli, nappi, teksti);

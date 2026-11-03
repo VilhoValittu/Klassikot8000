@@ -131,6 +131,7 @@ pasianssi.sivu_nosta = N: nosta pakasta.
 pasianssi.sivu_aanet = M: äänet päälle/pois.
 pasianssi.sivu_valikko = Esc: valikkoon.
 pasianssi.nappi_uusi = K = Uusi peli
+pasianssi.nappi_alusta = R = Alusta
 pasianssi.nappi_peruuta = U = Peruuta
 pasianssi.nappi_keraa = A = Vie ylös
 pasianssi.tappio = **** SIIRROT LOPPUIVAT! ****
@@ -142,16 +143,16 @@ pasianssi.pakka_loppu = Pakkaa ei voi enää kääntää.
 pasianssi.ei_peruutusta = Vaikealla tasolla ei voi perua.
 pasianssi.ei_peruttavaa = Ei mitään peruttavaa.
 pasianssi.ei_kerattavaa = Ei siirtoja!
-pasianssi.jumissa = Siirrot näyttävät loppuneen. K = uusi peli.
+pasianssi.jumissa = Siirrot näyttävät loppuneen. U = peru, R = alusta.
 pasianssi.voittoviesti = Kaikki kortit ovat pakoissa! Pisteet: {}.
-pasianssi.siirrot_loppu = Siirrot loppuivat. K = uusi peli.
+pasianssi.siirrot_loppu = Siirrot loppuivat. R = alusta, K = uusi peli.
 pasianssi.aloitus = Aloita: välilyönti.
 pasianssi.nappi_haasteet_alku = H = Haasteet
 pasianssi.haasteet_otsikko = HAASTEET
 pasianssi.haaste = HAASTE {}/{}
 pasianssi.haaste_viesti = Liityit kesken olevaan peliin. Voita se!
 pasianssi.haaste_voitto = Haaste läpi! Pisteet: {}. Yhteensä: {}.
-pasianssi.haaste_jumissa = Ei siirtoja. U = peru, K = haasteet.
+pasianssi.haaste_jumissa = Ei siirtoja. U = peru, R = alusta.
 pasianssi.nappi_haasteet = K = Haasteet
 pasianssi.nappi_takaisin = Esc = Takaisin
 pasianssi.haaste_yhteensa = YHTEENSÄ
@@ -514,6 +515,7 @@ pasianssi.sivu_nosta = N: draw a card.
 pasianssi.sivu_aanet = M: sound on/off.
 pasianssi.sivu_valikko = Esc: to menu.
 pasianssi.nappi_uusi = K = New game
+pasianssi.nappi_alusta = R = Restart
 pasianssi.nappi_peruuta = U = Undo
 pasianssi.nappi_keraa = A = Send up
 pasianssi.tappio = **** OUT OF MOVES! ****
@@ -525,16 +527,16 @@ pasianssi.pakka_loppu = The stock can't be turned again.
 pasianssi.ei_peruutusta = Hard level has no undo.
 pasianssi.ei_peruttavaa = Nothing to undo.
 pasianssi.ei_kerattavaa = No moves!
-pasianssi.jumissa = Looks like you are out of moves. K = new game.
+pasianssi.jumissa = Looks like you are out of moves. U = undo, R = restart.
 pasianssi.voittoviesti = All cards are on the piles! Score: {}.
-pasianssi.siirrot_loppu = Out of moves. K = new game.
+pasianssi.siirrot_loppu = Out of moves. R = restart, K = new game.
 pasianssi.aloitus = Start: space.
 pasianssi.nappi_haasteet_alku = H = Challenges
 pasianssi.haasteet_otsikko = CHALLENGES
 pasianssi.haaste = CHALLENGE {}/{}
 pasianssi.haaste_viesti = You joined a game in progress. Win it!
 pasianssi.haaste_voitto = Challenge beaten! Score: {}. Total: {}.
-pasianssi.haaste_jumissa = No moves. U = undo, K = list.
+pasianssi.haaste_jumissa = No moves. U = undo, R = restart.
 pasianssi.nappi_haasteet = K = List
 pasianssi.nappi_takaisin = Esc = Back
 pasianssi.haaste_yhteensa = TOTAL

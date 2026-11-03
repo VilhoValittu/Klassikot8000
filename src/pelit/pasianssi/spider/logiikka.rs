@@ -219,6 +219,8 @@ impl Lauta {
                 let paljastaa = jono.kortti > 0 && jono.kortti == lahde.piilossa;
                 let (kortit, alla) = (&lahde.kortit, self.tila.sarakkeet[kohde].kortit.last());
                 let tyhjentaa = jono.kortti == 0 && alla.is_some();
+                // Tyhjä sarake on säilytyspaikka, jonka avulla jonoja järjestellään uudelleen.
+                let tyhjaan = jono.kortti > 0 && alla.is_none();
                 let katkaisee_jonon = jono.kortti > lahde.piilossa
                     && self
                         .siirrettavat(Jono {
@@ -227,7 +229,7 @@ impl Lauta {
                         })
                         .is_some();
                 let samaan_maahan = alla.is_some_and(|k| k.maa == kortit[jono.kortti].maa);
-                paljastaa || tyhjentaa || (samaan_maahan && !katkaisee_jonon)
+                paljastaa || tyhjentaa || tyhjaan || (samaan_maahan && !katkaisee_jonon)
             })
     }
 

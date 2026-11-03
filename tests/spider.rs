@@ -276,6 +276,16 @@ fn vihje_tunnistaa_turhat_siirrot() {
     // Saman maan päälle yhdistäminen on hyödyllistä.
     lauta.tila.sarakkeet[1] = sarake(&[k(Maa::Pata, 1), k(Maa::Pata, 6)]);
     assert!(lauta.on_hyodyllisia_siirtoja());
+
+    // Tyhjään sarakkeeseen saa siirtää minkä tahansa jonon, joten peli ei ole jumissa,
+    // vaikka kaikki kortit ovat näkyvissä eikä pakkaa ole.
+    let mut lauta = tyhja();
+    lauta.tila.sarakkeet[0] = sarake(&[k(Maa::Risti, 4), k(Maa::Ruutu, 3)]);
+    lauta.tila.sarakkeet[1] = sarake(&[k(Maa::Pata, 9), k(Maa::Ruutu, 8)]);
+    for i in 2..SARAKKEITA - 1 {
+        lauta.tila.sarakkeet[i] = sarake(&[k(Maa::Pata, 1), k(Maa::Hertta, 13)]);
+    }
+    assert!(lauta.on_hyodyllisia_siirtoja());
 }
 
 #[test]

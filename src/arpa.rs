@@ -1,5 +1,6 @@
 /// Pieni xorshift64*-generaattori. Oma toteutus, koska pelissä ei tarvita enempää
 /// ja jokainen riippuvuus kasvattaa pakettia.
+#[derive(Clone)]
 pub struct Arpa(u64);
 
 impl Arpa {

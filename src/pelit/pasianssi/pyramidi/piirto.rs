@@ -24,10 +24,11 @@ const OHJEET: [&str; 6] = [
     "pasianssi.sivu_valikko",
 ];
 
-const NAPIT: [(Nappi, &str); 4] = [
+const NAPIT: [(Nappi, &str); 5] = [
     (Nappi::Nosta, "pyramidi.nappi_nosta"),
     (Nappi::Peruuta, "pasianssi.nappi_peruuta"),
     (Nappi::Uusi, "pasianssi.nappi_uusi"),
+    (Nappi::Alusta, "pasianssi.nappi_alusta"),
     (Nappi::Valikko, "yhteinen.valikkoon"),
 ];
 

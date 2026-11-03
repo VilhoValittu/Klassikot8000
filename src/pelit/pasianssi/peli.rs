@@ -53,6 +53,8 @@ pub enum Vaihe {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Nappi {
     Uusi,
+    /// Sama jako tai haaste uudestaan alusta.
+    Alusta,
     Peruuta,
     Keraa,
     /// Spider jakaa ja Pyramidi nostaa. Klondikessa pakkaa klikataan suoraan.
@@ -145,6 +147,8 @@ pub struct Pasianssi {
     pub voitto_alku: u32,
     viime_klikkaus: Option<(Lahde, u32)>,
     arpa: Arpa,
+    /// Arpa ennen viimeisintä jakoa, jotta saman jaon voi aloittaa alusta.
+    jaon_arpa: Arpa,
 }
 
 impl Pasianssi {
@@ -191,6 +195,7 @@ impl Pasianssi {
             peliaika_ms: 0,
             voitto_alku: 0,
             viime_klikkaus: None,
+            jaon_arpa: arpa.clone(),
             arpa,
         }
     }
@@ -283,19 +288,37 @@ impl Pasianssi {
     }
 
     pub fn aloita(&mut self) {
+        self.jaon_arpa = self.arpa.clone();
+        self.arpa = self.jaa();
+    }
+
+    /// Jakaa `jaon_arpa`-tilasta ja palauttaa arvan jaon jälkeen.
+    fn jaa(&mut self) -> Arpa {
+        let mut arpa = self.jaon_arpa.clone();
         match self.variantti {
-            Variantti::Klondike => self.lauta = Lauta::new(self.vaikeus, &mut self.arpa),
+            Variantti::Klondike => self.lauta = Lauta::new(self.vaikeus, &mut arpa),
             Variantti::Spider => {
-                self.spider = spiderlogiikka::Lauta::new(self.vaikeus, &mut self.arpa);
+                self.spider = spiderlogiikka::Lauta::new(self.vaikeus, &mut arpa);
             }
             Variantti::Pyramidi => {
-                self.pyramidi = pyramidilogiikka::Lauta::new(self.vaikeus, &mut self.arpa);
+                self.pyramidi = pyramidilogiikka::Lauta::new(self.vaikeus, &mut arpa);
             }
         }
         self.haaste = None;
         self.alusta_peli();
         if !self.laudalla_siirtoja() {
             self.siirrot_loppuivat();
+        }
+        arpa
+    }
+
+    /// Sama jako tai haaste uudestaan. Taso ja laji vaihtuvat vain alkuruudulla, joten jako toistuu samana.
+    fn aloita_alusta(&mut self) {
+        match self.haaste {
+            Some(haaste) => self.aloita_haaste(haaste),
+            None => {
+                self.jaa();
+            }
         }
     }
 
@@ -574,6 +597,7 @@ impl Pasianssi {
     fn kasittele_loppu(&mut self, syote: Syote) {
         let nappi = match syote {
             Syote::Kirjain('K') => Nappi::Uusi,
+            Syote::Kirjain('R') => Nappi::Alusta,
             Syote::Kirjain('E') => Nappi::Valikko,
             Syote::Klikkaus(x, y) => match self.nappi_kohdassa(x, y) {
                 Some(nappi) => nappi,
@@ -583,6 +607,7 @@ impl Pasianssi {
         };
         match nappi {
             Nappi::Uusi => self.palaa_valintaan(),
+            Nappi::Alusta => self.aloita_alusta(),
             Nappi::Valikko => self.lopeta = true,
             Nappi::Peruuta | Nappi::Keraa | Nappi::Nosta => {}
         }
@@ -630,6 +655,7 @@ impl Pasianssi {
             Syote::Kirjain('U') => self.paina(Nappi::Peruuta),
             Syote::Kirjain('A') if laji == Variantti::Klondike => self.paina(Nappi::Keraa),
             Syote::Kirjain('K') => self.paina(Nappi::Uusi),
+            Syote::Kirjain('R') => self.paina(Nappi::Alusta),
             Syote::Kirjain('E') => self.paina(Nappi::Valikko),
             _ => {}
         }
@@ -640,6 +666,7 @@ impl Pasianssi {
         match nappi {
             Nappi::Nosta => self.nosta(),
             Nappi::Uusi => self.palaa_valintaan(),
+            Nappi::Alusta => self.aloita_alusta(),
             Nappi::Valikko => self.lopeta = true,
             Nappi::Peruuta => self.peruuta(),
             Nappi::Keraa => {
@@ -1048,6 +1075,61 @@ mod tests {
         peli.kasittele(Syote::Ammu);
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Alku);
+    }
+
+    /// Laudan tila lajista riippumatta, jotta testi voi verrata jakoja.
+    fn laudan_tila(peli: &Pasianssi) -> String {
+        match peli.variantti {
+            Variantti::Klondike => format!("{:?}", peli.lauta.tila),
+            Variantti::Spider => format!("{:?}", peli.spider.tila),
+            Variantti::Pyramidi => format!("{:?}", peli.pyramidi.tila),
+        }
+    }
+
+    #[test]
+    fn r_aloittaa_saman_jaon_alusta_joka_lajissa() {
+        for variantti in Variantti::KAIKKI {
+            let mut peli = Pasianssi::new(3);
+            peli.variantti = variantti;
+            peli.kasittele(Syote::Ammu);
+            let alku = laudan_tila(&peli);
+            peli.kasittele(Syote::Kirjain('N'));
+            peli.edista(5000);
+            assert_ne!(laudan_tila(&peli), alku, "{variantti:?}");
+            peli.kasittele(Syote::Kirjain('R'));
+            assert_eq!(laudan_tila(&peli), alku, "{variantti:?}");
+            assert_eq!(peli.vaihe, Vaihe::Pelissa);
+            assert_eq!(peli.peliaika_ms, 0);
+
+            // Napista sama, ja tappion jälkeenkin jako alkaa alusta.
+            peli.kasittele(Syote::Kirjain('N'));
+            let (x, y) = match variantti {
+                Variantti::Klondike => piirto::napin_keskipiste(Nappi::Alusta),
+                Variantti::Spider => spider::piirto::napin_keskipiste(Nappi::Alusta),
+                Variantti::Pyramidi => pyramidi::piirto::napin_keskipiste(Nappi::Alusta),
+            };
+            peli.siirrot_loppuivat();
+            peli.kasittele(Syote::Klikkaus(x, y));
+            assert_eq!(laudan_tila(&peli), alku, "{variantti:?}");
+            assert_eq!(peli.vaihe, Vaihe::Pelissa);
+
+            // Uusi peli jakaa eri kortit.
+            peli.kasittele(Syote::Kirjain('K'));
+            peli.kasittele(Syote::Ammu);
+            assert_ne!(laudan_tila(&peli), alku, "{variantti:?}");
+        }
+    }
+
+    #[test]
+    fn r_aloittaa_haasteen_alusta() {
+        let mut peli = Pasianssi::new(1);
+        peli.aloita_haaste(HAASTEITA - 1);
+        let alku = peli.lauta.tila.clone();
+        peli.kasittele(Syote::Kirjain('N'));
+        peli.kasittele(Syote::Kirjain('R'));
+        assert_eq!(peli.lauta.tila, alku);
+        assert_eq!(peli.haaste, Some(HAASTEITA - 1));
+        assert_eq!(peli.viesti, kaanna(HAASTE_VIESTI));
     }
 
     #[test]
