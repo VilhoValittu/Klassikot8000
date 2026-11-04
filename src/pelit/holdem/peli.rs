@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::holdem::{ALKURAHA, Kulku, PELAAJA, PELAAJIA, Poyta, Toimi};
 
 use super::piirto::{self, kaden_nimi, pelaajan_nimi};
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
@@ -206,7 +206,7 @@ impl Holdem {
     fn aloita(&mut self) {
         self.poyta = Poyta::new(&mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
         self.uusi_jako();
     }
 
@@ -242,12 +242,16 @@ impl Holdem {
             let sija = self.poyta.rahoissa() + 1;
             self.viesti = muotoile("holdem.havio", &[&sija]);
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if self.poyta.rahoissa() == 1 {
             self.vaihe = Vaihe::Voitto;
             self.kirjaa_paras();
             let kaikki = ALKURAHA * PELAAJIA as u32;
             self.viesti = muotoile("holdem.voitto", &[&kaikki]);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
             if mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet()) {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
@@ -383,7 +387,7 @@ impl Holdem {
             self.tee(Toimi::Korota(self.korotus));
         } else {
             self.viesti = kaanna("holdem.ei_korotusta").to_string();
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
         }
     }
 

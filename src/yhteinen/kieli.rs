@@ -20,7 +20,7 @@ pub enum Kieli {
 }
 
 impl Kieli {
-    #[cfg(test)]
+    #[cfg(debug_assertions)]
     pub const KAIKKI: [Kieli; 2] = [Kieli::Suomi, Kieli::Englanti];
 
     pub fn koodi(self) -> &'static str {

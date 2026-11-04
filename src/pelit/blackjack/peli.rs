@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::blackjack::{ALKURAHA, PIENIN_PANOS, Poyta, Tulos, Vuoro, YKSI};
 
 use super::piirto::{self, raha};
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
@@ -183,7 +183,7 @@ impl Blackjack {
         self.panos = ALKUPANOS;
         self.vaihe = Vaihe::Pelissa;
         self.viesti = kaanna("blackjack.aseta_panos").to_string();
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -323,7 +323,7 @@ impl Blackjack {
 
     fn virhe(&mut self, avain: &str) {
         self.viesti = kaanna(avain).to_string();
-        self.aanijono.push((Aani::Ahkaisy, 0));
+        self.aanijono.push((Aani::Virhe, 0));
     }
 
     fn pelaaja_siirsi(&mut self) {
@@ -344,6 +344,8 @@ impl Blackjack {
             self.vaihe = Vaihe::Loppu;
             self.viesti = muotoile("blackjack.konkurssi", &[&raha(ALKURAHA)]);
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if self.poyta.vakuutus_voitti() {
             let maksu = raha(2 * self.poyta.vakuutus);
             self.viesti = muotoile("blackjack.viesti_vakuutus", &[&maksu, &maara]);
@@ -356,7 +358,7 @@ impl Blackjack {
             self.aanijono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
         } else if voitto < 0 {
             self.viesti = muotoile("blackjack.viesti_tappio", &[&maara]);
-            self.aanijono.push((Aani::Ahkaisy, LOPPU_VIIVE_MS));
+            self.aanijono.push((Aani::Virhe, LOPPU_VIIVE_MS));
         } else {
             self.viesti = kaanna("blackjack.viesti_tasan").to_string();
             self.aanijono.push((Aani::Pomppu, LOPPU_VIIVE_MS));

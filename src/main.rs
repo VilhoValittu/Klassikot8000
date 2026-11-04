@@ -60,8 +60,8 @@ use yhteinen::syote::Syote;
 
 const PAIVITYKSIA_SEKUNNISSA: usize = 30;
 const TOIMINTAPELIN_PAIVITYKSIA: usize = 60;
-// Noin 36 ms: kytkin hiljentää äänet heti, mutta puskuri ei tyhjene kesken.
-const AANIPUSKURI: usize = 400;
+// Noin 32 ms: kytkin hiljentää äänet heti, mutta puskuri ei tyhjene kesken.
+const AANIPUSKURI: usize = NAYTETAAJUUS / 32;
 // Scale::FitScreen kertoo tämän suurimmalla kertoimella, joka mahtuu näytölle, ja vähentää
 // yhden askeleen: ikkuna on 16:9 ja näytön reunaan jää tilaa otsikkopalkille ja tehtäväpalkille.
 const IKKUNAN_POHJA: (usize, usize) = (160, 90);
@@ -381,6 +381,15 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
+        if let Some(kansio) = &liput.aanet {
+            return match kehitys::tallenna_aanet(kansio) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(virhe) => {
+                    eprintln!("{kansio}: {virhe}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
         let mut kaynnistin = Kaynnistin::new(liput.siemen.unwrap_or_else(aikasiemen));
         // Kehitysajo ei koske pelaajan tallennukseen ilman lippua.
         let polku = liput.tallennus.as_ref().map(PathBuf::from);

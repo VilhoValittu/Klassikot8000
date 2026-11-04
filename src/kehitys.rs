@@ -2,12 +2,14 @@
 
 use std::fs::File;
 use std::io::{self, Write};
+use std::path::Path;
 
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
 use klassikot8000::luvut::{Ruudut, SIVU, Suunta};
 use klassikot8000::pasianssi::Variantti;
 
 use crate::kaynnistin::{Laji, PELIT};
+use crate::yhteinen::aanet::{self, Mikseri, NAYTETAAJUUS};
 use crate::yhteinen::kieli::Kieli;
 
 pub struct Liput {
@@ -73,6 +75,8 @@ pub struct Liput {
     pub tauko: bool,
     /// Kuvakaappauksen hetki viimeisen laukauksen jälkeen, animaatioiden tarkistukseen.
     pub aika_ms: u32,
+    /// Kirjoittaa kaikki äänet tähän kansioon WAV-tiedostoina kuunneltaviksi ja lopettaa.
+    pub aanet: Option<String>,
 }
 
 impl Liput {
@@ -142,6 +146,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         konkurssi: false,
         tauko: false,
         aika_ms: OLETUSAIKA_MS,
+        aanet: None,
     };
     let mut args = std::env::args().skip(1);
     while let Some(lippu) = args.next() {
@@ -152,6 +157,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             }
             "--seed" => liput.siemen = Some(arvo.parse().map_err(|_| "--seed: ei luku")?),
             "--screenshot" => liput.kuvakaappaus = Some(arvo),
+            "--sounds" => liput.aanet = Some(arvo),
             "--save" => liput.tallennus = Some(arvo),
             "--net" => liput.netti = Some(arvo),
             "--releases" => liput.julkaisut = Some(arvo),
@@ -249,6 +255,51 @@ pub fn lue_liput() -> Result<Liput, String> {
         }
     }
     Ok(liput)
+}
+
+/// Kirjoittaa jokaisen äänen omaksi WAV-tiedostokseen, puheet kummallakin kielellä.
+pub fn tallenna_aanet(kansio: &str) -> io::Result<()> {
+    std::fs::create_dir_all(kansio)?;
+    let mikseri = Mikseri::new();
+    for aani in aanet::KAIKKI {
+        let kielet: &[Kieli] = if aani.on_puhe() {
+            &Kieli::KAIKKI
+        } else {
+            &[Kieli::Suomi]
+        };
+        for &kieli in kielet {
+            let nimi = if aani.on_puhe() {
+                format!("{aani:?}_{}.wav", kieli.koodi())
+            } else {
+                format!("{aani:?}.wav")
+            };
+            tallenna_wav(&Path::new(kansio).join(nimi), mikseri.naytteet(aani, kieli))?;
+        }
+    }
+    Ok(())
+}
+
+fn tallenna_wav(polku: &Path, naytteet: &[i16]) -> io::Result<()> {
+    let tavuja = naytteet.len() as u32 * 2;
+    let taajuus = NAYTETAAJUUS as u32;
+    let mut ulos = Vec::with_capacity(44 + tavuja as usize);
+    ulos.extend_from_slice(b"RIFF");
+    ulos.extend_from_slice(&(36 + tavuja).to_le_bytes());
+    ulos.extend_from_slice(b"WAVEfmt ");
+    ulos.extend_from_slice(&16u32.to_le_bytes());
+    // PCM, yksi kanava, 16 bittiä
+    ulos.extend_from_slice(&1u16.to_le_bytes());
+    ulos.extend_from_slice(&1u16.to_le_bytes());
+    ulos.extend_from_slice(&taajuus.to_le_bytes());
+    ulos.extend_from_slice(&(taajuus * 2).to_le_bytes());
+    ulos.extend_from_slice(&2u16.to_le_bytes());
+    ulos.extend_from_slice(&16u16.to_le_bytes());
+    ulos.extend_from_slice(b"data");
+    ulos.extend_from_slice(&tavuja.to_le_bytes());
+    for nayte in naytteet {
+        ulos.extend_from_slice(&nayte.to_le_bytes());
+    }
+    std::fs::write(polku, ulos)
 }
 
 /// Tallentaa kuvan pakkaamattomana PNG:nä, jotta pakkaaja ei tarvitse riippuvuutta.

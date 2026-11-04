@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::palikka::{Paikka, Palikkalauta, SIVU, Vaihto, vierekkain};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
@@ -205,6 +205,8 @@ impl Palikkapeli {
         // Loppu odottaa toiston loppua, jotta viimeinen ketju näkyy kokonaan.
         if self.vaihe == Vaihe::Pelissa && self.animaatio.is_none() && self.lauta.ohi {
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
             self.lopeta_peli();
         }
     }
@@ -270,7 +272,7 @@ impl Palikkapeli {
         self.animaatio = None;
         self.raahaus = None;
         self.viime_toimi_ms = self.kello_ms;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -383,7 +385,7 @@ impl Palikkapeli {
         self.valittu = None;
         let alku = self.kello_ms;
         let Some(vaihto) = self.lauta.vaihda(a, b, &mut self.arpa) else {
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
             self.viesti = kaanna("palikka.huono").to_string();
             self.animaatio = Some(Animaatio::Huti { a, b, alku });
             return;
@@ -404,7 +406,7 @@ impl Palikkapeli {
         let ketju = vaihto.kierrokset.len();
         self.viesti = if vaihto.uusi_taso {
             let viive = vaihdon_kesto(ketju as u32);
-            self.aanijono.push((Aani::Ovi, viive));
+            self.aanijono.push((Aani::Alku, viive));
             muotoile("palikka.uusi_taso", &[&self.lauta.taso])
         } else if ketju > 1 {
             muotoile("palikka.ketju", &[&ketju, &vaihto.pisteet])
@@ -575,7 +577,7 @@ mod tests {
         klikkaa(&mut peli, (6, 6));
         klikkaa(&mut peli, (6, 7));
         assert_eq!(peli.lauta, lauta);
-        assert_eq!(peli.aanijono, [(Aani::Ahkaisy, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Virhe, 0)]);
         assert!(matches!(peli.animaatio, Some(Animaatio::Huti { .. })));
         peli.edista(HUTI_MS);
         assert!(!peli.animoi());

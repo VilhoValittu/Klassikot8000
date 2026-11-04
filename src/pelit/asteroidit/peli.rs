@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::asteroidit::{ASKEL_MS, Avaruus, Ohjaus, Piste, Tapahtuma, Tila};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
@@ -176,12 +176,14 @@ impl Asteroidit {
                 self.viesti = kaanna("asteroidit.lisaalus").to_string();
             }
             Tapahtuma::UusiAalto => {
-                self.aanijono.push((Aani::Ovi, 0));
+                self.aanijono.push((Aani::Alku, 0));
                 self.viesti = muotoile("asteroidit.uusi_aalto", &[&(self.lauta.aalto + 1)]);
             }
             Tapahtuma::Ohi { paikka } => {
                 self.aanijono.push((Aani::Rajahdys, 0));
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.rajahda(paikka, 70.0);
                 self.lopeta_peli();
             }
@@ -244,7 +246,7 @@ impl Asteroidit {
         self.viesti.clear();
         self.rajahdykset.clear();
         self.kertyma_ms = 0;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     /// Ikkuna menetti kohdistuksen: alus ei saa tuhoutua pelaajan poissa ollessa.
@@ -436,7 +438,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Alku);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
         peli.aanijono.clear();
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.lauta.ammukset.len(), 1);

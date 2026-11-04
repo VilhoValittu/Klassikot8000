@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::tiilirikko::{ASKEL_MS, Tapahtuma, Tiilipeli, Tila};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
@@ -148,11 +148,15 @@ impl Tiilirikko {
             }
             Tapahtuma::Voitto { bonus } => {
                 self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.lopeta_peli(Vaihe::Voitto);
                 self.viesti = muotoile("tiilirikko.loppubonus", &[&bonus, &self.lauta.pisteet]);
             }
             Tapahtuma::Ohi => {
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.lopeta_peli(Vaihe::Tappio);
             }
         }
@@ -216,7 +220,7 @@ impl Tiilirikko {
         self.viesti.clear();
         self.kipinat.clear();
         self.kertyma_ms = 0;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     /// Ikkuna menetti kohdistuksen: lennossa oleva pallo ei saa kadota pelaajan poissa ollessa.
@@ -447,7 +451,13 @@ mod tests {
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
         assert!(peli.uusi_tulos);
-        assert_eq!(peli.aanijono, [(Aani::Tappio, LOPPU_VIIVE_MS)]);
+        assert_eq!(
+            peli.aanijono,
+            [
+                (Aani::Tappio, LOPPU_VIIVE_MS),
+                (Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS)
+            ]
+        );
 
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);

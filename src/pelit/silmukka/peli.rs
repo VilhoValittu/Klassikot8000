@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::silmukka::{ASKEL_MS, Niitty, Ruutu, Saalis, Suunta, Tapahtuma};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
@@ -230,13 +230,15 @@ impl Silmukka {
             }
             Tapahtuma::KultaKatosi { paikka } => self.pamahda(paikka, 20.0),
             Tapahtuma::UusiTaso => {
-                self.aanijono.push((Aani::Ovi, 0));
+                self.aanijono.push((Aani::Alku, 0));
                 self.viesti = muotoile("silmukka.uusi_taso", &[&self.lauta.taso]);
             }
             Tapahtuma::Seina => self.aanijono.push((Aani::Pomppu, 0)),
             Tapahtuma::Kuolema { paikka } => {
                 self.aanijono.push((Aani::Rajahdys, 0));
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.pamahda(paikka, 70.0);
                 self.tarina = Some((8.0, self.kello_ms));
                 self.lopeta_peli();
@@ -330,7 +332,7 @@ impl Silmukka {
         self.kehu = None;
         self.tarina = None;
         self.kertyma_ms = 0;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     /// Ikkuna menetti kohdistuksen: mato ei saa ajaa seinään pelaajan poissa ollessa.
@@ -526,7 +528,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Alku);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
 
         peli.kasittele(Syote::Nuoli(-1, 0));
         peli.kasittele(Syote::Kirjain('A'));

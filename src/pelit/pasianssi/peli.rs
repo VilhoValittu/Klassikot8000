@@ -5,7 +5,7 @@ use klassikot8000::{pyramidi as pyramidilogiikka, spider as spiderlogiikka};
 
 use super::piirto::{self, Kohta};
 use super::{haastenakyma, pyramidi, spider};
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
@@ -364,7 +364,7 @@ impl Pasianssi {
             sarake: 0,
             syvyys: 0,
         };
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     /// Uusi peli vie sinne, mistä tähän peliin tultiin.
@@ -380,6 +380,8 @@ impl Pasianssi {
         self.vaihe = Vaihe::Tappio;
         self.viesti = kaanna(SIIRROT_LOPPU).to_string();
         self.aanijono.push((Aani::Tappio, VOITTO_VIIVE_MS));
+        self.aanijono
+            .push((Aani::EiSiirtoja, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
     }
 
     fn unohda_poiminta(&mut self) {
@@ -734,7 +736,7 @@ impl Pasianssi {
 
     pub(super) fn virhe(&mut self, viesti: &str) {
         self.viesti = kaanna(viesti).to_string();
-        self.aanijono.push((Aani::Ahkaisy, 0));
+        self.aanijono.push((Aani::Virhe, 0));
     }
 
     /// Yhteinen loppu kaikille laudan muuttaneille siirroille.
@@ -754,6 +756,8 @@ impl Pasianssi {
             self.vaihe = Vaihe::Voitto;
             self.voitto_alku = self.kello_ms;
             self.aanijono.push((Aani::Voitto, VOITTO_VIIVE_MS));
+            self.aanijono
+                .push((Aani::Voitit, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
             if let Some(haaste) = self.haaste {
                 self.haaste_voitettu(haaste);
                 return;
@@ -1376,7 +1380,7 @@ mod tests {
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.vaikeus, Vaikeus::Helppo);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
     }
 
     #[test]
@@ -1402,7 +1406,7 @@ mod tests {
         peli.kasittele(Syote::Vapautus(kx, ky));
         assert_eq!(peli.lauta.tila.sarakkeet[0].kortit.len(), 1);
         assert_eq!(peli.viesti, kaanna(EI_KAY));
-        assert!(peli.aanijono.contains(&(Aani::Ahkaisy, 0)));
+        assert!(peli.aanijono.contains(&(Aani::Virhe, 0)));
     }
 
     #[test]

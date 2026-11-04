@@ -4,7 +4,7 @@ use klassikot8000::laivanupotus::{
 };
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
@@ -316,7 +316,7 @@ impl Peli {
         if kelpaa && self.oma.siirra(laiva, ruudut) {
             self.nostettu = None;
         } else {
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
         }
         true
     }
@@ -338,7 +338,7 @@ impl Peli {
             Some((i, ruudut, true)) => {
                 self.oma.siirra(i, ruudut);
             }
-            _ => self.aanijono.push((Aani::Ahkaisy, 0)),
+            _ => self.aanijono.push((Aani::Virhe, 0)),
         }
         self.nostettu = None;
         true
@@ -355,7 +355,7 @@ impl Peli {
         self.nostettu = None;
         self.kursori = Ruutu { rivi: 0, sarake: 0 };
         self.vaihe = Vaihe::Ammunta;
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
         true
     }
 
@@ -538,7 +538,7 @@ impl Peli {
     pub fn ammu(&mut self, ruutu: Ruutu) {
         let Some(tulos) = self.vastustaja.kasittele_laukaus(ruutu) else {
             self.ammuttu_jo = true;
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
             return;
         };
         self.ammuttu_jo = false;
@@ -559,6 +559,8 @@ impl Peli {
             // Kirjaus voi vielä vaihtaa vaiheen nimen kysymiseen.
             self.kirjaa_tulos(true);
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
             return;
         }
 
@@ -566,7 +568,7 @@ impl Peli {
         let tulos = laukaus.and_then(|r| Some((r, self.oma.kasittele_laukaus(r)?)));
         if let Some((ruutu, tulos)) = tulos {
             self.viestit[1] = tulos_teksti("laivanupotus.vastustaja_ampui", ruutu, tulos);
-            self.aanijono.push((Aani::Tulipallo, VASTAUS_VIIVE_MS));
+            self.aanijono.push((Aani::Vastalaukaus, VASTAUS_VIIVE_MS));
             self.aanijono
                 .push((tuloksen_aani(tulos), VASTAUS_VIIVE_MS + TULOS_VIIVE_MS));
             self.tehosteet.push(Tehoste {
@@ -581,6 +583,10 @@ impl Peli {
             self.kirjaa_tulos(false);
             self.aanijono
                 .push((Aani::Tappio, VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS));
+            self.aanijono.push((
+                Aani::PeliOhi,
+                VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS + PUHE_VIIVE_MS,
+            ));
         }
     }
 }
@@ -720,7 +726,7 @@ mod tests {
         assert!(!peli.haamu().unwrap().2);
         peli.aanijono.clear();
         peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.aanijono, [(Aani::Ahkaisy, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Virhe, 0)]);
         assert!(peli.nostettu.is_some());
         assert_eq!(peli.oma.laivat()[4].ruudut, laiva.ruudut);
 
@@ -768,7 +774,7 @@ mod tests {
         peli.aanijono.clear();
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Ammunta);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
     }
 
     #[test]
@@ -786,7 +792,7 @@ mod tests {
                 assert_eq!(jalkeen.vaaka(), !ennen.vaaka());
                 assert!(jalkeen.ruudut.sisaltaa(ennen.alku().unwrap()));
             } else {
-                assert_eq!(peli.aanijono.last(), Some(&(Aani::Ahkaisy, 0)));
+                assert_eq!(peli.aanijono.last(), Some(&(Aani::Virhe, 0)));
             }
         }
         assert!(kaantyi > 0);
@@ -1029,11 +1035,14 @@ mod tests {
         peli.aanijono.clear();
         peli.ammu(Ruutu { rivi: 0, sarake: 0 });
         assert_eq!(peli.aanijono[0], (Aani::Laukaus, 0));
-        assert!(peli.aanijono.contains(&(Aani::Tulipallo, VASTAUS_VIIVE_MS)));
+        assert!(
+            peli.aanijono
+                .contains(&(Aani::Vastalaukaus, VASTAUS_VIIVE_MS))
+        );
 
         peli.aanijono.clear();
         peli.ammu(Ruutu { rivi: 0, sarake: 0 });
-        assert_eq!(peli.aanijono, [(Aani::Ahkaisy, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Virhe, 0)]);
     }
 
     #[test]

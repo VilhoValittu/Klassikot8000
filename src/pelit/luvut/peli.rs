@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::luvut::{Lukulauta, Ruudut, Siirto, Suunta, TAVOITE};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
@@ -230,7 +230,7 @@ impl Luvut {
                     self.hylkaa_ja_aloita();
                 } else if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
                     self.vaihe = Vaihe::Pelissa;
-                    self.aanijono.push((Aani::Ovi, 0));
+                    self.aanijono.push((Aani::Alku, 0));
                     if self.jatkuu {
                         self.jatkuu = false;
                         self.viesti = kaanna("luvut.jatketaan_tallennettua").to_string();
@@ -294,7 +294,7 @@ impl Luvut {
     pub fn siirra(&mut self, suunta: Suunta) {
         let Some(siirto) = self.lauta.siirra(suunta, &mut self.arpa) else {
             self.ei_liiku = true;
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
             return;
         };
         self.ei_liiku = false;
@@ -314,9 +314,13 @@ impl Luvut {
         if !self.jatkettu && self.lauta.suurin() >= TAVOITE {
             self.vaihe = Vaihe::Voitto;
             self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if !self.lauta.on_siirtoja() {
             self.paata_peli();
             self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanijono
+                .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         }
     }
 }
@@ -520,7 +524,7 @@ mod tests {
         luvut.kasittele(Syote::Nuoli(0, -1));
         assert!(luvut.ei_liiku);
         assert_eq!(luvut.siirtoja, 0);
-        assert_eq!(luvut.aanijono, [(Aani::Ahkaisy, 0)]);
+        assert_eq!(luvut.aanijono, [(Aani::Virhe, 0)]);
     }
 
     #[test]

@@ -2,7 +2,7 @@ use klassikot8000::Arpa;
 use klassikot8000::miinaharava::{Avaus, Miinakentta, Paikka, SUURIN_AIKA, Vaikeus, aikapisteet};
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
@@ -180,7 +180,7 @@ impl Miinaharava {
         self.aika_alku = None;
         self.loppuaika = None;
         self.viesti = kaanna("miinaharava.aloita").to_string();
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -295,6 +295,8 @@ impl Miinaharava {
                 self.rajahdys = Some(self.kello_ms);
                 self.aanijono.push((Aani::Rajahdys, 0));
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.viesti = kaanna("miinaharava.pamaus").to_string();
             }
             Avaus::Voitto => self.voita(),
@@ -307,6 +309,8 @@ impl Miinaharava {
         self.loppuaika = Some(aika);
         self.vaihe = Vaihe::Voitto;
         self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+        self.aanijono
+            .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         let pisteet = self.pisteet();
         let paras = &mut self.ajat[tason_indeksi(self.vaikeus)];
         if *paras == 0 || aika < *paras {
@@ -480,7 +484,7 @@ mod tests {
         peli.kasittele(Syote::Klikkaus(0, 300));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.vaikeus, Vaikeus::Helppo);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
     }
 
     #[test]
@@ -575,7 +579,11 @@ mod tests {
         assert!(peli.uusi_tulos);
         assert_eq!(peli.paras_aika(), Some(40));
         assert!(peli.viesti.contains("40"));
-        assert_eq!(peli.aanijono.last(), Some(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+        assert!(peli.aanijono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+        assert_eq!(
+            peli.aanijono.last(),
+            Some(&(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS))
+        );
 
         // hitaampi ei kirjaudu
         peli.uusi_tulos = false;

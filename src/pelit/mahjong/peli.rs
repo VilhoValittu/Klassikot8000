@@ -4,7 +4,7 @@ use klassikot8000::mahjong::{
 };
 
 use super::piirto;
-use crate::yhteinen::aanet::Aani;
+use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
@@ -166,7 +166,7 @@ impl Mahjong {
         self.ponnahdus = None;
         self.peliaika_ms = 0;
         self.viesti = kaanna("mahjong.aloita").to_string();
-        self.aanijono.push((Aani::Ovi, 0));
+        self.aanijono.push((Aani::Alku, 0));
     }
 
     fn ensimmainen_vapaa(&self) -> Option<usize> {
@@ -337,7 +337,7 @@ impl Mahjong {
         }
         if !self.lauta.vapaa(i) {
             self.viesti = kaanna("mahjong.ei_vapaa").to_string();
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
             return;
         }
         match self.valittu {
@@ -398,17 +398,21 @@ impl Mahjong {
             Tila::Kesken => {}
             Tila::Jumissa => {
                 self.viesti = muotoile("mahjong.jumissa", &[&SEKOITUKSEN_HINTA]);
-                self.aanijono.push((Aani::Ahkaisy, LOPPU_VIIVE_MS));
+                self.aanijono.push((Aani::EiSiirtoja, LOPPU_VIIVE_MS));
             }
             Tila::Voitto => {
                 self.voitto_alku = self.kello_ms;
                 self.viesti = muotoile("mahjong.voitto_viesti", &[&self.lauta.pisteet]);
                 self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             }
             Tila::Tappio => {
                 self.viesti = muotoile("mahjong.tappio_viesti", &[&self.lauta.pisteet]);
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             }
         }
@@ -441,7 +445,7 @@ impl Mahjong {
             }
             None => {
                 self.viesti = muotoile("mahjong.jumissa", &[&SEKOITUKSEN_HINTA]);
-                self.aanijono.push((Aani::Ahkaisy, 0));
+                self.aanijono.push((Aani::Virhe, 0));
             }
         }
     }
@@ -455,13 +459,15 @@ impl Mahjong {
             if self.lauta.tila == Tila::Tappio {
                 self.viesti = muotoile("mahjong.tappio_viesti", &[&self.lauta.pisteet]);
                 self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanijono
+                    .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             } else {
                 self.viesti = muotoile("mahjong.sekoitettu", &[&SEKOITUKSEN_HINTA]);
             }
         } else {
             self.viesti = kaanna("mahjong.ei_sekoituksia").to_string();
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
         }
     }
 
@@ -479,7 +485,7 @@ impl Mahjong {
                 "mahjong.ei_perua_vaikealla"
             };
             self.viesti = kaanna(avain).to_string();
-            self.aanijono.push((Aani::Ahkaisy, 0));
+            self.aanijono.push((Aani::Virhe, 0));
         }
     }
 
@@ -610,7 +616,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.vaikeus, Vaikeus::Normaali);
         assert_eq!(peli.lauta.jaljella(), 124);
-        assert_eq!(peli.aanijono, [(Aani::Ovi, 0)]);
+        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
     }
 
     #[test]
