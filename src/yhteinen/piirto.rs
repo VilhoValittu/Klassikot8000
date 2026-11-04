@@ -375,6 +375,16 @@ impl Sovitus {
             (y * RUUDUN_KORKEUS / self.k) as i32,
         ))
     }
+
+    /// Kuten `ruudulle`, mutta ikkunan ulkopuolinen piste siirtyy kuvan lähimpään reunaan.
+    pub fn ruudulle_rajattu(&self, x: i32, y: i32) -> (i32, i32) {
+        let rajaa = |arvo: i32, alku: usize, pituus: usize| {
+            (arvo.max(0) as usize).clamp(alku, alku + pituus - 1) as i32
+        };
+        let piste = (rajaa(x, self.x, self.l), rajaa(y, self.y, self.k));
+        self.ruudulle(piste.0, piste.1)
+            .expect("rajattu piste on kuvan sisällä")
+    }
 }
 
 /// Lähdepikselit, jotka kuuluvat kohteen pikseliin `i`. Aina vähintään yksi.
@@ -1118,6 +1128,27 @@ mod tests {
         assert_eq!(sovitus.ruudulle(640, 900), None);
         assert_eq!(sovitus.ruudulle(-1, 300), None);
         assert_eq!(sovitus.ruudulle(640, 512), Some((960, 540)));
+    }
+
+    #[test]
+    fn rajattu_piste_jaa_kuvan_reunaan_ikkunan_ulkopuoleltakin() {
+        // 1280x1024: kuva on rivit 152..872.
+        let sovitus = Sovitus::new(1280, 1024);
+        // Ulkopuolinen piste vastaa kuvan viimeistä pikseliä ikkunan sisällä.
+        let reuna = |x, y| sovitus.ruudulle(x, y).unwrap();
+        assert_eq!(sovitus.ruudulle_rajattu(-8, 512), (0, 540));
+        assert_eq!(sovitus.ruudulle_rajattu(i32::MIN, i32::MIN), (0, 0));
+        assert_eq!(sovitus.ruudulle_rajattu(5000, 512), reuna(1279, 512));
+        assert_eq!(
+            sovitus.ruudulle_rajattu(i32::MAX, i32::MAX),
+            reuna(1279, 871)
+        );
+        assert_eq!(sovitus.ruudulle_rajattu(640, 100), (960, 0));
+        assert_eq!(sovitus.ruudulle_rajattu(640, 2000), reuna(640, 871));
+        // Kuvan sisällä tulos on sama kuin ilman rajausta.
+        assert_eq!(sovitus.ruudulle_rajattu(640, 512), (960, 540));
+        // Pienin mahdollinen ikkuna.
+        assert_eq!(Sovitus::new(1, 1).ruudulle_rajattu(-5, 9), (0, 0));
     }
 
     #[test]

@@ -263,15 +263,28 @@ fn pelisilmukka(
         let (ikkuna_l, ikkuna_k) = (ikkuna_l.max(1), ikkuna_k.max(1));
         let sovitus = Sovitus::new(ikkuna_l, ikkuna_k);
 
-        let hiiren_paikka = ikkuna
-            .get_unscaled_mouse_pos(MouseMode::Discard)
-            .and_then(|(x, y)| sovitus.ruudulle(x as i32, y as i32));
+        // Kursori luetaan myös ikkunan ulkopuolelta: ruudun reunassa se on ikkunan
+        // koonmuutosreunan päällä, ja oikealla ikkunan vieressä on muita ohjelmia.
+        let kursori = ikkuna
+            .get_unscaled_mouse_pos(MouseMode::Pass)
+            .map(|(x, y)| (x as i32, y as i32));
+        let hiiren_paikka = kursori.and_then(|(x, y)| sovitus.ruudulle(x, y));
+        let liike = match (hiiren_paikka, kursori) {
+            (None, Some((x, y))) if ikkuna.is_active() && kaynnistin.hiiri_ulkonakin() => {
+                Some(sovitus.ruudulle_rajattu(x, y))
+            }
+            _ => hiiren_paikka,
+        };
+        if let Some(piste) = liike
+            && piste != hiiri
+        {
+            hiiri = piste;
+            let nakyma = kaynnistin.nakyman_piste(piste.0, piste.1);
+            kaynnistin.kasittele(Syote::Hiiri(nakyma.0, nakyma.1));
+        }
+        // Napit vain ikkunan sisältä: muualla klikkaus kuuluu toiselle ohjelmalle.
         if let Some(piste) = hiiren_paikka {
             let nakyma = kaynnistin.nakyman_piste(piste.0, piste.1);
-            if piste != hiiri {
-                hiiri = piste;
-                kaynnistin.kasittele(Syote::Hiiri(nakyma.0, nakyma.1));
-            }
             let alhaalla = ikkuna.get_mouse_down(MouseButton::Left);
             if alhaalla && !nappi_alhaalla {
                 kaynnistin.kasittele(Syote::Klikkaus(nakyma.0, nakyma.1));

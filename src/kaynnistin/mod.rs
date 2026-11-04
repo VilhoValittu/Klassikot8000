@@ -441,6 +441,13 @@ impl Kaynnistin {
             .is_some_and(|peli| peli.nakyma().toimintapeli())
     }
 
+    /// Esillä oleva peli seuraa hiirtä myös ikkunan ulkopuolelta.
+    pub fn hiiri_ulkonakin(&self) -> bool {
+        self.peli
+            .as_ref()
+            .is_some_and(|peli| peli.nakyma().hiiri_ulkonakin())
+    }
+
     /// Pohjassa olevat suunnat. Näppäintoisto olisi mailan ohjaukseen liian nykivä.
     pub fn aseta_ohjaus(&mut self, vasen: bool, oikea: bool, ylos: bool) {
         if let Some(peli) = &mut self.peli {
@@ -763,7 +770,7 @@ mod tests {
     use super::*;
     use crate::pelit::laivanupotus::peli::Vaihe;
     use crate::pelit::luvut::peli as luvut;
-    use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
+    use crate::yhteinen::piirto::{Kehys, Sovitus, VILKKU_MS};
     use klassikot8000::laivanupotus::Vaikeus;
     use klassikot8000::laivanupotus::{KOKO, Ruutu};
     use klassikot8000::luvut::Lukulauta;
@@ -962,6 +969,50 @@ mod tests {
         k.kaynnista(Laji::Luvut);
         k.kasittele(Syote::Ammu);
         assert!(!k.toimintapeli());
+    }
+
+    /// Sama ketju kuin pelisilmukassa: ikkunan ulkopuolinen kursori rajataan kuvan reunaan.
+    fn hiiri_ulkona(k: &mut Kaynnistin, sovitus: Sovitus, x: i32, y: i32) {
+        assert_eq!(sovitus.ruudulle(x, y), None);
+        assert!(k.hiiri_ulkonakin());
+        let piste = sovitus.ruudulle_rajattu(x, y);
+        let (nx, ny) = k.nakyman_piste(piste.0, piste.1);
+        k.kasittele(Syote::Hiiri(nx, ny));
+    }
+
+    fn tiilimaila(k: &Kaynnistin) -> f32 {
+        let Some(Kaynnissa::Tiilirikko(peli)) = &k.peli else {
+            panic!("tiilirikko ei ole käynnissä");
+        };
+        peli.lauta.maila_x
+    }
+
+    #[test]
+    fn tiilirikon_maila_seuraa_ikkunan_reunan_yli_vedettya_hiirta() {
+        use klassikot8000::tiilirikko::{LEVEYS, MAILA_L};
+        // Ikkuna kohdassa (0, 0) 1920x1080-näytöllä: oikealla jää ruutua yli, ja vasemmassa
+        // reunassa kursori on koonmuutosreunan päällä negatiivisessa x:ssä.
+        let sovitus = Sovitus::new(1760, 990);
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Tiilirikko);
+        assert!(!k.hiiri_ulkonakin());
+        k.kasittele(Syote::Ammu);
+        k.kasittele(Syote::Ammu);
+
+        // Sisällä hiiri jättää mailan keskelle, ja reunan yli vedetty kursori vie sen laitaan.
+        let keski = sovitus.ruudulle(880, 495).unwrap();
+        let (nx, ny) = k.nakyman_piste(keski.0, keski.1);
+        k.kasittele(Syote::Hiiri(nx, ny));
+        let alku = tiilimaila(&k);
+        assert!(alku > MAILA_L && alku < LEVEYS - MAILA_L, "{alku}");
+        hiiri_ulkona(&mut k, sovitus, -6, 700);
+        assert_eq!(tiilimaila(&k), MAILA_L / 2.0);
+        hiiri_ulkona(&mut k, sovitus, 1850, 700);
+        assert_eq!(tiilimaila(&k), LEVEYS - MAILA_L / 2.0);
+
+        // Tauolla hiiri ei liikuta mailaa ikkunan ulkopuolelta.
+        k.kasittele(Syote::Kirjain('P'));
+        assert!(!k.hiiri_ulkonakin());
     }
 
     #[test]

@@ -57,6 +57,12 @@ pub trait Pelinakyma {
     /// Ikkuna ei ole aktiivinen.
     fn keskeyta(&mut self) {}
 
+    /// Hiiri ohjaa peliä myös ikkunan ulkopuolelta, kuvan reunaan rajattuna. Nopea veto vie
+    /// kursorin helposti ikkunan reunan yli, eikä ohjaus saa silloin jäädä paikalleen.
+    fn hiiri_ulkonakin(&self) -> bool {
+        false
+    }
+
     /// Pohjassa pidetty nuoli toistuu. Siirtopeleissä toisto tekisi siitä siirtosarjan.
     fn nuolet_toistuvat(&self) -> bool {
         true

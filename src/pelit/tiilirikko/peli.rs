@@ -353,6 +353,10 @@ impl Pelinakyma for Tiilirikko {
     fn keskeyta(&mut self) {
         Self::keskeyta(self);
     }
+
+    fn hiiri_ulkonakin(&self) -> bool {
+        self.vaihe == Vaihe::Pelissa
+    }
 }
 
 #[cfg(test)]
@@ -405,6 +409,24 @@ mod tests {
         peli.edista(50);
         assert!(peli.lauta.maila_x > MAILA_L / 2.0);
         assert_eq!(peli.lauta.pallot[0].paikka.0, peli.lauta.maila_x);
+    }
+
+    #[test]
+    fn hiiri_ohjaa_ikkunan_ulkopuolelta_vain_pelin_aikana() {
+        let mut peli = Tiilirikko::new(1);
+        assert!(!peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Ammu);
+        assert!(peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Kirjain('P'));
+        assert!(!peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Kirjain('P'));
+
+        // Lennossakin, superpallon kanssa: tauolla tai lopussa hiiri ei liikuta mitään.
+        peli.kasittele(Syote::Ammu);
+        peli.lauta.pallot[0].superpallo = true;
+        assert!(peli.hiiri_ulkonakin());
+        peli.vaihe = Vaihe::Tappio;
+        assert!(!peli.hiiri_ulkonakin());
     }
 
     #[test]
