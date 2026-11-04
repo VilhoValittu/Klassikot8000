@@ -399,6 +399,10 @@ impl Pelinakyma for Asteroidit {
     fn keskeyta(&mut self) {
         Self::keskeyta(self);
     }
+
+    fn hiiri_ulkonakin(&self) -> bool {
+        self.vaihe == Vaihe::Pelissa
+    }
 }
 
 #[cfg(test)]
@@ -464,6 +468,20 @@ mod tests {
 
         peli.aseta_nuolet(1, false);
         assert_eq!(peli.ohjaus.tahtain, None);
+    }
+
+    #[test]
+    fn hiiri_tahtaa_ikkunan_ulkopuolelta_vain_pelin_aikana() {
+        let mut peli = Asteroidit::new(1);
+        assert!(!peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Ammu);
+        assert!(peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Kirjain('P'));
+        assert!(!peli.hiiri_ulkonakin());
+        peli.kasittele(Syote::Kirjain('P'));
+        assert!(peli.hiiri_ulkonakin());
+        peli.vaihe = Vaihe::Tappio;
+        assert!(!peli.hiiri_ulkonakin());
     }
 
     #[test]

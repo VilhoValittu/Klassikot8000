@@ -1016,6 +1016,35 @@ mod tests {
     }
 
     #[test]
+    fn asteroidien_tahtain_seuraa_ikkunan_reunan_yli_vedettya_hiirta() {
+        let sovitus = Sovitus::new(1760, 990);
+        let mut k = Kaynnistin::new(1);
+        k.kaynnista(Laji::Asteroidit);
+        assert!(!k.hiiri_ulkonakin());
+        k.kasittele(Syote::Ammu);
+        let tahtain = |k: &Kaynnistin| {
+            let Some(Kaynnissa::Asteroidit(peli)) = &k.peli else {
+                panic!("asteroidit ei ole käynnissä");
+            };
+            (
+                peli.ohjaus.tahtain.expect("tähtäin"),
+                peli.lauta.alus.paikka,
+            )
+        };
+
+        // Kursori ikkunan oikealla ja vasemmalla puolella kääntää aluksen sinne päin.
+        hiiri_ulkona(&mut k, sovitus, 1850, 495);
+        let ((x, _), alus) = tahtain(&k);
+        assert!(x > alus.0, "{x} {alus:?}");
+        hiiri_ulkona(&mut k, sovitus, -6, 495);
+        let ((x, _), alus) = tahtain(&k);
+        assert!(x < alus.0, "{x} {alus:?}");
+
+        k.kasittele(Syote::Kirjain('P'));
+        assert!(!k.hiiri_ulkonakin());
+    }
+
+    #[test]
     fn valikon_avain_vaihtuu_vain_kun_kuva_voi_muuttua() {
         let mut k = Kaynnistin::new(1);
         // kasvun aikana kuva vaihtuu joka kierroksella
