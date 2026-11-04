@@ -17,6 +17,8 @@ use crate::pelit::laivanupotus::peli::{Peli, Tilasto};
 use crate::pelit::laivanupotus::piirto::alkumalli as laivamalli;
 use crate::pelit::luvut::peli::Luvut;
 use crate::pelit::luvut::piirto::lukupino;
+use crate::pelit::mahjong::peli::Mahjong;
+use crate::pelit::mahjong::piirto::laattamalli;
 use crate::pelit::miinaharava::peli::Miinaharava;
 use crate::pelit::miinaharava::piirto::miinamalli;
 use crate::pelit::palikka::peli::Palikkapeli;
@@ -66,6 +68,7 @@ pub enum Laji {
     Laivanupotus,
     Luvut,
     Pasianssi,
+    Mahjong,
     Tiilirikko,
     Asteroidit,
     Silmukka,
@@ -82,7 +85,7 @@ pub struct Kortti {
     pub malli: fn() -> Vec<Tahko>,
 }
 
-pub const PELIT: [Kortti; 10] = [
+pub const PELIT: [Kortti; 11] = [
     Kortti {
         laji: Laji::Laivanupotus,
         nimi: "peli.laivanupotus",
@@ -100,6 +103,12 @@ pub const PELIT: [Kortti; 10] = [
         nimi: "peli.pasianssi",
         kuvaus: "valikko.pasianssi",
         malli: korttipinot,
+    },
+    Kortti {
+        laji: Laji::Mahjong,
+        nimi: "peli.mahjong",
+        kuvaus: "valikko.mahjong",
+        malli: laattamalli,
     },
     Kortti {
         laji: Laji::Tiilirikko,
@@ -168,6 +177,7 @@ pub enum Kaynnissa {
     Laivanupotus(Box<Peli>),
     Luvut(Box<Luvut>),
     Pasianssi(Box<Pasianssi>),
+    Mahjong(Box<Mahjong>),
     Tiilirikko(Box<Tiilirikko>),
     Asteroidit(Box<Asteroidit>),
     Silmukka(Box<Silmukka>),
@@ -183,6 +193,7 @@ impl Kaynnissa {
             Kaynnissa::Laivanupotus(peli) => &**peli,
             Kaynnissa::Luvut(peli) => &**peli,
             Kaynnissa::Pasianssi(peli) => &**peli,
+            Kaynnissa::Mahjong(peli) => &**peli,
             Kaynnissa::Tiilirikko(peli) => &**peli,
             Kaynnissa::Asteroidit(peli) => &**peli,
             Kaynnissa::Silmukka(peli) => &**peli,
@@ -198,6 +209,7 @@ impl Kaynnissa {
             Kaynnissa::Laivanupotus(peli) => &mut **peli,
             Kaynnissa::Luvut(peli) => &mut **peli,
             Kaynnissa::Pasianssi(peli) => &mut **peli,
+            Kaynnissa::Mahjong(peli) => &mut **peli,
             Kaynnissa::Tiilirikko(peli) => &mut **peli,
             Kaynnissa::Asteroidit(peli) => &mut **peli,
             Kaynnissa::Silmukka(peli) => &mut **peli,
@@ -213,6 +225,7 @@ impl Kaynnissa {
             Kaynnissa::Laivanupotus(_) => Laji::Laivanupotus,
             Kaynnissa::Luvut(_) => Laji::Luvut,
             Kaynnissa::Pasianssi(_) => Laji::Pasianssi,
+            Kaynnissa::Mahjong(_) => Laji::Mahjong,
             Kaynnissa::Tiilirikko(_) => Laji::Tiilirikko,
             Kaynnissa::Asteroidit(_) => Laji::Asteroidit,
             Kaynnissa::Silmukka(_) => Laji::Silmukka,
@@ -315,6 +328,7 @@ impl Kaynnistin {
             // Viimeksi valitun lajin lista: sen pelaaja haluaa todennäköisimmin nähdä.
             Laji::Pasianssi => pasianssi_peli::nettipeli(self.tallennus.asetukset.variantti),
             Laji::Miinaharava => Nettipeli::Miinaharava,
+            Laji::Mahjong => Nettipeli::Mahjong,
             Laji::Blackjack => Nettipeli::Blackjack,
             Laji::Holdem => Nettipeli::Holdem,
         })
@@ -482,6 +496,11 @@ impl Kaynnistin {
                 peli.haastepisteet = self.tallennus.haastepisteet;
                 peli.haastenimi = self.tallennus.haastenimi.clone();
                 Kaynnissa::Pasianssi(Box::new(peli))
+            }
+            Laji::Mahjong => {
+                let mut peli = Mahjong::new(siemen);
+                peli.vaikeus = asetukset.mahjong;
+                Kaynnissa::Mahjong(Box::new(peli))
             }
             Laji::Tiilirikko => Kaynnissa::Tiilirikko(Box::new(Tiilirikko::new(siemen))),
             Laji::Asteroidit => Kaynnissa::Asteroidit(Box::new(Asteroidit::new(siemen))),
@@ -661,6 +680,7 @@ impl Kaynnistin {
                 asetukset.variantti = peli.variantti;
             }
             Kaynnissa::Miinaharava(peli) => asetukset.miinaharava = peli.vaikeus,
+            Kaynnissa::Mahjong(peli) => asetukset.mahjong = peli.vaikeus,
             _ => {}
         }
         if poistuu {
@@ -824,6 +844,8 @@ mod tests {
         }
         assert_eq!(k.valittu, 9);
         k.kasittele(Syote::Nuoli(1, 0));
+        assert_eq!(k.valittu, 10);
+        k.kasittele(Syote::Nuoli(1, 0));
         assert_eq!(k.valittu, 0);
         k.kasittele(Syote::Numero(1));
         assert_eq!(k.valittu, 0);
@@ -846,50 +868,59 @@ mod tests {
 
         let (x, y) = piirto::kortin_keskipiste(3);
         k.kasittele(Syote::Klikkaus(x, y));
+        assert!(matches!(k.peli, Some(Kaynnissa::Mahjong(_))));
+        assert_eq!(k.otsikko(), "Mahjongg");
+        k.kasittele(Syote::Peru);
+
+        let (x, y) = piirto::kortin_keskipiste(4);
+        k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Tiilirikko(_))));
         assert_eq!(k.otsikko(), "Laatan murskain");
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(4);
+        let (x, y) = piirto::kortin_keskipiste(5);
         k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Asteroidit(_))));
         assert_eq!(k.otsikko(), "Asteroidit");
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(5);
+        let (x, y) = piirto::kortin_keskipiste(6);
         k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Silmukka(_))));
         assert_eq!(k.otsikko(), "Mato8000");
         assert!(!k.nuolet_toistuvat());
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(6);
+        let (x, y) = piirto::kortin_keskipiste(7);
         k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Palikka(_))));
         assert_eq!(k.otsikko(), "Palikka8000");
         assert!(k.nuolet_toistuvat());
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(7);
+        let (x, y) = piirto::kortin_keskipiste(8);
         k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Miinaharava(_))));
         assert_eq!(k.otsikko(), "Miinaharava");
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(8);
+        let (x, y) = piirto::kortin_keskipiste(9);
         k.kasittele(Syote::Klikkaus(x, y));
         assert!(matches!(k.peli, Some(Kaynnissa::Blackjack(_))));
         assert_eq!(k.otsikko(), "Blackjack");
         k.kasittele(Syote::Peru);
 
-        let (x, y) = piirto::kortin_keskipiste(9);
-        k.kasittele(Syote::Klikkaus(x, y));
+        // Yhdestoista kortti on näkyvien alapuolella, joten se valitaan nuolella.
+        k.kasittele(Syote::Nuoli(1, 0));
+        assert_eq!(k.valittu, 10);
+        k.kasittele(Syote::Ammu);
         assert!(matches!(k.peli, Some(Kaynnissa::Holdem(_))));
         assert_eq!(k.otsikko(), "Texas Hold'em");
         k.kasittele(Syote::Peru);
 
+        // Lista on vierinyt yhden alas, joten yhdeksäs näkyvä on kymmenes peli.
         k.kasittele(Syote::Numero(9));
-        assert_eq!(k.valittu, 8);
+        assert_eq!(k.valittu, 9);
     }
 
     #[test]
@@ -1074,7 +1105,7 @@ mod tests {
         let laiva = k.malli.len();
         assert_eq!(k.valitun_parhaat(), Some((false, &[][..])));
         k.edista(1000);
-        k.kasittele(Syote::Numero(5));
+        k.kasittele(Syote::Numero(6));
         assert_ne!(k.malli.len(), laiva);
         assert!(!k.malli.is_empty());
         assert_eq!(k.valittu_ms, 1000);
@@ -1919,7 +1950,7 @@ mod tests {
             std::mem::take(&mut k.pyynnot),
             [Pyynto::Hae(Nettipeli::Laivanupotus)]
         );
-        k.kasittele(Syote::Numero(4));
+        k.kasittele(Syote::Numero(5));
         k.edista(1);
         assert_eq!(
             std::mem::take(&mut k.pyynnot),
@@ -1939,7 +1970,7 @@ mod tests {
 
         // klikkaus valitsee ja käynnistää samalla kierroksella, eikä lista lähde kahdesti
         k.kasittele(Syote::Numero(1));
-        let (x, y) = piirto::kortin_keskipiste(4);
+        let (x, y) = piirto::kortin_keskipiste(5);
         k.kasittele(Syote::Klikkaus(x, y));
         assert_eq!(k.pyynnot, [Pyynto::Hae(Nettipeli::Asteroidit)]);
     }
@@ -2096,6 +2127,7 @@ mod tests {
             Laji::Laivanupotus,
             Laji::Luvut,
             Laji::Pasianssi,
+            Laji::Mahjong,
             Laji::Tiilirikko,
             Laji::Asteroidit,
             Laji::Silmukka,

@@ -225,6 +225,12 @@ const MERKKI_KUVA: [&str; 12] = [
     ".RRRWWWWRRR.", "..RWRRRRWR..", "....RRRR....", "............",
 ];
 #[rustfmt::skip]
+const LAATTA: [&str; 12] = [
+    "............", "..WWWWWWWW..", "..WWWWRWWW..", "..WRRRRRRW..",
+    "..WRWWRWRW..", "..WRRRRRRW..", "..WWWWRWWW..", "..WWWWRWWW..",
+    "..WWWWWWWW..", "..OOOOOOOO..", "..OOOOOOOO..", "............",
+];
+#[rustfmt::skip]
 const KAIUTIN: [&str; 5] = ["..W...", "WWW.C.", "WWW..C", "WWW.C.", "..W..."];
 // Kolmiot pikselikuvina: monikulmiona näin pieni kolmio pyöristyy ruudukkoon vinoksi.
 const YLOS_KUVA: [&str; 3] = ["..W..", ".WWW.", "WWWWW"];
@@ -238,6 +244,7 @@ fn kuvake(laji: Laji) -> (u32, &'static [&'static str; 12]) {
         Laji::Laivanupotus => (0x1A3A8A, &LAIVA),
         Laji::Luvut => (0x3A2A6A, &LAATAT),
         Laji::Pasianssi => (0x1E6A3A, &KORTTI),
+        Laji::Mahjong => (0x6A2418, &LAATTA),
         Laji::Tiilirikko => (TAUSTA, &TIILET),
         Laji::Asteroidit => (0x14102E, &ALUS),
         Laji::Silmukka => (0x183A28, &MATO),

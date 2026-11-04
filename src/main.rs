@@ -34,6 +34,8 @@ use klassikot8000::blackjack::{self, Vuoro};
 #[cfg(debug_assertions)]
 use klassikot8000::luvut::Lukulauta;
 #[cfg(debug_assertions)]
+use klassikot8000::mahjong;
+#[cfg(debug_assertions)]
 use klassikot8000::miinaharava;
 #[cfg(debug_assertions)]
 use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
@@ -622,6 +624,34 @@ fn main() -> ExitCode {
                     if liput.pamaus {
                         peli.avaa(miinat[1]);
                     }
+                }
+            }
+            Some(Kaynnissa::Mahjong(peli)) => {
+                if let Some(vaikeus) = liput.vaikeus {
+                    let taso = mahjong::Vaikeus::KAIKKI
+                        .into_iter()
+                        .find(|taso| taso.nimi() == vaikeus.nimi());
+                    peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+                }
+                if liput.pelatut.is_some() || liput.voitto {
+                    peli.kasittele(Syote::Ammu);
+                    // Pareja otetaan jaon omassa ratkaisujärjestyksessä, joten peli ei jumitu.
+                    let ratkaisu = peli.lauta.ratkaisu.clone();
+                    let maara = if liput.voitto {
+                        ratkaisu.len()
+                    } else {
+                        liput.pelatut.unwrap_or(0) as usize
+                    };
+                    for &(a, b) in ratkaisu.iter().take(maara) {
+                        peli.edista(1500);
+                        peli.valitse(a);
+                        peli.valitse(b);
+                    }
+                    // Viimeinen pari jää valituksi, jotta korostus näkyy kuvassa.
+                    if let Some(&(a, _)) = ratkaisu.get(maara) {
+                        peli.valitse(a);
+                    }
+                    peli.edista(liput.aika_ms);
                 }
             }
             Some(Kaynnissa::Blackjack(peli)) => {

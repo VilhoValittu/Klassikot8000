@@ -17,6 +17,7 @@ peli.palikka = Palikka8000
 peli.miinaharava = Miinaharava
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
+peli.mahjong = Mahjongg
 
 valikko.banneri = PELIKONE
 valikko.kielikytkin = English
@@ -32,6 +33,7 @@ valikko.palikka = Vaihda palikoita, kolme samaa suoraan.
 valikko.miinaharava = Avaa ruudut, älä osu miinaan.
 valikko.blackjack = Lähelle 21:tä, leikkirahalla jakajaa vastaan.
 valikko.holdem = Pokeria neljää konetta vastaan, 1000 rahaa.
+valikko.mahjong = Etsi parit ja pura laattapino.
 valikko.oma_paras = OMA PARAS
 valikko.voitot = VOITOT
 valikko.tappiot = TAPPIOT
@@ -291,6 +293,55 @@ miinaharava.pamaus = Pum! Astuit miinaan.
 miinaharava.tappio = OSUIT MIINAAN!
 miinaharava.ennatys = Uusi ennätys: {} s! {} pistettä.
 miinaharava.aika_viesti = Aika: {} s, {} pistettä.
+mahjong.banneri = **** MAHJONGG ****
+mahjong.tervetuloa = Tervetuloa pelaamaan mahjonggia.
+mahjong.ohje_1 = Ota pois pareja: kaksi samaa vapaata laattaa.
+mahjong.ohje_2 = Vapaan päällä ei ole mitään ja sivu on auki. Nopeat parit tuovat ketjupisteitä.
+mahjong.nappain_hiiri = Hiiri: klikkaa kaksi samaa laattaa.
+mahjong.nappain_nuolet = Nuolet ja väli, H vihje, S sekoitus.
+mahjong.kuvaus = {}: {} laattaa, pisteet x{}.
+mahjong.pohja_1 = Pyramidi
+mahjong.pohja_2 = Linnoitus
+mahjong.pohja_3 = Vuori
+mahjong.sivu_hiiri = Hiiri: valitse
+mahjong.sivu_oikea = Oikea nappi: peru
+mahjong.sivu_nuolet = Nuolet ja väli
+mahjong.sivu_aanet = M: äänet
+mahjong.sivu_valikko = Esc: valikkoon
+mahjong.nappi_vihje = H = Vihje
+mahjong.nappi_sekoita = S = Sekoita
+mahjong.nappi_peruuta = U = Peruuta
+mahjong.nappi_uusi = K = Uusi peli
+mahjong.ketju = KETJU
+mahjong.aika = AIKA
+mahjong.pareja = PAREJA
+mahjong.laattoja = LAATTOJA
+mahjong.sekoituksia = SEKOITUKSIA
+mahjong.tuuli_1 = I
+mahjong.tuuli_2 = E
+mahjong.tuuli_3 = L
+mahjong.tuuli_4 = P
+mahjong.aloita = Etsi kaksi samaa vapaata laattaa.
+mahjong.ei_vapaa = Laatta ei ole vapaa.
+mahjong.ei_pari = Eivät ole pari. Uusi valinta.
+mahjong.pari = Pari! +{} pistettä.
+mahjong.ketju_viesti = Ketju x{}! +{} pistettä.
+mahjong.vihje = Vihje vilkkuu. -{} pistettä.
+mahjong.jumissa = Ei vapaita pareja! S sekoittaa, -{} pistettä.
+mahjong.sekoitettu = Laatat sekoitettu. -{} pistettä.
+mahjong.ei_sekoituksia = Sekoitukset on käytetty.
+mahjong.peruttu = Pari palautettu.
+mahjong.ei_peruttavaa = Ei peruttavaa.
+mahjong.ei_perua_vaikealla = Vaikealla tasolla ei voi perua.
+mahjong.voitto_viesti = Lauta tyhjä! {} pistettä.
+mahjong.tappio_viesti = Pareja ei enää ole. {} pistettä.
+mahjong.tappio = EI ENÄÄ PAREJA!
+mahjong.erittely_parit = Pareista: {}
+mahjong.erittely_tyhjennys = Tyhjennysbonus: {}
+mahjong.erittely_aika = Aikabonus: {}
+mahjong.erittely_jaljella = Laattoja jäi: {}
+mahjong.yhteensa = PISTEET: {}
+mahjong.loppu_ohje = K = Uusi peli, E = Valikko.
 
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Tervetuloa pelaamaan blackjackia.
@@ -419,6 +470,7 @@ peli.palikka = Palikka8000
 peli.miinaharava = Minesweeper
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
+peli.mahjong = Mahjongg
 
 valikko.banneri = GAME MACHINE
 valikko.kielikytkin = Suomi
@@ -434,6 +486,7 @@ valikko.palikka = Swap blocks, line up three of a kind.
 valikko.miinaharava = Open every cell, avoid the mines.
 valikko.blackjack = Get near 21, play money against the dealer.
 valikko.holdem = Poker against four computers, 1000 to start.
+valikko.mahjong = Match free pairs, clear the stack.
 valikko.oma_paras = YOUR BEST
 valikko.voitot = WINS
 valikko.tappiot = LOSSES
@@ -693,6 +746,55 @@ miinaharava.pamaus = Boom! You hit a mine.
 miinaharava.tappio = YOU HIT A MINE!
 miinaharava.ennatys = New record: {} s! {} points.
 miinaharava.aika_viesti = Time: {} s, {} points.
+mahjong.banneri = **** MAHJONGG ****
+mahjong.tervetuloa = Welcome to Mahjongg.
+mahjong.ohje_1 = Remove pairs of matching free tiles.
+mahjong.ohje_2 = A free tile has nothing on top and one side open. Quick pairs earn chain points.
+mahjong.nappain_hiiri = Mouse: click two matching tiles.
+mahjong.nappain_nuolet = Arrows and space, H hint, S shuffle.
+mahjong.kuvaus = {}: {} tiles, points x{}.
+mahjong.pohja_1 = Pyramid
+mahjong.pohja_2 = Fortress
+mahjong.pohja_3 = Mountain
+mahjong.sivu_hiiri = Mouse: pick a pair
+mahjong.sivu_oikea = Right: deselect
+mahjong.sivu_nuolet = Arrows and space
+mahjong.sivu_aanet = M: sound
+mahjong.sivu_valikko = Esc: menu
+mahjong.nappi_vihje = H = Hint
+mahjong.nappi_sekoita = S = Shuffle
+mahjong.nappi_peruuta = U = Undo
+mahjong.nappi_uusi = K = New game
+mahjong.ketju = CHAIN
+mahjong.aika = TIME
+mahjong.pareja = PAIRS
+mahjong.laattoja = TILES
+mahjong.sekoituksia = SHUFFLES
+mahjong.tuuli_1 = E
+mahjong.tuuli_2 = S
+mahjong.tuuli_3 = W
+mahjong.tuuli_4 = N
+mahjong.aloita = Find two matching free tiles.
+mahjong.ei_vapaa = That tile is not free.
+mahjong.ei_pari = Not a pair. New pick.
+mahjong.pari = Pair! +{} points.
+mahjong.ketju_viesti = Chain x{}! +{} points.
+mahjong.vihje = Hint is blinking. -{} points.
+mahjong.jumissa = No free pairs! S shuffles for -{} points.
+mahjong.sekoitettu = Tiles shuffled. -{} points.
+mahjong.ei_sekoituksia = No shuffles left.
+mahjong.peruttu = Pair put back.
+mahjong.ei_peruttavaa = Nothing to undo.
+mahjong.ei_perua_vaikealla = No undo on hard.
+mahjong.voitto_viesti = Board cleared! {} points.
+mahjong.tappio_viesti = No pairs left. {} points.
+mahjong.tappio = NO MORE PAIRS!
+mahjong.erittely_parit = From pairs: {}
+mahjong.erittely_tyhjennys = Clear bonus: {}
+mahjong.erittely_aika = Time bonus: {}
+mahjong.erittely_jaljella = Tiles left: {}
+mahjong.yhteensa = SCORE: {}
+mahjong.loppu_ohje = K = New game, E = Menu.
 
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Welcome to Blackjack.

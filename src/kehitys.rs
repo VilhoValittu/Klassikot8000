@@ -162,6 +162,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "laivanupotus" => Laji::Laivanupotus,
                     "2048" => Laji::Luvut,
                     "pasianssi" => Laji::Pasianssi,
+                    "mahjong" => Laji::Mahjong,
                     "tiilirikko" => Laji::Tiilirikko,
                     "asteroidit" => Laji::Asteroidit,
                     "silmukka" => Laji::Silmukka,
