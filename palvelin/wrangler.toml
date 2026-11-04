@@ -1,0 +1,13 @@
+name = "klassikot8000-tulokset"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "klassikot8000-tulokset"
+database_id = "13f6ad6b-1638-4749-9956-631259579f5a"
+
+[[ratelimits]]
+name = "RAJOITIN"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
