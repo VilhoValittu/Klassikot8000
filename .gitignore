@@ -5,3 +5,4 @@ __pycache__/
 .claude/
 .vscode/
 netti.md
+/palvelin/wrangler.toml
