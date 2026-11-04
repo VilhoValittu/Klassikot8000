@@ -1,29 +1,65 @@
-//! Käynnistimen näkymä: pelikortit ja ohjeet.
+//! Käynnistimen näkymä: pelilista, valitun pelin esittely, tulokset ja näppäinohjeet.
 
 use std::sync::LazyLock;
 
 use klassikot8000::laivanupotus::Vaikeus;
 
 use super::netti::VERSIO;
-use super::{Kaynnistin, PELIT};
+use super::{Kaynnistin, Laji, PELIT};
 use crate::pelit::laivanupotus::peli::Tilasto;
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::Rasteri;
 use crate::yhteinen::tulokset::{PARHAITA, Tulos};
-use crate::yhteinen::vektori::{Kangas, Tahko};
+use crate::yhteinen::vektori::{Kangas, Tahko, sekoita_liuku};
 
-// Käynnistin piirtää suoraan ruudulle, joten mitat ovat ruudun pikseleitä.
+// Käynnistin piirtää suoraan ruudulle, joten mitat ovat ruudun pikseleitä. Reunat, varjot ja
+// laatikot ovat konepikselin (4) monikertoja, jotta lasipinnat osuvat taustan ruudukkoon.
 const RUUTU_L: i32 = RUUDUN_LEVEYS as i32;
+const P: i32 = 4;
+const VASEN_REUNA: i32 = 48;
+const OIKEA_REUNA: i32 = RUUTU_L - 48;
+/// Kovat varjot korostettujen osien alla.
+const VARJO: i32 = 8;
+const KOROSTUS: u32 = WB_ORANSSI;
+const HIMMEA_REUNA: u32 = 0x3E3290;
 
-const KORTTI_X: i32 = 48;
-const KORTTI_L: i32 = 704;
-const KORTTI_Y: i32 = 172;
+/// Pieni teksti: kaksinkertainen bittikarttafontti.
+const PIENI: i32 = 2;
+const PIENI_MERKKI: i32 = PIENI * 8;
+/// Näppäimen kuva ohjeissa ja kytkimissä.
+const NAPPAIN: i32 = 32;
+
+const LOGO_Y: i32 = 36;
+const LOGO_KOKO: (i32, i32, i32) = (35, 35, 44);
+const SIRU_Y: i32 = 32;
+const SIRU_K: i32 = 48;
+const SIRU_VALI: i32 = 16;
+const SIRUN_NAPPAIN_X: i32 = 8;
+const SIRU_TEKSTI_X: i32 = SIRUN_NAPPAIN_X + NAPPAIN + 12;
+const SIRU_LOPPU: i32 = 16;
+const KAIUTIN_TILA: i32 = 36;
+const KIELIKYTKIN: &str = "valikko.kielikytkin";
+const AANI_PAALLA: &str = "yhteinen.aani_paalla";
+const AANI_POIS: &str = "yhteinen.aani_pois";
+const ILMOITUS_TEKSTI_X: i32 = 36;
+
+const KORTTI_X: i32 = VASEN_REUNA;
+const KORTTI_L: i32 = 600;
+const KORTTI_Y: i32 = 136;
 const KORTTI_K: i32 = 72;
 const KORTTI_ASKEL: i32 = KORTTI_K + 8;
-const KORTIN_NUMERO_X: i32 = 60;
-const KORTIN_NIMI: (i32, i32, i32) = (24, 36, 32);
-const KORTIN_VARJO: i32 = 6;
+/// Valittu kortti liukuu kohti esittelyä.
+const VALITUN_SIIRTO: i32 = 16;
+const NUMERO_X: i32 = 16;
+const KUVAKE_X: i32 = NUMERO_X + NAPPAIN + 16;
+const KUVAKE_L: i32 = 56;
+const NIMI_X: i32 = KUVAKE_X + KUVAKE_L + 16;
+const NIMI_KOKO: (i32, i32, i32) = (21, 21, 26);
+/// `NIMI_KOKO`n merkki on kolmen pikselin riveistä: 3 * 8.
+const NIMEN_KORKEUS: i32 = 24;
+/// Valitun kortin nuoli oikeassa laidassa.
+const KORTIN_NUOLI: i32 = 40;
 /// Valikkoon mahtuvat kortit. Pidempi lista vierii, ja nuolet kertovat piiloon jääneistä.
 pub const NAKYVIA: usize = 10;
 const NAKYVIA_KORTTEJA: i32 = if PELIT.len() < NAKYVIA {
@@ -31,12 +67,34 @@ const NAKYVIA_KORTTEJA: i32 = if PELIT.len() < NAKYVIA {
 } else {
     NAKYVIA
 } as i32;
-const NUOLI_X: i32 = (KORTTI_X + KORTTI_L + KORTIN_VARJO + PANEELI_X) / 2;
-const NUOLI_L: i32 = 24;
-const NUOLI_K: i32 = 16;
+const LISTAN_ALA: i32 = KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K;
+const NUOLI_X: i32 = (KORTTI_X + KORTTI_L + VALITUN_SIIRTO + VARJO + ESITTELY_X) / 2;
+const NUOLI_L: i32 = 5 * P;
+const NUOLI_K: i32 = 3 * P;
 
-const OTSIKKO_KOKO: (i32, i32, i32) = (60, 88, 78);
-const OTSIKKO_Y: i32 = 48;
+const ESITTELY_X: i32 = 720;
+const ESITTELY_L: i32 = 560;
+const JARJESTYS_Y: i32 = 144;
+const NIMI_Y: i32 = 176;
+const SUURI_NIMI: (i32, i32, i32) = (35, 35, 42);
+const PIENEMPI_NIMI: (i32, i32, i32) = (28, 28, 34);
+const KUVAUS_Y: i32 = 248;
+const KUVAUS_KERROIN: i32 = 3;
+const KUVAUS_RIVI: i32 = 36;
+#[cfg(test)]
+const KUVAUS_RIVEJA: usize = 3;
+const KUVAUS_MERKKEJA: usize = (ESITTELY_L / (KUVAUS_KERROIN * 8)) as usize;
+const PELAA: &str = "valikko.pelaa";
+/// Painike on kuvauksen alla tämän verran viimeisen rivin alareunasta.
+const PELAA_YLA: i32 = 40;
+/// Painikkeen alin paikka, kun kuvaus vie kaikki rivit.
+#[cfg(test)]
+const PELAA_ALIN_Y: i32 = KUVAUS_Y + KUVAUS_RIVEJA as i32 * KUVAUS_RIVI - KUVAUS_VALI + PELAA_YLA;
+const KUVAUS_VALI: i32 = KUVAUS_RIVI - KUVAUS_KERROIN * 8;
+const PELAA_K: i32 = 64;
+const PELAA_SISENNYS: i32 = 24;
+const PELAA_KOLMIO: i32 = 16;
+const PELAA_VALI: i32 = 16;
 
 // Tausta lasketaan kerran, ja se pysyy paikallaan katsojan seuratessa mallia.
 const HORISONTTI_RIVI: i32 = 130;
@@ -48,130 +106,270 @@ static MAISEMA: LazyLock<Rasteri> = LazyLock::new(|| {
         MALLI_X / 4,
     )
 });
-const MALLI_X: i32 = 1336;
+/// Maisema tummennettuna: listan ja laatikoiden läpikuultava pohja kopioidaan tästä, joten
+/// läpinäkyvyys ei maksa piirrossa mitään.
+static LASI: LazyLock<Rasteri> = LazyLock::new(|| {
+    Rasteri::luo(RUUDUN_LEVEYS / 4, ALAPALKKI_Y as usize / 4, |x, y| {
+        sekoita_liuku(MAISEMA.rivi(y as usize)[x as usize], LASIN_VARI, 0.82)
+    })
+});
+const LASIN_VARI: u32 = 0x0E0830;
+const MALLI_X: i32 = 1512;
 const MALLI_Y: i32 = 460;
 const MALLIN_KOKO: f32 = 76.0;
 const MALLIN_KEINUNTA: f32 = 6.0;
 pub const MALLIN_KASVU_MS: u32 = 200;
 const MALLIN_ALKUKOKO: f32 = 0.6;
 
-const PANEELI_X: i32 = 800;
-const PANEELI_L: i32 = 1072;
-const PANEELI_YLA: i32 =
-    KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K - PANEELI_KORKEUS;
-// Korkeus mahduttaa lajin nimen ja oman ennätyksen listan ympärille sekä laivanupotuksen
-// tilaston kuvauksen alle. Malli mahtuu silti paneelin yläpuolelle.
-const PANEELI_KORKEUS: i32 = 240;
-const PANEELI_SISENNYS: i32 = 24;
-
-const TEKSTIN_KERROIN: i32 = 4;
-const SUURI_MERKKI: i32 = TEKSTIN_KERROIN * 8;
-const KUVAUS_RIVI: i32 = 40;
-const KUVAUS_MERKKEJA: usize = ((PANEELI_L - 2 * PANEELI_SISENNYS) / SUURI_MERKKI) as usize;
-const KAPEA_KUVAUS_MERKKEJA: usize =
-    ((PANEELI_L - 3 * PANEELI_SISENNYS - LISTA_L) / SUURI_MERKKI) as usize;
-
-const LISTA_L: i32 = 350;
-const LISTA_KOKO: (i32, i32, i32) = (14, 21, 20);
-/// Lajin nimi on otsikon alla omalla rivillään.
-const LISTA_RIVI: i32 = PARHAAT_OTSIKKO;
-/// Oma ennätys erottuu listasta pienellä välillä.
-const OMA_VALI: i32 = 6;
+// Tilastot ja top 3 omissa laatikoissaan meren päällä, oikeaan laitaan tasattuina.
+const LAATIKKO_K: i32 = 248;
+const LAATIKKO_Y: i32 = LISTAN_ALA - LAATIKKO_K;
+const LAATIKKO_SISENNYS: i32 = 24;
+const LAATIKKO_VALI: i32 = 24;
+const LISTA_L: i32 = 440;
+const LISTA_X: i32 = OIKEA_REUNA - LISTA_L;
+const TILASTO_X: i32 = ESITTELY_X;
+const TILASTO_L: i32 = LISTA_X - LAATIKKO_VALI - TILASTO_X;
+const LISTA_KOKO: (i32, i32, i32) = (14, 14, 16);
+const LAATIKON_OTSIKKO: i32 = 32;
+const OMA_VALI: i32 = 8;
 const OMA_PARAS: &str = "valikko.oma_paras";
+const TILASTOT: &str = "valikko.tilastot";
 
-// Laivanupotuksen tilasto kuvauksen alla: tasot riveinä, sarakkeiden oikeat reunat.
-const TAULUKON_VALI: i32 = 16;
+// Laivanupotuksen tilasto: tasot riveinä, sarakkeiden oikeat reunat laatikon sisällä.
+const TAULUKON_RIVI: i32 = 44;
 const TAULUKON_SARAKKEET: [(&str, i32); 3] = [
-    ("valikko.voitot", 360),
-    ("valikko.tappiot", 530),
-    ("yhteinen.paras", 650),
+    ("valikko.voitot", 400),
+    ("valikko.tappiot", 528),
+    ("yhteinen.paras", 640),
 ];
 const TASOJEN_NIMET: [&str; 3] = ["yhteinen.helppo", "yhteinen.normaali", "yhteinen.vaikea"];
-/// Otsikkorivi ja kolme tasoa.
-const TAULUKON_KORKEUS: i32 = 3 * PARHAAT_RIVI + LISTA_KOKO.1;
 
-const ALAPALKKI_Y: i32 = 976;
-const OHJE_X: i32 = 48;
-const OHJE_RIVI_Y: i32 = 1012;
+const ALAPALKKI_Y: i32 = 1016;
+const OHJE_NAPPAIN_Y: i32 = ALAPALKKI_Y + (RUUDUN_KORKEUS as i32 - ALAPALKKI_Y - NAPPAIN) / 2;
+const OHJE_TEKSTI_Y: i32 = OHJE_NAPPAIN_Y + (NAPPAIN - PIENI_MERKKI) / 2;
+const NAPPAINTEN_VALI: i32 = 8;
+const SELITTEEN_VALI: i32 = 12;
+const RYHMIEN_VALI: i32 = 40;
+/// Nuolinäppäimet piirtyvät kolmioina, välilyönti korostettuna ja käännettynä.
+const YLOS: &str = "^";
+const ALAS: &str = "v";
+const VALI: &str = "valikko.vali";
+const OHJEET: [(&[&str], &str); 5] = [
+    (&[YLOS, ALAS, "1-0"], "valikko.valitse"),
+    (&[VALI], PELAA),
+    (&["M"], "valikko.aanet"),
+    (&["L"], "valikko.kieli"),
+    (&["ESC"], "valikko.lopeta"),
+];
 
-const KIELIKYTKIN: &str = "valikko.kielikytkin";
-const KIELI_Y: i32 = 6;
-const KIELI_VALI: i32 = 12;
-// Yhteinen äänikytkin piirtyy kankaan oikeaan laitaan, jossa on nyt koko ruudun leveys.
-const AANI_SIIRTO: i32 = (RUUDUN_LEVEYS - LEVEYS) as i32;
+// Pelien pikselikuvakkeet 12x12. Kirjain on väri, piste läpinäkyvä.
+#[rustfmt::skip]
+const LAIVA: [&str; 12] = [
+    "............", ".....W......", ".....W......", "....GGG.....",
+    "...GGGGG....", ".DDDDDDDDDD.", "..DDDDDDDD..", "...DDDDDD...",
+    "CCCCCCCCCCCC", ".C..C...C..C", "............", "............",
+];
+#[rustfmt::skip]
+const LAATAT: [&str; 12] = [
+    "............", ".YYYY..OOOO.", ".YYYY..OOOO.", ".YYYY..OOOO.",
+    ".YYYY..OOOO.", "............", "............", ".PPPP..LLLL.",
+    ".PPPP..LLLL.", ".PPPP..LLLL.", ".PPPP..LLLL.", "............",
+];
+#[rustfmt::skip]
+const KORTTI: [&str; 12] = [
+    "............", "..WWWWWWWW..", "..WWWWWWWW..", "..WRRWWRRW..",
+    "..WRRRRRRW..", "..WRRRRRRW..", "..WWRRRRWW..", "..WWWRRWWW..",
+    "..WWWWWWWW..", "..WWWWWWWW..", "..WWWWWWWW..", "............",
+];
+#[rustfmt::skip]
+const TIILET: [&str; 12] = [
+    "............", "PPP.OOO.YYY.", "PPP.OOO.YYY.", "............",
+    "CCC.LLL.PPP.", "CCC.LLL.PPP.", "............", "........W...",
+    "............", "............", "...LLLLL....", "............",
+];
+#[rustfmt::skip]
+const ALUS: [&str; 12] = [
+    "............", ".......GGG..", "......GGDGG.", "......GDGGG.",
+    ".......GGG..", "............", "..W.........", ".WWW.....Y..",
+    ".WWW........", "WWWWW.......", "W...W.......", "............",
+];
+#[rustfmt::skip]
+const MATO: [&str; 12] = [
+    "............", ".NNNNNNNN...", ".N......N...", ".N.W.W..N...",
+    ".N..W...N...", ".N......N...", ".N......N...", ".NNNNNY.N...",
+    "........N...", "........NN..", "............", "............",
+];
+#[rustfmt::skip]
+const KIVET: [&str; 12] = [
+    "............", ".RRR.BBB.NNN", ".RRR.BBB.NNN", ".RRR.BBB.NNN",
+    "............", ".YYY.YYY.YYY", ".YYY.YYY.YYY", ".YYY.YYY.YYY",
+    "............", ".BBB.RRR.PPP", ".BBB.RRR.PPP", ".BBB.RRR.PPP",
+];
+#[rustfmt::skip]
+const MIINA: [&str; 12] = [
+    "............", ".....K......", "..K.KKK.K...", "...KKKKK....",
+    "..KKWWKKK...", ".KKKWKKKKK..", "..KKKKKKK...", "...KKKKK....",
+    "..K.KKK.K...", ".....K......", "............", "............",
+];
+#[rustfmt::skip]
+const KAKSIYKSI: [&str; 12] = [
+    "............", ".WWWWWWWWWW.", ".WWWWWWWWWW.", ".WKKKWWKWWW.",
+    ".WWWKWKKWWW.", ".WKKKWWKWWW.", ".WKWWWWKWWW.", ".WKKKWKKKWW.",
+    ".WWWWWWWWWW.", ".WWWWWWWWWW.", "............", "............",
+];
+#[rustfmt::skip]
+const MERKKI_KUVA: [&str; 12] = [
+    "............", "....RRRR....", "..RWRRRRWR..", ".RRRWWWWRRR.",
+    ".RRWRRRRWRR.", "RWRWRRRRWRWR", "RWRWRRRRWRWR", ".RRWRRRRWRR.",
+    ".RRRWWWWRRR.", "..RWRRRRWR..", "....RRRR....", "............",
+];
+#[rustfmt::skip]
+const KAIUTIN: [&str; 5] = ["..W...", "WWW.C.", "WWW..C", "WWW.C.", "..W..."];
+// Kolmiot pikselikuvina: monikulmiona näin pieni kolmio pyöristyy ruudukkoon vinoksi.
+const YLOS_KUVA: [&str; 3] = ["..W..", ".WWW.", "WWWWW"];
+const ALAS_KUVA: [&str; 3] = ["WWWWW", ".WWW.", "..W.."];
+const NUOLI_KUVA: [&str; 5] = ["W..", "WW.", "WWW", "WW.", "W.."];
+const PELAA_KUVA: [&str; 7] = ["W...", "WW..", "WWW.", "WWWW", "WWW.", "WW..", "W..."];
 
-const VERSIO_Y: i32 = KIELI_Y + (NAPPI_K - MERKKI) / 2;
-// Otsikon ja korttien välissä on vapaata tilaa yhden rivin verran.
-const ILMOITUS_Y: i32 = 141;
-const ILMOITUS_K: i32 = 28;
-const ILMOITUS_SISENNYS: i32 = 12;
+/// Kuvakkeen pohjaväri ja kuva.
+fn kuvake(laji: Laji) -> (u32, &'static [&'static str; 12]) {
+    match laji {
+        Laji::Laivanupotus => (0x1A3A8A, &LAIVA),
+        Laji::Luvut => (0x3A2A6A, &LAATAT),
+        Laji::Pasianssi => (0x1E6A3A, &KORTTI),
+        Laji::Tiilirikko => (TAUSTA, &TIILET),
+        Laji::Asteroidit => (0x14102E, &ALUS),
+        Laji::Silmukka => (0x183A28, &MATO),
+        Laji::Palikka => (0x3A1D6E, &KIVET),
+        Laji::Miinaharava => (LAVENTELI, &MIINA),
+        Laji::Blackjack => (0x1E6A3A, &KAKSIYKSI),
+        Laji::Holdem => (0x1E5A3A, &MERKKI_KUVA),
+    }
+}
 
-/// Uuden version ilmoituksen kehys: (x, leveys). Leveys seuraa tekstiä.
+fn kuvakkeen_vari(merkki: u8) -> Option<u32> {
+    Some(match merkki {
+        b'Y' => KELTAINEN,
+        b'O' => WB_ORANSSI,
+        b'W' => VALKOINEN,
+        b'L' => LAVENTELI,
+        b'G' => KANSI,
+        b'D' => RUNKO,
+        b'R' => 0xE04838,
+        b'C' => HUTI,
+        b'P' => TAIVAS_ALA,
+        b'K' => PALKKI,
+        b'B' => 0x3878E8,
+        b'N' => 0x58C850,
+        _ => return None,
+    })
+}
+
+fn pieni_leveys(teksti: &str) -> i32 {
+    teksti.chars().count() as i32 * PIENI_MERKKI
+}
+
+fn nappaimen_leveys(nimi: &str) -> i32 {
+    match nimi {
+        YLOS | ALAS => NAPPAIN,
+        VALI => nappaimen_leveys(kaanna(VALI)),
+        _ => (pieni_leveys(nimi) + 16).max(NAPPAIN),
+    }
+}
+
+fn sirun_leveys(teksti: &str, kaiutin: bool) -> i32 {
+    SIRU_TEKSTI_X + kaiutin as i32 * KAIUTIN_TILA + pieni_leveys(teksti) + SIRU_LOPPU
+}
+
+/// Äänikytkin on oikeassa yläkulmassa, ja sen leveys ei muutu tilan mukana.
+fn aanikytkimen_alue() -> (i32, i32) {
+    let l = sirun_leveys(kaanna(AANI_PAALLA), true).max(sirun_leveys(kaanna(AANI_POIS), true));
+    (OIKEA_REUNA - l, l)
+}
+
+fn kielikytkimen_alue() -> (i32, i32) {
+    let l = sirun_leveys(kaanna(KIELIKYTKIN), false);
+    (aanikytkimen_alue().0 - SIRU_VALI - l, l)
+}
+
+/// Uuden version ilmoitus kytkinten vasemmalla puolella: (x, leveys).
 fn ilmoituksen_alue(versio: &str) -> (i32, i32) {
-    let leveys = muotoile("valikko.uusi_versio", &[&versio]).chars().count() as i32 * MERKKI;
-    let x = (RUUTU_L - leveys) / 2;
-    (x - ILMOITUS_SISENNYS, leveys + 2 * ILMOITUS_SISENNYS)
+    let teksti = muotoile("valikko.uusi_versio", &[&versio]);
+    let l = ILMOITUS_TEKSTI_X + pieni_leveys(&teksti) + SIRU_LOPPU;
+    (kielikytkimen_alue().0 - SIRU_VALI - l, l)
+}
+
+fn sirulla((vasen, leveys): (i32, i32), x: i32, y: i32) -> bool {
+    (vasen..vasen + leveys).contains(&x) && (SIRU_Y..SIRU_Y + SIRU_K).contains(&y)
+}
+
+#[cfg(test)]
+fn sirun_keskipiste((vasen, leveys): (i32, i32)) -> (i32, i32) {
+    (vasen + leveys / 2, SIRU_Y + SIRU_K / 2)
 }
 
 /// Ilmoitusta klikkaamalla pääsee julkaisusivulle.
 pub fn ilmoituksella(x: i32, y: i32, versio: &str) -> bool {
-    let (vasen, leveys) = ilmoituksen_alue(versio);
-    (vasen..vasen + leveys).contains(&x) && (ILMOITUS_Y..ILMOITUS_Y + ILMOITUS_K).contains(&y)
+    sirulla(ilmoituksen_alue(versio), x, y)
 }
 
 #[cfg(test)]
 pub fn ilmoituksen_keskipiste(versio: &str) -> (i32, i32) {
-    let (vasen, leveys) = ilmoituksen_alue(versio);
-    (vasen + leveys / 2, ILMOITUS_Y + ILMOITUS_K / 2)
-}
-
-/// Listan korkeus otsikosta viimeisen rivin alareunaan.
-fn listan_korkeus(laji: bool, oma: bool) -> i32 {
-    let rivit = if oma {
-        PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI
-    } else {
-        (PARHAITA as i32 - 1) * PARHAAT_RIVI
-    };
-    (1 + laji as i32) * LISTA_RIVI + rivit + LISTA_KOKO.1
-}
-
-/// Kuvauksen ja mahdollisen tilaston yhteinen korkeus.
-fn kuvauksen_korkeus(riveja: usize, tilasto: bool) -> i32 {
-    let kuvaus = riveja as i32 * KUVAUS_RIVI - (KUVAUS_RIVI - SUURI_MERKKI);
-    if tilasto {
-        kuvaus + TAULUKON_VALI + TAULUKON_KORKEUS
-    } else {
-        kuvaus
-    }
-}
-
-/// Kytkin on äänikytkimen vasemmalla puolella, ja sen leveys seuraa tekstiä.
-fn kielikytkimen_x() -> i32 {
-    AANI_X + AANI_SIIRTO - KIELI_VALI - napin_leveys(KIELIKYTKIN)
+    sirun_keskipiste(ilmoituksen_alue(versio))
 }
 
 pub fn aanikytkimella(x: i32, y: i32) -> bool {
-    crate::yhteinen::piirto::aanikytkimella(x - AANI_SIIRTO, y)
+    sirulla(aanikytkimen_alue(), x, y)
 }
 
 #[cfg(test)]
 pub fn aanikytkimen_keskipiste() -> (i32, i32) {
-    let (x, y) = crate::yhteinen::piirto::aanikytkimen_keskipiste();
-    (x + AANI_SIIRTO, y)
+    sirun_keskipiste(aanikytkimen_alue())
 }
 
 pub fn kielikytkimella(x: i32, y: i32) -> bool {
-    let vasen = kielikytkimen_x();
-    (vasen..vasen + napin_leveys(KIELIKYTKIN)).contains(&x)
-        && (KIELI_Y..KIELI_Y + NAPPI_K).contains(&y)
+    sirulla(kielikytkimen_alue(), x, y)
 }
 
 #[cfg(test)]
 pub fn kielikytkimen_keskipiste() -> (i32, i32) {
+    sirun_keskipiste(kielikytkimen_alue())
+}
+
+fn pelaa_napin_leveys() -> i32 {
+    let teksti = kaanna(PELAA).chars().count() as i32 * KUVAUS_KERROIN * 8;
+    2 * PELAA_SISENNYS + PELAA_KOLMIO + 2 * PELAA_VALI + teksti + nappaimen_leveys(VALI)
+}
+
+/// Painike seuraa kuvausta, jonka pituus vaihtelee pelistä ja kielestä toiseen.
+fn pelaa_y(valittu: usize) -> i32 {
+    let rivit = rivita(kaanna(PELIT[valittu].kuvaus), KUVAUS_MERKKEJA).len() as i32;
+    KUVAUS_Y + rivit * KUVAUS_RIVI - KUVAUS_VALI + PELAA_YLA
+}
+
+/// Pelaa-painike esittelyn alla käynnistää valitun pelin.
+pub fn pelaa_napilla(x: i32, y: i32, valittu: usize) -> bool {
+    let yla = pelaa_y(valittu);
+    (ESITTELY_X..ESITTELY_X + pelaa_napin_leveys()).contains(&x)
+        && (yla..yla + PELAA_K).contains(&y)
+}
+
+#[cfg(test)]
+pub fn pelaa_napin_keskipiste(valittu: usize) -> (i32, i32) {
     (
-        kielikytkimen_x() + napin_leveys(KIELIKYTKIN) / 2,
-        KIELI_Y + NAPPI_K / 2,
+        ESITTELY_X + pelaa_napin_leveys() / 2,
+        pelaa_y(valittu) + PELAA_K / 2,
     )
+}
+
+/// Pitkä nimi pienemmällä kirjasimella, jotta se mahtuu mallin vasemmalle puolelle.
+fn nimen_koko(nimi: &str) -> (i32, i32, i32) {
+    if nimi.chars().count() as i32 * SUURI_NIMI.2 <= ESITTELY_L {
+        SUURI_NIMI
+    } else {
+        PIENEMPI_NIMI
+    }
 }
 
 /// Näkyvä paikka, jonka kortin kohdalla piste on. Käynnistin tietää, mikä peli paikalla on.
@@ -203,8 +401,6 @@ pub fn piirra(kaynnistin: &Kaynnistin, kehys: &mut Kehys) {
         kello: kaynnistin.kello_ms,
     };
     p.valikko(kaynnistin);
-    p.aanikytkin(kaynnistin.aanet_paalla);
-    p.nappi(kielikytkimen_x(), KIELI_Y, KIELIKYTKIN, VALKOINEN, MUSTA);
     kehys.piirretty_suoraan();
 }
 
@@ -213,20 +409,22 @@ impl Piirtaja<'_> {
         MAISEMA.piirra(&mut self.k, 0, 0);
         let ika = kaynnistin.kello_ms.saturating_sub(kaynnistin.valittu_ms);
         self.valikon_malli(&kaynnistin.malli, ika);
-        self.valikon_otsikko(kaanna("valikko.banneri"));
-        let versio = muotoile("valikko.versio", &[&VERSIO]);
-        self.teksti(OHJE_X, VERSIO_Y, &versio, VALKOINEN);
-        if let Some(uusi) = kaynnistin.uusi_versio() {
-            self.versioilmoitus(uusi, kaynnistin.ilmoitus_alla());
-        }
+        self.ylapalkki(kaynnistin);
         for paikka in 0..NAKYVIA_KORTTEJA as usize {
             let i = kaynnistin.alku + paikka;
             self.valikkokortti(paikka, i, i == kaynnistin.valittu);
         }
         let alempana = kaynnistin.alku + NAKYVIA < PELIT.len();
         self.vieritysnuolet(kaynnistin.alku > 0, alempana);
-        self.kuvauspaneeli(kaynnistin);
-        self.ohjepalkki(kaanna("valikko.ohje"));
+        self.esittely(kaynnistin.valittu);
+        if let Some(tilastot) = kaynnistin.valitun_tilastot() {
+            self.tilastolaatikko(tilastot);
+        }
+        if let Some((netista, parhaat)) = kaynnistin.valitun_parhaat() {
+            let laji = kaynnistin.valikon_listan_laji();
+            self.listalaatikko(netista, laji, parhaat, kaynnistin.valitun_oma_paras());
+        }
+        self.ohjepalkki();
     }
 
     /// `ika` on aika valinnan vaihtumisesta: uusi malli kasvaa täyteen kokoonsa.
@@ -241,142 +439,202 @@ impl Piirtaja<'_> {
         );
     }
 
-    fn valikon_otsikko(&mut self, teksti: &str) {
-        let x = (RUUTU_L - teksti.chars().count() as i32 * OTSIKKO_KOKO.2) / 2;
-        self.suurteksti(x, OTSIKKO_Y, teksti, OTSIKKO_KOKO, KELTAINEN, true);
+    /// Maiseman tummennettu kopio: näyttää läpikuultavalta lasilta.
+    fn lasi(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        let alue = (x / P, y / P, l / P, k / P);
+        let alue = (
+            alue.0 as usize,
+            alue.1 as usize,
+            alue.2 as usize,
+            alue.3 as usize,
+        );
+        LASI.piirra_alue(&mut self.k, x, y, alue);
+    }
+
+    /// Täysi värillinen pinta keltaisella kehyksellä ja kovalla varjolla.
+    fn korostettu(&mut self, x: i32, y: i32, l: i32, k: i32) {
+        self.k.laatikko(x + VARJO, y + VARJO, l, k, PALKKI);
+        self.k.laatikko(x, y, l, k, KOROSTUS);
+        self.k.kehys(x, y, l, k, KELTAINEN);
+    }
+
+    fn pieni(&mut self, x: i32, y: i32, teksti: &str, vari: u32) {
+        self.teksti_koossa(x, y, teksti, PIENI, vari);
+    }
+
+    fn ylapalkki(&mut self, kaynnistin: &Kaynnistin) {
+        let logo = kaanna("valikko.banneri");
+        self.suurteksti(VASEN_REUNA, LOGO_Y, logo, LOGO_KOKO, KELTAINEN, true);
+        if let Some(uusi) = kaynnistin.uusi_versio() {
+            self.versioilmoitus(uusi, kaynnistin.ilmoitus_alla());
+        }
+        let kieli = kaanna(KIELIKYTKIN);
+        self.siru(kielikytkimen_alue(), "L", kieli, VALKOINEN, None);
+        let paalla = kaynnistin.aanet_paalla;
+        let (aani, vari) = if paalla {
+            (AANI_PAALLA, VALKOINEN)
+        } else {
+            (AANI_POIS, KOROSTUS)
+        };
+        self.siru(aanikytkimen_alue(), "M", kaanna(aani), vari, Some(paalla));
+    }
+
+    /// Kytkin yläpalkissa: näppäin, mahdollinen kaiutin ja tila.
+    fn siru(
+        &mut self,
+        (x, l): (i32, i32),
+        nappain: &str,
+        teksti: &str,
+        vari: u32,
+        kaiutin: Option<bool>,
+    ) {
+        self.lasi(x, SIRU_Y, l, SIRU_K);
+        self.k.kehys(x, SIRU_Y, l, SIRU_K, REUNA);
+        let y = SIRU_Y + (SIRU_K - NAPPAIN) / 2;
+        let nx = x + SIRUN_NAPPAIN_X;
+        self.k.laatikko(nx, y, NAPPAIN, NAPPAIN, LAVENTELI);
+        let reuna = (NAPPAIN - PIENI_MERKKI) / 2;
+        self.pieni(nx + reuna, y + reuna, nappain, PALKKI);
+        let mut tx = x + SIRU_TEKSTI_X;
+        if let Some(paalla) = kaiutin {
+            let aallot = if paalla { HUTI } else { LASIN_VARI };
+            self.k.sprite((tx, y + 6), &KAIUTIN, P, |m| match m {
+                b'W' => Some(VALKOINEN),
+                b'C' => Some(aallot),
+                _ => None,
+            });
+            tx += KAIUTIN_TILA;
+        }
+        self.pieni(tx, y + reuna, teksti, vari);
     }
 
     /// Hiiren alla ilmoitus vaalenee kuin painike, koska klikkaus avaa julkaisusivun.
     fn versioilmoitus(&mut self, versio: &str, hiiren_alla: bool) {
         let teksti = muotoile("valikko.uusi_versio", &[&versio]);
-        let (reuna_x, reuna_l) = ilmoituksen_alue(versio);
+        let (x, l) = ilmoituksen_alue(versio);
         let tausta = if hiiren_alla { VALKOINEN } else { KELTAINEN };
-        self.nappitausta(reuna_x, ILMOITUS_Y, reuna_l, ILMOITUS_K, tausta);
-        let y = ILMOITUS_Y + (ILMOITUS_K - MERKKI) / 2;
-        self.teksti(reuna_x + ILMOITUS_SISENNYS, y, &teksti, MUSTA);
+        self.k.laatikko(x + P, SIRU_Y + P, l, SIRU_K, PALKKI);
+        self.k.laatikko(x, SIRU_Y, l, SIRU_K, tausta);
+        let keski = SIRU_Y + SIRU_K / 2;
+        self.k.laatikko(x + 16, keski - P, 2 * P, 2 * P, PALKKI);
+        let y = keski - PIENI_MERKKI / 2;
+        self.pieni(x + ILMOITUS_TEKSTI_X, y, &teksti, PALKKI);
     }
 
     /// Kortti näkyvällä `paikka`lla. `i` on pelin järjestysnumero `PELIT`-listassa.
     fn valikkokortti(&mut self, paikka: usize, i: usize, valittu: bool) {
         let y = KORTTI_Y + paikka as i32 * KORTTI_ASKEL;
         let keski_y = y + KORTTI_K / 2;
-        let (numero_vari, nimi_vari) = if valittu {
-            self.k.laatikko(
-                KORTTI_X + KORTIN_VARJO,
-                y + KORTIN_VARJO,
-                KORTTI_L,
-                KORTTI_K,
-                MUSTA,
-            );
-            self.nappitausta(KORTTI_X, y, KORTTI_L, KORTTI_K, WB_ORANSSI);
-            self.k.monikulmio(
-                &[
-                    (KORTTI_X + 20, keski_y - 18),
-                    (KORTTI_X + 44, keski_y),
-                    (KORTTI_X + 20, keski_y + 18),
-                ],
-                MUSTA,
-            );
-            (MUSTA, MUSTA)
+        let x = KORTTI_X + if valittu { VALITUN_SIIRTO } else { 0 };
+        let numero_x = x + NUMERO_X;
+        let numero_y = keski_y - NAPPAIN / 2;
+        let (nimi_vari, numero_vari) = if valittu {
+            self.korostettu(x, y, KORTTI_L, KORTTI_K);
+            let nx = x + KORTTI_L - KORTIN_NUOLI + 12;
+            self.kolmio((nx, keski_y - 10), &NUOLI_KUVA, PALKKI);
+            self.k
+                .laatikko(numero_x, numero_y, NAPPAIN, NAPPAIN, PALKKI);
+            (PALKKI, KOROSTUS)
         } else {
-            self.ikkuna(KORTTI_X, y, KORTTI_L, KORTTI_K);
-            (KELTAINEN, VALKOINEN)
+            self.lasi(x, y, KORTTI_L, KORTTI_K);
+            self.k.kehys(x, y, KORTTI_L, KORTTI_K, HIMMEA_REUNA);
+            self.k.kehys(numero_x, numero_y, NAPPAIN, NAPPAIN, REUNA);
+            (VALKOINEN, KELTAINEN)
         };
-        let koko = KORTIN_NIMI;
-        let teksti_y = keski_y - koko.1 / 2;
-        let x = KORTTI_X + KORTIN_NUMERO_X;
         // Kymmenes kortti on nolla, kuten numerorivillä.
         let numero = ((paikka + 1) % 10).to_string();
-        self.suurteksti(x, teksti_y, &numero, koko, numero_vari, true);
+        let reuna = (NAPPAIN - PIENI_MERKKI) / 2;
+        self.pieni(numero_x + reuna, numero_y + reuna, &numero, numero_vari);
+
+        let (kx, ky) = (x + KUVAKE_X, keski_y - KUVAKE_L / 2);
+        let (pohja, kuva) = kuvake(PELIT[i].laji);
+        self.k.laatikko(kx, ky, KUVAKE_L, KUVAKE_L, PALKKI);
+        self.k
+            .laatikko(kx + P, ky + P, KUVAKE_L - 2 * P, KUVAKE_L - 2 * P, pohja);
+        self.k.sprite((kx + P, ky + P), kuva, P, kuvakkeen_vari);
+
         let nimi = kaanna(PELIT[i].nimi).to_uppercase();
-        self.suurteksti(x + 2 * koko.2, teksti_y, &nimi, koko, nimi_vari, true);
+        let teksti_y = keski_y - NIMEN_KORKEUS / 2;
+        self.suurteksti(x + NIMI_X, teksti_y, &nimi, NIMI_KOKO, nimi_vari, false);
     }
 
     /// Nuolet listan vieressä, kun sen ylä- tai alapuolelle jää pelejä piiloon.
     fn vieritysnuolet(&mut self, ylempana: bool, alempana: bool) {
-        let (vasen, oikea) = (NUOLI_X - NUOLI_L / 2, NUOLI_X + NUOLI_L / 2);
+        let vasen = NUOLI_X - NUOLI_L / 2;
         if ylempana {
-            let y = KORTTI_Y;
-            let karki = (NUOLI_X, y);
-            self.k.monikulmio(
-                &[karki, (oikea, y + NUOLI_K), (vasen, y + NUOLI_K)],
-                KELTAINEN,
-            );
+            self.kolmio((vasen, KORTTI_Y), &YLOS_KUVA, KELTAINEN);
         }
         if alempana {
-            let y = KORTTI_Y + (NAKYVIA_KORTTEJA - 1) * KORTTI_ASKEL + KORTTI_K;
-            let karki = (NUOLI_X, y);
-            self.k.monikulmio(
-                &[(vasen, y - NUOLI_K), (oikea, y - NUOLI_K), karki],
-                KELTAINEN,
-            );
+            self.kolmio((vasen, LISTAN_ALA - NUOLI_K), &ALAS_KUVA, KELTAINEN);
         }
     }
 
-    /// Kuvaus vasemmalla, laivanupotuksella tilasto sen alla. Jos pelillä on tuloksia, ne vievät
-    /// paneelin oikean laidan: nettilista, kun se on saapunut, muuten omat tulokset.
-    fn kuvauspaneeli(&mut self, kaynnistin: &Kaynnistin) {
-        self.ikkuna(PANEELI_X, PANEELI_YLA, PANEELI_L, PANEELI_KORKEUS);
-        let merkkeja = if let Some((netista, parhaat)) = kaynnistin.valitun_parhaat() {
-            self.valikon_lista(
-                netista,
-                kaynnistin.valikon_listan_laji(),
-                parhaat,
-                kaynnistin.valitun_oma_paras(),
-            );
-            KAPEA_KUVAUS_MERKKEJA
-        } else {
-            KUVAUS_MERKKEJA
-        };
-        let rivit = rivita(kaanna(PELIT[kaynnistin.valittu].kuvaus), merkkeja);
-        let tilastot = kaynnistin.valitun_tilastot();
-        let korkeus = kuvauksen_korkeus(rivit.len(), tilastot.is_some());
-        let x = PANEELI_X + PANEELI_SISENNYS;
-        let mut y = PANEELI_YLA + (PANEELI_KORKEUS - korkeus) / 2;
-        for rivi in rivit {
-            self.teksti_koossa(x, y, rivi, TEKSTIN_KERROIN, VALKOINEN);
+    /// Pikselikuva yhdellä värillä konepikselin kokoisena.
+    fn kolmio(&mut self, kohta: (i32, i32), kuva: &[&str], vari: u32) {
+        self.k
+            .sprite(kohta, kuva, P, |m| (m == b'W').then_some(vari));
+    }
+
+    /// Valitun pelin järjestysnumero, nimi, kuvaus ja pelaa-painike mallin vasemmalla puolella.
+    fn esittely(&mut self, valittu: usize) {
+        let kortti = &PELIT[valittu];
+        let jarjestys = muotoile("valikko.peli_nro", &[&(valittu + 1), &PELIT.len()]);
+        self.pieni(ESITTELY_X, JARJESTYS_Y, &jarjestys, LAVENTELI);
+        let nimi = kaanna(kortti.nimi).to_uppercase();
+        self.suurteksti(
+            ESITTELY_X,
+            NIMI_Y,
+            &nimi,
+            nimen_koko(&nimi),
+            KELTAINEN,
+            true,
+        );
+        let mut y = KUVAUS_Y;
+        for rivi in rivita(kaanna(kortti.kuvaus), KUVAUS_MERKKEJA) {
+            self.teksti_koossa(ESITTELY_X, y, rivi, KUVAUS_KERROIN, VALKOINEN);
             y += KUVAUS_RIVI;
         }
-        if let Some(tilastot) = tilastot {
-            let y = y - (KUVAUS_RIVI - SUURI_MERKKI) + TAULUKON_VALI;
-            self.laivatilasto(x, y, tilastot);
-        }
+        self.pelaa_nappi(pelaa_y(valittu));
     }
 
-    /// Lista paneelin oikeassa laidassa pystysuunnassa keskellä. Otsikon alla on lajin nimi,
-    /// kun pelin lajeilla on omat listansa, ja listan alla oma ennätys, kun sellainen on.
-    fn valikon_lista(
-        &mut self,
-        netista: bool,
-        laji: Option<&str>,
-        parhaat: &[Tulos],
-        oma: Option<u32>,
-    ) {
-        let x = PANEELI_X + PANEELI_L - PANEELI_SISENNYS - LISTA_L;
-        let korkeus = listan_korkeus(laji.is_some(), oma.is_some());
-        let mut y = PANEELI_YLA + (PANEELI_KORKEUS - korkeus) / 2;
-        self.teksti(x, y, listan_otsikko(netista), KELTAINEN);
-        y += LISTA_RIVI;
-        if let Some(laji) = laji {
-            self.teksti(x, y, laji, LAVENTELI);
-            y += LISTA_RIVI;
-        }
-        self.parhaat_rivit(x, y, LISTA_L, LISTA_KOKO, parhaat);
-        if let Some(oma) = oma {
-            let y = y + PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI;
-            self.suurteksti(x, y, kaanna(OMA_PARAS), LISTA_KOKO, LAVENTELI, false);
-            self.oikealle(x + LISTA_L, y, &oma.to_string(), KELTAINEN);
-        }
+    fn pelaa_nappi(&mut self, y: i32) {
+        let l = pelaa_napin_leveys();
+        self.korostettu(ESITTELY_X, y, l, PELAA_K);
+        let keski = y + PELAA_K / 2;
+        let mut x = ESITTELY_X + PELAA_SISENNYS;
+        self.kolmio((x, keski - 14), &PELAA_KUVA, PALKKI);
+        x += PELAA_KOLMIO + PELAA_VALI;
+        let teksti = kaanna(PELAA).to_uppercase();
+        let korkeus = KUVAUS_KERROIN * 8;
+        self.teksti_koossa(x, keski - korkeus / 2, &teksti, KUVAUS_KERROIN, PALKKI);
+        x += teksti.chars().count() as i32 * korkeus + PELAA_VALI;
+        let vali = kaanna(VALI);
+        let nl = nappaimen_leveys(VALI);
+        self.k.laatikko(x, keski - NAPPAIN / 2, nl, NAPPAIN, PALKKI);
+        let tx = x + (nl - pieni_leveys(vali)) / 2;
+        self.pieni(tx, keski - PIENI_MERKKI / 2, vali, KOROSTUS);
+    }
+
+    /// Lasinen laatikko kovalla varjolla. Palauttaa sisällön vasemman yläkulman.
+    fn laatikko(&mut self, x: i32, l: i32) -> (i32, i32) {
+        self.k
+            .laatikko(x + VARJO, LAATIKKO_Y + VARJO, l, LAATIKKO_K, PALKKI);
+        self.lasi(x, LAATIKKO_Y, l, LAATIKKO_K);
+        self.k.kehys(x, LAATIKKO_Y, l, LAATIKKO_K, REUNA);
+        (x + LAATIKKO_SISENNYS, LAATIKKO_Y + LAATIKKO_SISENNYS)
     }
 
     /// Voitot, tappiot ja paras voitto pisteinä kultakin tasolta.
-    fn laivatilasto(&mut self, x: i32, y: i32, tilastot: &[Tilasto; 3]) {
+    fn tilastolaatikko(&mut self, tilastot: &[Tilasto; 3]) {
+        let (x, y) = self.laatikko(TILASTO_X, TILASTO_L);
+        self.pieni(x, y, kaanna(TILASTOT), KELTAINEN);
+        let y = y + TAULUKON_RIVI;
         for (avain, oikea) in TAULUKON_SARAKKEET {
-            self.oikealle(x + oikea, y, kaanna(avain), KELTAINEN);
+            self.oikealle(x + oikea, y, kaanna(avain), LAVENTELI);
         }
         for (i, (tilasto, taso)) in tilastot.iter().zip(Vaikeus::KAIKKI).enumerate() {
-            let y = y + (i as i32 + 1) * PARHAAT_RIVI;
-            self.suurteksti(x, y, kaanna(TASOJEN_NIMET[i]), LISTA_KOKO, VALKOINEN, false);
+            let y = y + (i as i32 + 1) * TAULUKON_RIVI;
+            self.pieni(x, y, kaanna(TASOJEN_NIMET[i]), VALKOINEN);
             let paras = match tilasto.parhaat_pisteet(taso) {
                 0 => "-".to_string(),
                 pisteet => pisteet.to_string(),
@@ -392,22 +650,111 @@ impl Piirtaja<'_> {
         }
     }
 
-    /// Listan kokoinen teksti, jonka oikea reuna on kohdassa `oikea`.
-    fn oikealle(&mut self, oikea: i32, y: i32, teksti: &str, vari: u32) {
-        let x = oikea - teksti.chars().count() as i32 * LISTA_KOKO.2;
-        self.suurteksti(x, y, teksti, LISTA_KOKO, vari, false);
+    /// Top 3: otsikon alla lajin nimi, kun pelin lajeilla on omat listansa, ja viivan alla
+    /// pelaajan oma paras, myös listalle yltämätön.
+    fn listalaatikko(
+        &mut self,
+        netista: bool,
+        laji: Option<&str>,
+        parhaat: &[Tulos],
+        oma: Option<u32>,
+    ) {
+        let (x, mut y) = self.laatikko(LISTA_X, LISTA_L);
+        let leveys = LISTA_L - 2 * LAATIKKO_SISENNYS;
+        self.pieni(x, y, listan_otsikko(netista), KELTAINEN);
+        y += LAATIKON_OTSIKKO;
+        if let Some(laji) = laji {
+            self.pieni(x, y, laji, LAVENTELI);
+            y += LAATIKON_OTSIKKO;
+        }
+        self.parhaat_rivit(x, y, leveys, LISTA_KOKO, parhaat);
+        y += PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI;
+        self.k.laatikko(x, y, leveys, P, HIMMEA_REUNA);
+        y += P + 2 * OMA_VALI;
+        self.pieni(x, y, kaanna(OMA_PARAS), LAVENTELI);
+        let oma = oma.map_or("-".to_string(), |oma| oma.to_string());
+        self.oikealle(x + leveys, y, &oma, KELTAINEN);
     }
 
-    fn ohjepalkki(&mut self, ohje: &str) {
+    /// Pieni teksti, jonka oikea reuna on kohdassa `oikea`.
+    fn oikealle(&mut self, oikea: i32, y: i32, teksti: &str, vari: u32) {
+        self.pieni(oikea - pieni_leveys(teksti), y, teksti, vari);
+    }
+
+    /// Näppäimet kuvina selitteineen ja versio oikeassa laidassa.
+    fn ohjepalkki(&mut self) {
         let korkeus = RUUDUN_KORKEUS as i32 - ALAPALKKI_Y;
-        self.ikkuna(0, ALAPALKKI_Y, RUUTU_L, korkeus);
-        self.teksti_koossa(OHJE_X, OHJE_RIVI_Y, ohje, TEKSTIN_KERROIN, VALKOINEN);
-        if self.vilkku() {
-            let x = OHJE_X + ohje.chars().count() as i32 * SUURI_MERKKI;
-            self.k
-                .laatikko(x, OHJE_RIVI_Y, SUURI_MERKKI, SUURI_MERKKI, KELTAINEN);
+        self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, korkeus, PALKKI);
+        self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, P, TAUSTA);
+        let mut x = VASEN_REUNA;
+        for (nappaimet, selite) in OHJEET {
+            for nimi in nappaimet {
+                self.ohjenappain(x, nimi);
+                x += nappaimen_leveys(nimi) + NAPPAINTEN_VALI;
+            }
+            x += SELITTEEN_VALI - NAPPAINTEN_VALI;
+            let selite = kaanna(selite);
+            self.pieni(x, OHJE_TEKSTI_Y, selite, LAVENTELI);
+            x += pieni_leveys(selite) + RYHMIEN_VALI;
+        }
+        let versio = muotoile("valikko.versio", &[&VERSIO]);
+        self.oikealle(OIKEA_REUNA, OHJE_TEKSTI_Y, &versio, REUNA);
+    }
+
+    fn ohjenappain(&mut self, x: i32, nimi: &str) {
+        let y = OHJE_NAPPAIN_Y;
+        let l = nappaimen_leveys(nimi);
+        // 5x3 konepikselin kolmio keskellä näppäintä
+        let kolmio = (x + (l - 5 * P) / 2, y + (NAPPAIN - 3 * P) / 2);
+        match nimi {
+            YLOS => {
+                self.k.kehys(x, y, l, NAPPAIN, REUNA);
+                self.kolmio(kolmio, &YLOS_KUVA, VALKOINEN);
+            }
+            ALAS => {
+                self.k.kehys(x, y, l, NAPPAIN, REUNA);
+                self.kolmio(kolmio, &ALAS_KUVA, VALKOINEN);
+            }
+            VALI => {
+                let teksti = kaanna(VALI);
+                self.k.laatikko(x, y, l, NAPPAIN, KOROSTUS);
+                let tx = x + (l - pieni_leveys(teksti)) / 2;
+                self.pieni(tx, OHJE_TEKSTI_Y, teksti, PALKKI);
+            }
+            _ => {
+                self.k.kehys(x, y, l, NAPPAIN, REUNA);
+                let tx = x + (l - pieni_leveys(nimi)) / 2;
+                self.pieni(tx, OHJE_TEKSTI_Y, nimi, VALKOINEN);
+            }
         }
     }
+}
+
+/// Ohjepalkin näppäinten ja selitteiden leveys.
+#[cfg(test)]
+fn ohjeiden_leveys() -> i32 {
+    OHJEET
+        .iter()
+        .map(|(nappaimet, selite)| {
+            let nappaimet: i32 = nappaimet
+                .iter()
+                .map(|nimi| nappaimen_leveys(nimi) + NAPPAINTEN_VALI)
+                .sum();
+            nappaimet - NAPPAINTEN_VALI + SELITTEEN_VALI + pieni_leveys(kaanna(selite))
+        })
+        .sum::<i32>()
+        + (OHJEET.len() as i32 - 1) * RYHMIEN_VALI
+}
+
+/// Top 3 -laatikon sisällön korkeus otsikosta oman parhaan riviin.
+#[cfg(test)]
+fn listan_korkeus(laji: bool) -> i32 {
+    (1 + laji as i32) * LAATIKON_OTSIKKO
+        + PARHAITA as i32 * PARHAAT_RIVI
+        + OMA_VALI
+        + P
+        + 2 * OMA_VALI
+        + PIENI_MERKKI
 }
 
 #[cfg(test)]
@@ -416,28 +763,56 @@ mod tests {
     use crate::yhteinen::kieli::kaikilla_kielilla;
     use crate::yhteinen::tulokset::NIMEN_PITUUS;
 
+    const PISIN_VERSIO: &str = "100.100.100";
+
     #[test]
-    fn kortit_ja_paneelit_mahtuvat_kuvaan() {
-        const { assert!(KORTTI_Y + NAKYVIA as i32 * KORTTI_ASKEL <= ALAPALKKI_Y) };
-        const { assert!(KORTTI_X + KORTTI_L + KORTIN_VARJO < NUOLI_X - NUOLI_L / 2) };
-        const { assert!(NUOLI_X + NUOLI_L / 2 < PANEELI_X) };
-        const { assert!(PANEELI_X + PANEELI_L < RUUTU_L) };
-        const { assert!(OHJE_RIVI_Y + SUURI_MERKKI < RUUDUN_KORKEUS as i32) };
-        const { assert!(OTSIKKO_Y + OTSIKKO_KOKO.1 <= ILMOITUS_Y) };
-        const { assert!(ILMOITUS_Y + ILMOITUS_K <= KORTTI_Y) };
+    fn osat_mahtuvat_kuvaan_eivatka_mene_paallekkain() {
+        const { assert!(LISTAN_ALA <= ALAPALKKI_Y) };
+        const { assert!(KORTTI_X + KORTTI_L + VALITUN_SIIRTO + VARJO < NUOLI_X - NUOLI_L / 2) };
+        const { assert!(NUOLI_X + NUOLI_L / 2 < ESITTELY_X) };
+        const { assert!(PELAA_ALIN_Y + PELAA_K + VARJO <= LAATIKKO_Y) };
+        const { assert!(LAATIKKO_Y + LAATIKKO_K + VARJO <= ALAPALKKI_Y) };
+        const { assert!(SIRU_Y + SIRU_K < KORTTI_Y) };
+        const { assert!(LOGO_Y + 40 < KORTTI_Y) };
+        // Lasipinnat kopioidaan taustan ruudukosta, joten niiden pitää osua siihen.
+        for arvo in [KORTTI_X, KORTTI_L, KORTTI_Y, KORTTI_ASKEL, KORTTI_K] {
+            assert_eq!(arvo % P, 0);
+        }
+        for arvo in [
+            LAATIKKO_Y, LAATIKKO_K, LISTA_X, LISTA_L, TILASTO_X, TILASTO_L,
+        ] {
+            assert_eq!(arvo % P, 0);
+        }
+        assert_eq!(SIRU_Y % P, 0);
+        assert_eq!(SIRU_K % P, 0);
+        kaikilla_kielilla(|| {
+            for alue in [aanikytkimen_alue(), kielikytkimen_alue()] {
+                assert_eq!(alue.0 % P, 0);
+                assert_eq!(alue.1 % P, 0);
+            }
+        });
     }
 
     #[test]
-    fn kielikytkin_loytyy_eika_mene_muiden_paalle() {
+    fn kytkimet_ja_ilmoitus_loytyvat_eivatka_mene_logon_tai_toistensa_paalle() {
         kaikilla_kielilla(|| {
             let (x, y) = kielikytkimen_keskipiste();
             assert!(kielikytkimella(x, y));
+            assert!(!aanikytkimella(x, y));
+            assert!(!ilmoituksella(x, y, PISIN_VERSIO));
             let (aani_x, aani_y) = aanikytkimen_keskipiste();
             assert!(aanikytkimella(aani_x, aani_y));
             assert!(!kielikytkimella(aani_x, aani_y));
-            assert!(!aanikytkimella(x, y));
-            assert_eq!(kortti_pisteesta(x, y), None);
-            assert!(kielikytkimen_x() > 0);
+            let (ix, iy) = ilmoituksen_keskipiste(PISIN_VERSIO);
+            assert!(ilmoituksella(ix, iy, PISIN_VERSIO));
+            assert!(!kielikytkimella(ix, iy));
+            assert!(!ilmoituksella(ix, SIRU_Y - 1, PISIN_VERSIO));
+            for (x, y) in [(x, y), (aani_x, aani_y), (ix, iy)] {
+                assert_eq!(kortti_pisteesta(x, y), None);
+                assert!((0..PELIT.len()).all(|i| !pelaa_napilla(x, y, i)));
+            }
+            let logo = kaanna("valikko.banneri").chars().count() as i32 * LOGO_KOKO.2;
+            assert!(VASEN_REUNA + logo + SIRU_VALI <= ilmoituksen_alue(PISIN_VERSIO).0);
         });
     }
 
@@ -445,70 +820,69 @@ mod tests {
     fn tekstit_mahtuvat_paikoilleen_kummallakin_kielella() {
         kaikilla_kielilla(|| {
             for kortti in &PELIT {
-                let nimi = kaanna(kortti.nimi).chars().count() as i32;
-                let oikea = KORTIN_NUMERO_X + (2 + nimi) * KORTIN_NIMI.2;
-                assert!(oikea <= KORTTI_L, "{}", kortti.nimi);
-                for merkkeja in [KUVAUS_MERKKEJA, KAPEA_KUVAUS_MERKKEJA] {
-                    let rivit = rivita(kaanna(kortti.kuvaus), merkkeja).len() as i32;
-                    let korkeus = 2 * PANEELI_SISENNYS + rivit * KUVAUS_RIVI;
-                    assert!(korkeus <= PANEELI_KORKEUS, "{}", kortti.kuvaus);
-                }
+                let nimi = kaanna(kortti.nimi).to_uppercase();
+                let leveys = nimi.chars().count() as i32 * NIMI_KOKO.2;
+                assert!(
+                    NIMI_X + leveys <= KORTTI_L - KORTIN_NUOLI,
+                    "{}",
+                    kortti.nimi
+                );
+                let koko = nimen_koko(&nimi);
+                assert!(nimi.chars().count() as i32 * koko.2 <= ESITTELY_L, "{nimi}");
+                let rivit = rivita(kaanna(kortti.kuvaus), KUVAUS_MERKKEJA).len();
+                assert!(rivit <= KUVAUS_RIVEJA, "{}", kortti.kuvaus);
             }
-            // pisin nimi ja seitsennumeroiset pisteet samalle riville
-            let rivi = (2 + NIMEN_PITUUS as i32 + 7) * LISTA_KOKO.2;
-            assert!(rivi <= LISTA_L);
-            for netista in [false, true] {
-                let otsikko = listan_otsikko(netista).chars().count() as i32 * MERKKI;
-                assert!(otsikko <= LISTA_L);
-            }
-            let ohje = kaanna("valikko.ohje").chars().count() as i32 + 1;
-            assert!(OHJE_X + ohje * SUURI_MERKKI <= RUUTU_L);
-            let otsikko = kaanna("valikko.banneri").chars().count() as i32;
-            assert!(otsikko * OTSIKKO_KOKO.2 <= RUUTU_L);
-            let versio = muotoile("valikko.versio", &[&"100.100.100"]);
-            let oikea = OHJE_X + versio.chars().count() as i32 * MERKKI;
-            assert!(oikea < kielikytkimen_x());
-            let ilmoitus = muotoile("valikko.uusi_versio", &[&"100.100.100"]);
-            let leveys = ilmoitus.chars().count() as i32 * MERKKI + 2 * ILMOITUS_SISENNYS;
-            assert!(leveys <= RUUTU_L);
+            assert!(pelaa_napin_leveys() <= ESITTELY_L);
+            let versio = muotoile("valikko.versio", &[&PISIN_VERSIO]);
+            let ohjeet = VASEN_REUNA + ohjeiden_leveys() + RYHMIEN_VALI;
+            assert!(ohjeet <= OIKEA_REUNA - pieni_leveys(&versio));
+            let jarjestys = muotoile("valikko.peli_nro", &[&PELIT.len(), &PELIT.len()]);
+            assert!(pieni_leveys(&jarjestys) <= ESITTELY_L);
         });
     }
 
     #[test]
-    fn paneelin_lista_ja_laivanupotuksen_tilasto_mahtuvat_kummallakin_kielella() {
-        let sisa = PANEELI_KORKEUS - 2 * PANEELI_SISENNYS;
-        assert!(listan_korkeus(true, true) <= sisa);
-        let vasen_l = PANEELI_L - 3 * PANEELI_SISENNYS - LISTA_L;
-        let leveys = |teksti: &str| teksti.chars().count() as i32 * LISTA_KOKO.2;
+    fn laatikoiden_sisalto_mahtuu_kummallakin_kielella() {
+        let sisa = LAATIKKO_K - 2 * LAATIKKO_SISENNYS;
+        assert!(listan_korkeus(true) <= sisa);
+        assert!(4 * TAULUKON_RIVI + PIENI_MERKKI <= sisa);
+        let listan_sisa = LISTA_L - 2 * LAATIKKO_SISENNYS;
+        let tilaston_sisa = TILASTO_L - 2 * LAATIKKO_SISENNYS;
         kaikilla_kielilla(|| {
-            let kuvaus = rivita(kaanna(PELIT[0].kuvaus), KAPEA_KUVAUS_MERKKEJA).len();
-            assert!(kuvauksen_korkeus(kuvaus, true) <= sisa);
-            // Sarakkeiden väliin jää vähintään merkin verran tilaa, myös nelinumeroisille luvuille.
-            let tasot = TASOJEN_NIMET.map(|avain| leveys(kaanna(avain)));
-            let mut edellinen = *tasot.iter().max().unwrap();
-            for (avain, oikea) in TAULUKON_SARAKKEET {
-                let sarake = leveys(kaanna(avain)).max(leveys("9999"));
-                assert!(edellinen + LISTA_KOKO.2 <= oikea - sarake, "{avain}");
-                edellinen = oikea;
+            // pisin nimi ja seitsennumeroiset pisteet samalle riville
+            assert!((2 + NIMEN_PITUUS as i32 + 7) * LISTA_KOKO.2 <= listan_sisa);
+            for netista in [false, true] {
+                assert!(pieni_leveys(listan_otsikko(netista)) <= listan_sisa);
             }
-            assert!(edellinen <= vasen_l);
-            let oma = leveys(kaanna(OMA_PARAS)) + LISTA_KOKO.2 + leveys("1000000");
-            assert!(oma <= LISTA_L);
+            let oma = pieni_leveys(kaanna(OMA_PARAS)) + PIENI_MERKKI + pieni_leveys("1000000");
+            assert!(oma <= listan_sisa);
             for variantti in klassikot8000::pasianssi::Variantti::KAIKKI {
                 let laji = crate::pelit::pasianssi::piirto::lajin_nimi(variantti);
-                assert!(laji.chars().count() as i32 * MERKKI <= LISTA_L, "{laji}");
+                assert!(pieni_leveys(laji) <= listan_sisa, "{laji}");
             }
+            // Sarakkeiden väliin jää vähintään merkin verran tilaa, myös nelinumeroisille luvuille.
+            let tasot = TASOJEN_NIMET.map(|avain| pieni_leveys(kaanna(avain)));
+            let mut edellinen = *tasot.iter().max().unwrap();
+            for (avain, oikea) in TAULUKON_SARAKKEET {
+                let sarake = pieni_leveys(kaanna(avain)).max(pieni_leveys("9999"));
+                assert!(edellinen + PIENI_MERKKI <= oikea - sarake, "{avain}");
+                edellinen = oikea;
+            }
+            assert!(edellinen <= tilaston_sisa);
         });
     }
 
     #[test]
-    fn ilmoitus_loytyy_eika_osu_kortteihin() {
+    fn pelaa_nappi_loytyy_eika_osu_kortteihin() {
         kaikilla_kielilla(|| {
-            let (x, y) = ilmoituksen_keskipiste("100.100.100");
-            assert!(ilmoituksella(x, y, "100.100.100"));
-            assert_eq!(kortti_pisteesta(x, y), None);
-            assert!(!ilmoituksella(x, KORTTI_Y, "100.100.100"));
-            assert!(!ilmoituksella(x, ILMOITUS_Y - 1, "100.100.100"));
+            for i in 0..PELIT.len() {
+                let (x, y) = pelaa_napin_keskipiste(i);
+                assert!(pelaa_napilla(x, y, i));
+                assert_eq!(kortti_pisteesta(x, y), None);
+                assert!(!pelaa_napilla(x, pelaa_y(i) - 1, i));
+                assert!(!pelaa_napilla(ESITTELY_X - 1, y, i));
+                assert!(pelaa_y(i) <= PELAA_ALIN_Y);
+            }
         });
     }
 
@@ -521,7 +895,19 @@ mod tests {
         assert_eq!(kortti_pisteesta(KORTTI_X, KORTTI_Y + KORTTI_K), None);
         assert_eq!(kortti_pisteesta(KORTTI_X, KORTTI_Y - 1), None);
         assert_eq!(kortti_pisteesta(KORTTI_X - 1, KORTTI_Y), None);
-        let alin = KORTTI_Y + NAKYVIA_KORTTEJA * KORTTI_ASKEL;
-        assert_eq!(kortti_pisteesta(KORTTI_X, alin), None);
+        assert_eq!(kortti_pisteesta(KORTTI_X, LISTAN_ALA + KORTTI_ASKEL), None);
+    }
+
+    #[test]
+    fn kuvakkeet_ovat_12x12_ja_tunnetuin_varein() {
+        for kortti in &PELIT {
+            let (_, kuva) = kuvake(kortti.laji);
+            for rivi in kuva {
+                assert_eq!(rivi.len(), 12, "{}", kortti.nimi);
+                for merkki in rivi.bytes().filter(|&m| m != b'.') {
+                    assert!(kuvakkeen_vari(merkki).is_some(), "{}", kortti.nimi);
+                }
+            }
+        }
     }
 }

@@ -700,6 +700,9 @@ impl Kaynnistin {
         match syote {
             Syote::Peru => self.lopeta = true,
             Syote::Ammu => self.kaynnista(PELIT[self.valittu].laji),
+            Syote::Klikkaus(x, y) if piirto::pelaa_napilla(x, y, self.valittu) => {
+                self.kaynnista(PELIT[self.valittu].laji)
+            }
             Syote::Hiiri(x, y) => {
                 if let Some(i) = piirto::kortti_pisteesta(x, y).and_then(|p| self.paikan_kortti(p))
                 {
@@ -782,6 +785,17 @@ mod tests {
 
         k.kasittele(Syote::Peru);
         assert!(k.lopeta);
+    }
+
+    #[test]
+    fn pelaa_nappi_kaynnistaa_valitun_pelin() {
+        let mut k = Kaynnistin::new(1);
+        k.kasittele(Syote::Numero(2));
+        let (x, y) = piirto::pelaa_napin_keskipiste(1);
+        k.kasittele(Syote::Hiiri(x, y));
+        assert!(k.peli.is_none());
+        k.kasittele(Syote::Klikkaus(x, y));
+        assert!(matches!(k.peli, Some(Kaynnissa::Luvut(_))));
     }
 
     #[test]

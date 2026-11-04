@@ -1,6 +1,6 @@
 //! Silmukan säännöt ilman ikkunaa, piirtoa tai syötettä. Mato ei kuole osuessaan itseensä:
-//! osuma sulkee silmukan, joka pyydystää kaiken sisäänsä jäävän ja kuluttaa madosta silmukan
-//! pituuden. Aika etenee kiinteinä askelina, joten sama siemen ja ohjaus toistavat saman pelin.
+//! osuma sulkee silmukan, joka pyydystää kaiken sisäänsä jäävän. Saaliin kanssa silmukka
+//! maksaa neljänneksen pituudestaan, tyhjänä koko pituuden. Aika etenee kiinteinä askelina, joten sama siemen ja ohjaus toistavat saman pelin.
 
 use std::collections::VecDeque;
 
@@ -19,6 +19,10 @@ pub const KULLAN_KESTO_MS: u32 = 7000;
 const OMENOITA: usize = 3;
 const OMENAN_KASVU: u32 = 3;
 const SAALIIN_KASVU: u32 = 2;
+// Saalista tuottava silmukka maksaa vain tämän osan pituudestaan: loput kasvaa takaisin.
+// Tyhjä silmukka kuluttaa koko pituutensa.
+const SILMUKAN_HINTA_JAKAJA: usize = 4;
+const SILMUKAN_HINTA_VAHINTAAN: usize = 2;
 // Silmukan jälkeen madossa on aina tarpeeksi pituutta seuraavan alkuun.
 const VAHIN_PITUUS: usize = 5;
 const OTUKSIA_ENINTAAN: usize = 16;
@@ -671,7 +675,15 @@ impl Niitty {
         self.jalki = self.mato[self.mato.len() - 1];
         self.paikallaan = true;
 
-        let kasvu = self.kasvu + kohteet.len() as u32 * SAALIIN_KASVU;
+        // Mato lyhenee heti, sillä pää siirtyy risteykseen, mutta häntä odottaa paikallaan,
+        // kunnes palautettu pituus on kasvanut takaisin.
+        let palautus = if kohteet.is_empty() {
+            0
+        } else {
+            let hinta = (kohta / SILMUKAN_HINTA_JAKAJA).max(SILMUKAN_HINTA_VAHINTAAN);
+            kohta.saturating_sub(hinta) as u32
+        };
+        let kasvu = self.kasvu + palautus + kohteet.len() as u32 * SAALIIN_KASVU;
         let vaje = VAHIN_PITUUS.saturating_sub(self.mato.len()) as u32;
         self.kasvu = kasvu.max(vaje);
 

@@ -189,8 +189,18 @@ fn silmukka_pyydystaa_sisalle_jaavat_ja_lyhentaa_matoa() {
     assert!(n.herkut.iter().any(|h| h.paikka == (22, 2)));
     // Syöty omena tulee takaisin jonnekin muualle.
     assert_eq!(n.herkut.len(), 3);
-    assert_eq!(n.kasvu, 8);
+    // 39 ruudun silmukka maksaa neljänneksensä (9), loput 30 ja saaliin 4 * 2 kasvavat takaisin.
+    assert_eq!(n.kasvu, 30 + 8);
+    assert_eq!(n.mato.len() + n.kasvu as usize, pituus - 9 + 8);
     assert!(n.paikallaan);
+    tarkista_mato(&n);
+
+    // Häntä odottaa, kunnes pituus on kasvanut takaisin.
+    let hanta = *n.mato.back().unwrap();
+    n.kaanny(Suunta::Oikea);
+    askeleita(&mut n, &mut arpa, 1);
+    assert_eq!(*n.mato.back().unwrap(), hanta);
+    assert_eq!(n.mato.len(), 4);
     tarkista_mato(&n);
 }
 

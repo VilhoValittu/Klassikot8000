@@ -18,11 +18,10 @@ peli.miinaharava = Miinaharava
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 
-valikko.banneri = **** PELIKONE ****
-valikko.ohje = Nuolet/1-0: valitse. Väli: pelaa. M: äänet. Esc: lopeta.
-valikko.kielikytkin = L = English
+valikko.banneri = PELIKONE
+valikko.kielikytkin = English
 valikko.versio = Versio {}
-valikko.uusi_versio = Uusi versio {}: github.com/VilhoValittu/Klassikot8000/releases
+valikko.uusi_versio = Uusi versio {} saatavilla
 valikko.laivanupotus = Upota vastustajan laivasto.
 valikko.luvut = Yhdistä luvut ja saavuta 2048.
 valikko.pasianssi = Klondike, Spider tai Pyramidi, kolme tasoa.
@@ -36,6 +35,14 @@ valikko.holdem = Pokeria neljää konetta vastaan, 1000 rahaa.
 valikko.oma_paras = OMA PARAS
 valikko.voitot = VOITOT
 valikko.tappiot = TAPPIOT
+valikko.tilastot = TILASTOT
+valikko.peli_nro = PELI {} / {}
+valikko.pelaa = Pelaa
+valikko.valitse = Valitse
+valikko.aanet = Äänet
+valikko.kieli = Kieli
+valikko.lopeta = Lopeta
+valikko.vali = VÄLI
 
 yhteinen.netti_top = NETTI TOP
 yhteinen.top3 = TOP 3
@@ -236,7 +243,7 @@ asteroidit.uusi_aalto = Aalto {}!
 
 silmukka.banneri = **** MATO8000 ****
 silmukka.tervetuloa = Tervetuloa Mato8000-peliin.
-silmukka.ohje_1 = Kun mato osuu itseensä, syntyy silmukka: kaikki sen sisään jäänyt on saalista, mutta silmukka kuluttaa madon.
+silmukka.ohje_1 = Kun mato osuu itseensä, syntyy silmukka: kaikki sen sisään jäänyt on saalista. Tyhjä silmukka kuluttaa madon.
 silmukka.ohje_2 = Mitä enemmän kerralla, sen moninkertaisemmat pisteet. Omenat kasvattavat. Varo seiniä ja itikoita.
 silmukka.nappain_ohjaus = Nuolet, WASD tai hiiri: ohjaa.
 silmukka.ohje = Nuolet, WASD tai hiiri. P = tauko.
@@ -413,11 +420,10 @@ peli.miinaharava = Minesweeper
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 
-valikko.banneri = **** GAME MACHINE ****
-valikko.ohje = Arrows/1-0: pick. Space: play. M: sound. Esc: quit.
-valikko.kielikytkin = L = Suomi
+valikko.banneri = GAME MACHINE
+valikko.kielikytkin = Suomi
 valikko.versio = Version {}
-valikko.uusi_versio = New version {}: github.com/VilhoValittu/Klassikot8000/releases
+valikko.uusi_versio = New version {} available
 valikko.laivanupotus = Sink the enemy fleet.
 valikko.luvut = Merge the numbers and reach 2048.
 valikko.pasianssi = Klondike, Spider or Pyramid, three levels.
@@ -431,6 +437,14 @@ valikko.holdem = Poker against four computers, 1000 to start.
 valikko.oma_paras = YOUR BEST
 valikko.voitot = WINS
 valikko.tappiot = LOSSES
+valikko.tilastot = STATS
+valikko.peli_nro = GAME {} / {}
+valikko.pelaa = Play
+valikko.valitse = Pick
+valikko.aanet = Sound
+valikko.kieli = Language
+valikko.lopeta = Quit
+valikko.vali = SPACE
 
 yhteinen.netti_top = NET TOP 3
 yhteinen.top3 = TOP 3
@@ -631,7 +645,7 @@ asteroidit.uusi_aalto = Wave {}!
 
 silmukka.banneri = **** MATO8000 ****
 silmukka.tervetuloa = Welcome to Mato8000.
-silmukka.ohje_1 = When the worm hits itself it forms a loop: everything inside is caught, but the loop uses up the worm.
+silmukka.ohje_1 = When the worm hits itself it forms a loop: everything inside is caught. An empty loop uses up the worm.
 silmukka.ohje_2 = The more at once, the bigger the multiplier. Apples make you grow. Avoid walls and mosquitoes.
 silmukka.nappain_ohjaus = Arrows, WASD or mouse: steer.
 silmukka.ohje = Arrows, WASD or mouse. P = pause.
