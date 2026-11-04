@@ -347,15 +347,9 @@ pub fn puhu(fraasi: &str, perussavel: (f32, f32), arpa: &mut Arpa) -> Vec<f32> {
         ulos.push(nayte - tasavirta);
     }
 
-    // Sävy kuin vanhan konsolin näytteessä: puolet näytteistä pidetään, mikä rouhii hieman.
-    for i in (1..ulos.len()).step_by(2) {
-        ulos[i] = ulos[i - 1];
-    }
+    // Puhe pidetään puhtaana: voimakkuus asetetaan huipun mukaan ilman ylivetoa.
     let huippu = ulos.iter().fold(0.0f32, |m, &x| m.max(x.abs())).max(1e-6);
-    let veto = 1.6;
-    ulos.iter()
-        .map(|&x| (x / huippu * veto).tanh() / veto.tanh() * 0.9)
-        .collect()
+    ulos.iter().map(|&x| x / huippu * 0.9).collect()
 }
 
 #[cfg(test)]
