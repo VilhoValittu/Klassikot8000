@@ -1,11 +1,25 @@
 # Versiotagi (esim. v0.3.5) kääntää paketit kaikille alustoille ja julkaisee ne muutoslistan kanssa.
-# Käsin käynnistetty ajo tekee samat paketit mutta ei julkaise mitään.
+# Käsin käynnistetty ajo tekee samat paketit mutta julkaisee vain, jos se käynnistetään tagista ja julkaisu valitaan.
+#
+# Jos jonkin alustan käännös epäonnistuu, muut paketit julkaistaan silti ja puuttuva alusta mainitaan julkaisutekstissä.
+# Puuttuva paketti lisätään samaan julkaisuun painamalla ajossa "Re-run failed jobs".
+# Jos GitHubin macOS-kone ei vapaudu ja työ jää jonoon: peruuta ajo ja käynnistä se käsin tagista valinnoilla
+# "julkaise" ja "ohita macOS". Kun macOS-kone taas toimii, käynnistä ajo uudelleen pelkällä "julkaise"-valinnalla.
 name: Julkaisu
 
 on:
   push:
     tags: ['v[0-9]*']
   workflow_dispatch:
+    inputs:
+      julkaise:
+        description: Julkaise paketit (ajo on käynnistettävä tagista)
+        type: boolean
+        default: false
+      ohita_macos:
+        description: Ohita macOS, jos GitHubin macOS-kone ei ole saatavilla
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,10 +33,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       versio: ${{ steps.luku.outputs.versio }}
+      kaikki: ${{ steps.alustat.outputs.kaikki }}
+      alustat: ${{ steps.alustat.outputs.alustat }}
     steps:
       - uses: actions/checkout@v7
       - id: luku
         name: Lue versio ja vertaa tagiin
+        env:
+          JULKAISE: ${{ inputs.julkaise }}
         run: |
           versio=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           echo "versio=$versio" >> "$GITHUB_OUTPUT"
@@ -30,26 +48,43 @@ jobs:
             echo "::error::Tagi $GITHUB_REF_NAME ei vastaa Cargo.tomlin versiota $versio"
             exit 1
           fi
+          if [[ "$JULKAISE" == true && "$GITHUB_REF_TYPE" != tag ]]; then
+            echo "::error::Julkaisu vaatii, että ajo käynnistetään tagista eikä haarasta $GITHUB_REF_NAME"
+            exit 1
+          fi
+      - id: alustat
+        name: Valitse alustat
+        env:
+          OHITA_MACOS: ${{ inputs.ohita_macos }}
+        run: |
+          # Vanhin saatavilla oleva Ubuntu, jotta Linux-paketti toimii myös vanhemman glibc:n koneissa.
+          kaikki=$(jq -c . <<'JSON'
+          [
+            {"alusta": "linux-x64", "kone": "ubuntu-22.04"},
+            {"alusta": "linux-arm64", "kone": "ubuntu-22.04-arm"},
+            {"alusta": "macos-universal", "kone": "macos-latest", "kohteet": "x86_64-apple-darwin,aarch64-apple-darwin"},
+            {"alusta": "windows-x64", "kone": "windows-latest"}
+          ]
+          JSON
+          )
+          alustat=$kaikki
+          if [[ "$OHITA_MACOS" == true ]]; then
+            alustat=$(jq -c 'map(select(.alusta != "macos-universal"))' <<< "$kaikki")
+          fi
+          echo "kaikki=$kaikki" >> "$GITHUB_OUTPUT"
+          echo "alustat=$alustat" >> "$GITHUB_OUTPUT"
 
   paketti:
     needs: versio
     name: ${{ matrix.alusta }}
     runs-on: ${{ matrix.kone }}
+    # Normaali ajo kestää alle 10 minuuttia; jumiin jäänyt kone ei saa pidätellä julkaisua tuntikausia.
+    timeout-minutes: 30
     strategy:
       # Yhden alustan virhe ei saa peruuttaa muita, jotta kaikki virheet näkyvät samalla ajolla.
       fail-fast: false
       matrix:
-        include:
-          # Vanhin saatavilla oleva Ubuntu, jotta paketti toimii myös vanhemman glibc:n koneissa.
-          - alusta: linux-x64
-            kone: ubuntu-22.04
-          - alusta: linux-arm64
-            kone: ubuntu-22.04-arm
-          - alusta: macos-universal
-            kone: macos-latest
-            kohteet: x86_64-apple-darwin,aarch64-apple-darwin
-          - alusta: windows-x64
-            kone: windows-latest
+        include: ${{ fromJSON(needs.versio.outputs.alustat) }}
     env:
       VERSIO: ${{ needs.versio.outputs.versio }}
       ALUSTA: ${{ matrix.alusta }}
@@ -117,14 +152,19 @@ jobs:
           if-no-files-found: error
 
   julkaisu:
-    needs: paketti
-    if: github.ref_type == 'tag'
+    needs: [versio, paketti]
+    # Ajetaan, vaikka osa alustoista epäonnistui, jotta yhden alustan ongelma ei estä muiden julkaisua.
+    if: >-
+      ${{ !cancelled() && needs.versio.result == 'success' && github.ref_type == 'tag'
+      && (github.event_name == 'push' || inputs.julkaise) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       TAGI: ${{ github.ref_name }}
+      VERSIO: ${{ needs.versio.outputs.versio }}
+      KAIKKI: ${{ needs.versio.outputs.kaikki }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -136,9 +176,35 @@ jobs:
           merge-multiple: true
       - name: Tee muutoslista
         run: bash .github/scripts/muutokset.sh "$TAGI" > muutokset.md
+      - name: Tarkista puuttuvat alustat
+        run: |
+          mkdir -p dist
+          shopt -s nullglob
+          paketit=(dist/*)
+          if (( ${#paketit[@]} == 0 )); then
+            echo "::error::Yhtään pakettia ei syntynyt, joten julkaistavaa ei ole"
+            exit 1
+          fi
+          # Aiemmalla ajolla julkaistu paketti ei puutu, vaikka sitä ei käännetty tällä kertaa.
+          loytyy=$(ls dist; gh release view "$TAGI" --json assets --jq '.assets[].name' 2> /dev/null || true)
+          puuttuvat=()
+          for alusta in $(jq -r '.[].alusta' <<< "$KAIKKI"); do
+            if ! grep -qF -- "-$VERSIO-$alusta." <<< "$loytyy"; then
+              puuttuvat+=("$alusta")
+              echo "::warning::$alusta-paketti puuttuu julkaisusta"
+            fi
+          done
+          if (( ${#puuttuvat[@]} > 0 )); then
+            luettelo=$(printf '%s, ' "${puuttuvat[@]}")
+            {
+              printf '> **Huom.** Näiden alustojen paketit puuttuvat vielä ja lisätään myöhemmin: %s\n\n' "${luettelo%, }"
+              cat muutokset.md
+            } > muutokset.uusi
+            mv muutokset.uusi muutokset.md
+          fi
       - name: Julkaise
         run: |
-          # Uudelleenajo korvaa epäonnistuneen ajon jäljet.
+          # Uudelleenajo korvaa epäonnistuneen ajon jäljet ja lisää puuttuneet paketit.
           if gh release view "$TAGI" > /dev/null 2>&1; then
             gh release edit "$TAGI" --notes-file muutokset.md
             gh release upload "$TAGI" dist/* --clobber
