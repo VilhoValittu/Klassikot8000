@@ -1,4 +1,5 @@
-# Rakentaa julkaisuversion ja paketoi sen tiedostoon dist\klassikot8000-<versio>-windows-x64.zip
+# Rakentaa julkaisuversion ja paketoi sen tiedostoon dist\klassikot8000-<versio>-windows-x64.zip.
+# Paketissa ohjelma on nimella klassikot8000-<versio>.exe.
 # Ajo: powershell -ExecutionPolicy Bypass -File paketoi.ps1
 # Pidetty ASCII-merkeissa, koska PowerShell 5.1 lukee BOM-merkittoman tiedoston vaarin.
 
@@ -18,8 +19,16 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error 'Lisenssilista ei onnistunut, pakettia ei tehty.'
 }
 
-$exe = 'target\release\klassikot8000.exe'
 $paketti = "dist\klassikot8000-$versio-windows-x64.zip"
+
+# Compress-Archive ei osaa nimeta tiedostoa uudelleen, joten ohjelma kopioidaan versioidulla nimella valikansioon.
+$valikansio = 'target\paketti'
+if (Test-Path $valikansio) {
+    Remove-Item -Recurse -Force $valikansio
+}
+New-Item -ItemType Directory -Force $valikansio | Out-Null
+$exe = "$valikansio\klassikot8000-$versio.exe"
+Copy-Item 'target\release\klassikot8000.exe' $exe
 
 New-Item -ItemType Directory -Force dist | Out-Null
 Compress-Archive -Path $exe, 'kielet.txt', 'LICENSE', $lisenssit -DestinationPath $paketti -CompressionLevel Optimal -Force

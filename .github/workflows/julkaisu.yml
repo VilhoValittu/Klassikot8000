@@ -106,7 +106,8 @@ jobs:
           nimi="klassikot8000-$VERSIO-$ALUSTA"
           mkdir -p "dist/$nimi"
           python3 paketointi/lisenssit.py "dist/$nimi/THIRD-PARTY-LICENSES.txt"
-          cp target/release/klassikot8000 kielet.txt LICENSE "dist/$nimi/"
+          cp target/release/klassikot8000 "dist/$nimi/klassikot8000-$VERSIO"
+          cp kielet.txt LICENSE "dist/$nimi/"
           # Linuxin ohjelmatiedostossa ei voi olla ikonia, joten se tulee mukaan pikakuvaketta varten.
           cp paketointi/ikoni.png "dist/$nimi/klassikot8000.png"
           tar -C dist -czf "dist/$nimi.tar.gz" "$nimi"
@@ -117,7 +118,8 @@ jobs:
         run: |
           cargo build --release --locked --target x86_64-apple-darwin
           cargo build --release --locked --target aarch64-apple-darwin
-          sisalto=dist/Klassikot8000.app/Contents
+          sovellus="dist/Klassikot8000-$VERSIO.app"
+          sisalto=$sovellus/Contents
           mkdir -p "$sisalto/MacOS" "$sisalto/Resources"
           cp paketointi/ikoni.icns LICENSE "$sisalto/Resources/"
           python3 paketointi/lisenssit.py "$sisalto/Resources/THIRD-PARTY-LICENSES.txt" x86_64-apple-darwin aarch64-apple-darwin
@@ -127,9 +129,9 @@ jobs:
           lipo -archs "$sisalto/MacOS/klassikot8000"
           sed "s/VERSIO/$VERSIO/g" paketointi/Info.plist > "$sisalto/Info.plist"
           # Apple Silicon ei aja allekirjoittamatonta ohjelmaa lainkaan, joten paikallinen allekirjoitus on pakollinen.
-          codesign --force --sign - dist/Klassikot8000.app
-          ditto -c -k --keepParent dist/Klassikot8000.app "dist/klassikot8000-$VERSIO-$ALUSTA.zip"
-          rm -r dist/Klassikot8000.app
+          codesign --force --sign - "$sovellus"
+          ditto -c -k --keepParent "$sovellus" "dist/klassikot8000-$VERSIO-$ALUSTA.zip"
+          rm -r "$sovellus"
 
       - name: Paketoi Windows
         if: runner.os == 'Windows'
@@ -147,7 +149,8 @@ jobs:
           done
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.alusta }}
+          # Ladattavan artefaktin nimessäkin on versio.
+          name: klassikot8000-${{ needs.versio.outputs.versio }}-${{ matrix.alusta }}
           path: dist/*
           if-no-files-found: error
 

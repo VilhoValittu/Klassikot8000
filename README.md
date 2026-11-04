@@ -88,10 +88,10 @@ No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, 
 
 Hae omalle koneellesi sopiva paketti [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest) ja pura se. Lataus on Windowsille alle megan ja Linuxille alle 3 Mt.
 
-- **Windows** (`windows-x64`): käynnistä `klassikot8000.exe`.
-- **Linux** (`linux-x64`, `linux-arm64`): käynnistä `klassikot8000`. Peli tarvitsee X11:n tai XWaylandin ja äänille ALSA-kirjaston, jotka työpöytäkoneissa on yleensä valmiina.
-- **macOS** (`macos-universal`, Intel ja Apple Silicon): käynnistä `Klassikot8000.app`. Paketilla ei ole Applen allekirjoitusta, joten macOS estää ensimmäisen käynnistyksen. Poista esto Päätteessä: `xattr -d com.apple.quarantine Klassikot8000.app`.
+- **Windows** (`windows-x64`): käynnistä `klassikot8000-<versio>.exe`.
+- **Linux** (`linux-x64`, `linux-arm64`): käynnistä `klassikot8000-<versio>`. Peli tarvitsee X11:n tai XWaylandin ja äänille ALSA-kirjaston, jotka työpöytäkoneissa on yleensä valmiina.
+- **macOS** (`macos-universal`, Intel ja Apple Silicon): käynnistä `Klassikot8000-<versio>.app`. Paketilla ei ole Applen allekirjoitusta, joten macOS estää ensimmäisen käynnistyksen. Poista esto Päätteessä: `xattr -d com.apple.quarantine Klassikot8000-<versio>.app`.
 
 ## Lisenssi
 
-Klassikot8000 on julkaistu [MIT-lisenssillä](LICENSE). Julkaisupaketeissa on sen lisäksi käytettyjen kirjastojen lisenssit tiedostossa `THIRD-PARTY-LICENSES.txt`. macOS-paketissa molemmat ovat kansiossa `Klassikot8000.app/Contents/Resources`.
+Klassikot8000 on julkaistu [MIT-lisenssillä](LICENSE). Julkaisupaketeissa on sen lisäksi käytettyjen kirjastojen lisenssit tiedostossa `THIRD-PARTY-LICENSES.txt`. macOS-paketissa molemmat ovat kansiossa `Klassikot8000-<versio>.app/Contents/Resources`.
