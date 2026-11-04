@@ -2,11 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::luvut::{Lukulauta, Ruudut, Siirto, Suunta, TAVOITE};
 
 use super::piirto;
+use crate::kaynnistin::tallennus::Tallennus;
 use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
-use crate::yhteinen::syote::Syote;
+use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{
     Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
 };
@@ -208,19 +209,19 @@ impl Luvut {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
-        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
-        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
-            self.kasittele_nimi(syote);
-            return;
-        }
-        if syote == Syote::Peru {
-            self.lopeta = true;
-            return;
-        }
-        let kytkimella = matches!(syote, Syote::Klikkaus(x, y) if aanikytkimella(x, y));
-        if syote == Syote::VaihdaAanet || kytkimella {
-            self.aanet_paalla = !self.aanet_paalla;
-            return;
+        match yleinen(
+            syote,
+            self.vaihe == Vaihe::Nimi,
+            &mut self.aanet_paalla,
+            aanikytkimella,
+        ) {
+            Yleinen::Peli => {}
+            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Peru => {
+                self.lopeta = true;
+                return;
+            }
+            Yleinen::Aanet | Yleinen::Ohita => return,
         }
         match self.vaihe {
             Vaihe::Alku => {
@@ -326,6 +327,16 @@ impl Luvut {
 }
 
 impl Pelinakyma for Luvut {
+    fn lue_tallennuksesta(&mut self, tallennus: &Tallennus) {
+        if let Some(kesken) = tallennus.kesken {
+            self.palauta(kesken);
+        }
+    }
+
+    fn kirjaa_tallennukseen(&self, tallennus: &mut Tallennus) {
+        tallennus.kesken = self.kesken();
+    }
+
     fn kasittele(&mut self, syote: Syote) {
         Luvut::kasittele(self, syote);
     }

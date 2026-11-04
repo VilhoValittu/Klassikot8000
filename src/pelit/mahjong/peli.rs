@@ -4,11 +4,12 @@ use klassikot8000::mahjong::{
 };
 
 use super::piirto;
+use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
-use crate::yhteinen::syote::Syote;
+use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{
     Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
 };
@@ -178,25 +179,27 @@ impl Mahjong {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
-        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
-        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
-            self.kasittele_nimi(syote);
-            return;
-        }
-        if syote == Syote::Peru {
-            if self.vaihe == Vaihe::Pelissa && (self.valittu.is_some() || self.vihje.is_some()) {
-                self.valittu = None;
-                self.vihje = None;
-            } else {
-                self.lopeta = true;
+        let vaihe = self.vaihe;
+        let kytkimella = |x, y| piirto::aanikytkimella(vaihe, x, y);
+        match yleinen(
+            syote,
+            vaihe == Vaihe::Nimi,
+            &mut self.aanet_paalla,
+            kytkimella,
+        ) {
+            Yleinen::Peli => {}
+            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Peru => {
+                if self.vaihe == Vaihe::Pelissa && (self.valittu.is_some() || self.vihje.is_some())
+                {
+                    self.valittu = None;
+                    self.vihje = None;
+                } else {
+                    self.lopeta = true;
+                }
+                return;
             }
-            return;
-        }
-        let kytkimella =
-            matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(self.vaihe, x, y));
-        if syote == Syote::VaihdaAanet || kytkimella {
-            self.aanet_paalla = !self.aanet_paalla;
-            return;
+            Yleinen::Aanet | Yleinen::Ohita => return,
         }
         match self.vaihe {
             Vaihe::Alku => self.kasittele_alku(syote),
@@ -503,6 +506,14 @@ impl Mahjong {
 }
 
 impl Pelinakyma for Mahjong {
+    fn lue_tallennuksesta(&mut self, tallennus: &Tallennus) {
+        self.vaikeus = tallennus.asetukset.mahjong;
+    }
+
+    fn kirjaa_asetukset(&self, asetukset: &mut Asetukset) {
+        asetukset.mahjong = self.vaikeus;
+    }
+
     fn kasittele(&mut self, syote: Syote) {
         Mahjong::kasittele(self, syote);
     }

@@ -1,10 +1,11 @@
 //! Käynnistimen ja pelin välinen sopimus. Käynnistin hoitaa jokaista peliä tämän kautta,
-//! joten uusi peli tarvitsee käynnistimeen vain korttinsa ja rakentajansa.
+//! joten uusi peli tarvitsee käynnistimeen vain korttinsa ja rivin `pelit!`-luetteloon.
 
 use super::aanet::Aani;
 use super::piirto::Kehys;
 use super::syote::Syote;
 use super::tulokset::{Nettipeli, Tulos};
+use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 
 /// Pelin yksi top-lista käynnistimen silmin: käynnistin täyttää sen tallennuksesta ja
 /// nettilistasta ja kirjaa siitä tallennukseen ja jonoon.
@@ -39,6 +40,17 @@ pub trait Pelinakyma {
     fn listat(&mut self) -> Vec<Lista<'_>> {
         Vec::new()
     }
+
+    /// Uusi peli ottaa tallennuksesta asetuksensa ja omat tietonsa. Top-listat käynnistin
+    /// täyttää itse `listat`-kutsun kautta.
+    fn lue_tallennuksesta(&mut self, _tallennus: &Tallennus) {}
+
+    /// Pelin sisällä vaihdettu taso tai laji on seuraavallakin kerralla valmiina. Kutsutaan
+    /// jokaisen syötteen jälkeen.
+    fn kirjaa_asetukset(&self, _asetukset: &mut Asetukset) {}
+
+    /// Pelin omat tallennettavat tiedot, kuten tilastot tai kesken jäänyt peli.
+    fn kirjaa_tallennukseen(&self, _tallennus: &mut Tallennus) {}
 
     /// Kaikki, mistä paikallaan pysyvä kuva riippuu syötteen lisäksi, tai `None`, kun kuva
     /// elää joka ruudussa.

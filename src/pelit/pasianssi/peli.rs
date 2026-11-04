@@ -5,11 +5,12 @@ use klassikot8000::{pyramidi as pyramidilogiikka, spider as spiderlogiikka};
 
 use super::piirto::{self, Kohta};
 use super::{haastenakyma, pyramidi, spider};
+use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
-use crate::yhteinen::syote::Syote;
+use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{
     Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi, paivita_nimen_tulos,
 };
@@ -504,28 +505,26 @@ impl Pasianssi {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
-        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
-        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
-            self.kasittele_nimi(syote);
-            return;
-        }
-        if syote == Syote::Peru && self.vaihe == Vaihe::Haasteet {
-            self.vaihe = Vaihe::Alku;
-            return;
-        }
-        if syote == Syote::Peru {
-            if self.on_poiminta() {
-                self.unohda_poiminta();
-            } else {
-                self.lopeta = true;
+        let vaihe = self.vaihe;
+        let kytkimella = |x, y| piirto::aanikytkimella(vaihe, x, y);
+        match yleinen(
+            syote,
+            vaihe == Vaihe::Nimi,
+            &mut self.aanet_paalla,
+            kytkimella,
+        ) {
+            Yleinen::Peli => {}
+            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Peru if self.vaihe == Vaihe::Haasteet => {
+                self.vaihe = Vaihe::Alku;
+                return;
             }
-            return;
-        }
-        let kytkimella =
-            matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(self.vaihe, x, y));
-        if syote == Syote::VaihdaAanet || kytkimella {
-            self.aanet_paalla = !self.aanet_paalla;
-            return;
+            Yleinen::Peru if self.on_poiminta() => return self.unohda_poiminta(),
+            Yleinen::Peru => {
+                self.lopeta = true;
+                return;
+            }
+            Yleinen::Aanet | Yleinen::Ohita => return,
         }
         match self.vaihe {
             Vaihe::Alku => self.kasittele_alku(syote),
@@ -973,6 +972,23 @@ impl Pasianssi {
 }
 
 impl Pelinakyma for Pasianssi {
+    fn lue_tallennuksesta(&mut self, tallennus: &Tallennus) {
+        self.vaikeus = tallennus.asetukset.pasianssi;
+        self.variantti = tallennus.asetukset.variantti;
+        self.haastepisteet = tallennus.haastepisteet;
+        self.haastenimi.clone_from(&tallennus.haastenimi);
+    }
+
+    fn kirjaa_asetukset(&self, asetukset: &mut Asetukset) {
+        asetukset.pasianssi = self.vaikeus;
+        asetukset.variantti = self.variantti;
+    }
+
+    fn kirjaa_tallennukseen(&self, tallennus: &mut Tallennus) {
+        tallennus.haastepisteet = self.haastepisteet;
+        tallennus.haastenimi.clone_from(&self.haastenimi);
+    }
+
     fn kasittele(&mut self, syote: Syote) {
         Pasianssi::kasittele(self, syote);
     }

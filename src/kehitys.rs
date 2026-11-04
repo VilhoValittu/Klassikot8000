@@ -2,15 +2,37 @@
 
 use std::fs::File;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
+use klassikot8000::Arpa;
+use klassikot8000::asteroidit::Avaruus;
+use klassikot8000::blackjack::{self, Vuoro};
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
-use klassikot8000::luvut::{Ruudut, SIVU, Suunta};
-use klassikot8000::pasianssi::Variantti;
+use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU, Suunta};
+use klassikot8000::mahjong;
+use klassikot8000::miinaharava;
+use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
+use klassikot8000::silmukka::{self, Otus};
+use klassikot8000::tiilirikko::{self, Tiilipeli};
 
-use crate::kaynnistin::{Laji, PELIT};
+use crate::kaynnistin::netti::{Netti, Pyynto, Vastaus};
+use crate::kaynnistin::{Kaynnissa, Kaynnistin, Laji, PELIT, piirto, tallennus};
+use crate::pelit::asteroidit::peli::Asteroidit;
+use crate::pelit::blackjack::peli::Blackjack;
+use crate::pelit::holdem::peli::{self as holdem_peli, Holdem};
+use crate::pelit::laivanupotus::peli::{Peli, Vaihe};
+use crate::pelit::luvut::peli::{self as luvut_peli, Luvut};
+use crate::pelit::mahjong::peli::Mahjong;
+use crate::pelit::miinaharava::peli::Miinaharava;
+use crate::pelit::palikka::peli::{self as palikka_peli, Palikkapeli};
+use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
+use crate::pelit::silmukka::peli::Silmukka;
+use crate::pelit::tiilirikko::peli::Tiilirikko;
 use crate::yhteinen::aanet::{self, Mikseri, NAYTETAAJUUS};
-use crate::yhteinen::kieli::Kieli;
+use crate::yhteinen::kieli::{self, Kieli};
+use crate::yhteinen::piirto::{Kehys, RUUDUN_KORKEUS, RUUDUN_LEVEYS};
+use crate::yhteinen::syote::Syote;
 
 pub struct Liput {
     pub siemen: Option<u64>,
@@ -258,6 +280,447 @@ pub fn lue_liput() -> Result<Liput, String> {
 }
 
 /// Kirjoittaa jokaisen äänen omaksi WAV-tiedostokseen, puheet kummallakin kielellä.
+/// Kehitysajon alku: peli ikkunaan, tai lippujen pyytämä työ on jo tehty.
+pub enum Alku {
+    Ikkuna(Box<Kaynnistin>, Option<PathBuf>, Option<Netti>),
+    Valmis(ExitCode),
+}
+
+fn lopetus(tulos: io::Result<()>, kohde: &str) -> Alku {
+    Alku::Valmis(match tulos {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(virhe) => {
+            eprintln!("{kohde}: {virhe}");
+            ExitCode::FAILURE
+        }
+    })
+}
+
+/// Lukee liput ja asettaa käynnistimen ja pelin niiden mukaiseen tilaan. Äänet ja
+/// kuvakaappaus tallennetaan heti, eikä ikkunaa silloin avata.
+pub fn aloita(kehys: &mut Kehys) -> Alku {
+    let liput = match lue_liput() {
+        Ok(liput) => liput,
+        Err(virhe) => {
+            eprintln!("{virhe}");
+            return Alku::Valmis(ExitCode::FAILURE);
+        }
+    };
+    if let Some(kansio) = &liput.aanet {
+        return lopetus(tallenna_aanet(kansio), kansio);
+    }
+    let mut kaynnistin = Kaynnistin::new(liput.siemen.unwrap_or_else(crate::aikasiemen));
+    // Kehitysajo ei koske pelaajan tallennukseen ilman lippua.
+    let polku = liput.tallennus.as_ref().map(PathBuf::from);
+    if let Some(polku) = &polku {
+        kaynnistin.lataa(tallennus::lue_tiedosto(polku));
+    }
+    if let Some(kieli) = liput.kieli {
+        kieli::aseta(kieli);
+    }
+    if let Some(i) = liput.valittu {
+        kaynnistin.valitse(i);
+    }
+    if let Some(laji) = liput.laji() {
+        kaynnistin.kaynnista(laji);
+    }
+    if let Some(peli) = &mut kaynnistin.peli {
+        valmistele(peli, &liput);
+        if liput.tauko {
+            peli.nakyma_mut().kasittele(Syote::Peru);
+        }
+    }
+    kaynnistin.ota_aanet();
+    if let Some(versio) = &liput.uusi_versio {
+        kaynnistin.vastaanota(Vastaus::UusiVersio(versio.clone()));
+    }
+    if let Some(polku) = &liput.kuvakaappaus {
+        // Renkaan tehosteet on ajettu jo, eikä niitä saa hypätä yli.
+        if liput.rengas.is_none() {
+            kaynnistin.edista(liput.aika_ms);
+        }
+        piirto::piirra(&kaynnistin, kehys);
+        let tulos = tallenna_png(polku, &kehys.ruutu, RUUDUN_LEVEYS, RUUDUN_KORKEUS);
+        return lopetus(tulos, polku);
+    }
+    // Kehitysajo ei koske oikeaan nettilistaan ilman lippua.
+    let netti = liput.netti.as_deref().and_then(Netti::kaynnista);
+    if let (Some(netti), Some(julkaisut)) = (&netti, &liput.julkaisut) {
+        netti.laheta(Pyynto::HaeVersio(julkaisut.clone()));
+    }
+    Alku::Ikkuna(Box::new(kaynnistin), polku, netti)
+}
+
+/// Vie juuri käynnistetyn pelin lippujen kuvaamaan tilanteeseen.
+fn valmistele(peli: &mut Kaynnissa, liput: &Liput) {
+    match peli {
+        Kaynnissa::Laivanupotus(peli) => valmistele_laivanupotus(peli, liput),
+        Kaynnissa::Luvut(peli) => valmistele_luvut(peli, liput),
+        Kaynnissa::Pasianssi(peli) => valmistele_pasianssi(peli, liput),
+        Kaynnissa::Tiilirikko(peli) => valmistele_tiilirikko(peli, liput),
+        Kaynnissa::Asteroidit(peli) => valmistele_asteroidit(peli, liput),
+        Kaynnissa::Silmukka(peli) => valmistele_silmukka(peli, liput),
+        Kaynnissa::Palikka(peli) => valmistele_palikka(peli, liput),
+        Kaynnissa::Miinaharava(peli) => valmistele_miinaharava(peli, liput),
+        Kaynnissa::Mahjong(peli) => valmistele_mahjong(peli, liput),
+        Kaynnissa::Blackjack(peli) => valmistele_blackjack(peli, liput),
+        Kaynnissa::Holdem(peli) => valmistele_holdem(peli, liput),
+    }
+}
+
+fn valmistele_laivanupotus(peli: &mut Peli, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        peli.vaikeus = vaikeus;
+    }
+    // Alkuruutu ja arvottujen laivojen hyväksyntä.
+    if !liput.siirrot.is_empty() {
+        peli.kasittele(Syote::Ammu);
+        peli.kasittele(Syote::Ammu);
+    }
+    // Välilyönti, numerot ja kirjaimet sellaisinaan, ^v<> ovat nuolet.
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '^' => Syote::Nuoli(-1, 0),
+            'v' => Syote::Nuoli(1, 0),
+            '<' => Syote::Nuoli(0, -1),
+            '>' => Syote::Nuoli(0, 1),
+            '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+            _ => Syote::Kirjain(merkki),
+        });
+    }
+    for &ruutu in &liput.siirrot {
+        if peli.vaihe == Vaihe::Ammunta {
+            peli.ammu(ruutu);
+        }
+    }
+}
+
+fn valmistele_luvut(peli: &mut Luvut, liput: &Liput) {
+    if liput.lauta.is_some() || !liput.liu_ut.is_empty() {
+        peli.kasittele(Syote::Ammu);
+    }
+    if let Some(ruudut) = liput.lauta {
+        peli.lauta = Lukulauta::ruuduista(ruudut);
+    }
+    for &suunta in &liput.liu_ut {
+        if peli.vaihe == luvut_peli::Vaihe::Pelissa {
+            peli.siirra(suunta);
+        }
+    }
+}
+
+fn valmistele_pasianssi(peli: &mut Pasianssi, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        let taso = pasianssi::Vaikeus::KAIKKI
+            .into_iter()
+            .find(|taso| taso.nimi() == vaikeus.nimi());
+        peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+    }
+    if let Some(variantti) = liput.variantti {
+        peli.variantti = variantti;
+    }
+    if liput.haasteet {
+        peli.kasittele(Syote::Kirjain('H'));
+    }
+    if let Some(haaste) = liput.haaste {
+        peli.aloita_haaste(haaste);
+    } else if liput.nostot.is_some() || liput.voitto || liput.jumissa {
+        peli.kasittele(Syote::Ammu);
+    }
+    for _ in 0..liput.nostot.unwrap_or(0) {
+        peli.kasittele(Syote::Kirjain('N'));
+    }
+    if liput.jumissa && peli.variantti == Variantti::Klondike {
+        // Viimeinen siirto kerää ässän, ja peli toteaa lopun itse.
+        let tila = &mut peli.lauta.tila;
+        tila.pakka.clear();
+        tila.jate.clear();
+        tila.sarakkeet = Default::default();
+        tila.sarakkeet[0].kortit = vec![Kortti {
+            maa: Maa::Pata,
+            arvo: 9,
+        }];
+        tila.sarakkeet[1].kortit = vec![
+            Kortti {
+                maa: Maa::Risti,
+                arvo: 5,
+            },
+            Kortti {
+                maa: Maa::Hertta,
+                arvo: 1,
+            },
+        ];
+        peli.kasittele(Syote::Kirjain('A'));
+    }
+    if liput.voitto {
+        for (pino, &maa) in peli.lauta.tila.perustat.iter_mut().zip(&Maa::KAIKKI) {
+            *pino = (1..=KUNINGAS).map(|arvo| Kortti { maa, arvo }).collect();
+        }
+        peli.lauta.tila.sarakkeet = Default::default();
+        peli.lauta.tila.pakka.clear();
+        peli.lauta.tila.jate.clear();
+        peli.spider.tila.valmiit = vec![Maa::Pata; klassikot8000::spider::SARJOJA];
+        peli.spider.tila.sarakkeet = Default::default();
+        peli.spider.tila.pakka.clear();
+        peli.pyramidi.tila.rivit = Default::default();
+        peli.vaihe = pasianssi_peli::Vaihe::Voitto;
+        if liput.nimi {
+            peli.vaihe = pasianssi_peli::Vaihe::Nimi;
+        }
+    }
+}
+
+fn valmistele_tiilirikko(peli: &mut Tiilirikko, liput: &Liput) {
+    if let Some(kentta) = liput.kentta {
+        peli.kasittele(Syote::Ammu);
+        peli.lauta = Tiilipeli::new(kentta, &mut Arpa::new(liput.siemen.unwrap_or(1)));
+        peli.kasittele(Syote::Ammu);
+        if liput.toinen_pallo {
+            let lauta = &mut peli.lauta;
+            let rivi = (0..tiilirikko::RIVEJA)
+                .rfind(|&r| lauta.pallotiilet[r].contains(&true))
+                .unwrap_or(0);
+            let sarake = (0..tiilirikko::SARAKKEITA)
+                .find(|&s| lauta.pallotiilet[rivi][s])
+                .unwrap_or(0);
+            // Alemmat tiilet pois, ettei pallo osu niihin ensin.
+            for alempi in &mut lauta.tiilet[rivi + 1..] {
+                alempi[sarake] = 0;
+            }
+            lauta.pallot[0].paikka = (
+                (sarake as f32 + 0.5) * tiilirikko::TIILI_L,
+                tiilirikko::TIILET_Y
+                    + (rivi + 1) as f32 * tiilirikko::TIILI_K
+                    + tiilirikko::PALLON_SADE
+                    + 0.5,
+            );
+        }
+        if liput.superpallo {
+            let pallo = &mut peli.lauta.pallot[0];
+            pallo.superpallo = true;
+            pallo.nopeus.0 *= tiilirikko::SUPERVAUHTI;
+            pallo.nopeus.1 *= tiilirikko::SUPERVAUHTI;
+        }
+        // Aikahyppy on rajattu, joten kuvakaappauksen hetki ajetaan pieninä askelina.
+        for _ in 0..liput.aika_ms / 16 {
+            peli.edista(16);
+            peli.kasittele(Syote::Ammu);
+        }
+    }
+}
+
+fn valmistele_asteroidit(peli: &mut Asteroidit, liput: &Liput) {
+    if let Some(aalto) = liput.aalto {
+        peli.kasittele(Syote::Ammu);
+        peli.lauta = Avaruus::new(aalto, &mut Arpa::new(liput.siemen.unwrap_or(1)));
+        // Aikahyppy on rajattu, joten kuvakaappauksen hetki ajetaan pieninä askelina.
+        for _ in 0..liput.aika_ms / 16 {
+            peli.edista(16);
+        }
+    }
+}
+
+fn valmistele_silmukka(peli: &mut Silmukka, liput: &Liput) {
+    if let Some(itikoita) = liput.rengas {
+        peli.kasittele(Syote::Ammu);
+        // Pää sulkee renkaan kolmen askeleen päästä, ja häntä jää sen ulkopuolelle.
+        let mut ruudut: Vec<(i32, i32)> = (1..=18).map(|x| (x, 4)).collect();
+        ruudut.extend((5..=16).map(|y| (18, y)));
+        ruudut.extend((5..=17).rev().map(|x| (x, 16)));
+        ruudut.extend((7..=15).rev().map(|y| (5, y)));
+        peli.lauta.jalki = ruudut[0];
+        peli.lauta.mato = ruudut.into_iter().rev().collect();
+        peli.lauta.suunta = silmukka::Suunta::Ylos;
+        let mato = peli.lauta.mato.clone();
+        peli.lauta.herkut.retain(|h| !mato.contains(&h.paikka));
+        peli.lauta.otukset = (0..itikoita)
+            .map(|i| {
+                Otus::uusi(
+                    silmukka::Laji::Itikka,
+                    (7 + i * 2, 7 + i % 3 * 3),
+                    (1, 1),
+                    0,
+                )
+            })
+            .collect();
+        // Aikahyppy on rajattu, joten kuvakaappauksen hetki ajetaan pieninä askelina.
+        for _ in 0..liput.aika_ms / 16 {
+            peli.edista(16);
+        }
+    }
+}
+
+fn valmistele_palikka(peli: &mut Palikkapeli, liput: &Liput) {
+    if let Some(siirtoja) = liput.pelatut {
+        peli.kasittele(Syote::Ammu);
+        for i in 0..siirtoja {
+            // Edellinen toisto loppuu ensin, mutta viimeinen jää kuvakaappauksen hetkelle.
+            if i > 0 {
+                peli.edista(60_000);
+            }
+            match peli.lauta.vihje() {
+                Some((a, b)) if peli.vaihe == palikka_peli::Vaihe::Pelissa => {
+                    peli.vaihda(a, b);
+                }
+                _ => break,
+            }
+        }
+    }
+}
+
+fn valmistele_miinaharava(peli: &mut Miinaharava, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        let taso = miinaharava::Vaikeus::KAIKKI
+            .into_iter()
+            .find(|taso| taso.nimi() == vaikeus.nimi());
+        peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+    }
+    if liput.pelatut.is_some() || liput.pamaus {
+        peli.kasittele(Syote::Ammu);
+        let (korkeus, leveys) = (peli.vaikeus.korkeus(), peli.vaikeus.leveys());
+        peli.avaa((korkeus / 2, leveys / 2));
+        let kaikki: Vec<(usize, usize)> = (0..korkeus)
+            .flat_map(|r| (0..leveys).map(move |s| (r, s)))
+            .collect();
+        let avattavat: Vec<(usize, usize)> = kaikki
+            .iter()
+            .copied()
+            .filter(|&p| !peli.lauta.ruutu(p).miina && !peli.lauta.ruutu(p).auki)
+            .take(liput.pelatut.unwrap_or(0) as usize)
+            .collect();
+        for p in avattavat {
+            peli.avaa(p);
+        }
+        let miinat: Vec<(usize, usize)> = kaikki
+            .iter()
+            .copied()
+            .filter(|&p| peli.lauta.ruutu(p).miina)
+            .collect();
+        // Oikea ja väärä lippu, jotta kaikki merkit näkyvät kuvassa.
+        peli.liputa(miinat[0]);
+        let vaara = kaikki
+            .iter()
+            .copied()
+            .find(|&p| !peli.lauta.ruutu(p).miina && !peli.lauta.ruutu(p).auki);
+        if let Some(vaara) = vaara {
+            peli.liputa(vaara);
+        }
+        if liput.pamaus {
+            peli.avaa(miinat[1]);
+        }
+    }
+}
+
+fn valmistele_mahjong(peli: &mut Mahjong, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        let taso = mahjong::Vaikeus::KAIKKI
+            .into_iter()
+            .find(|taso| taso.nimi() == vaikeus.nimi());
+        peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+    }
+    if liput.pelatut.is_some() || liput.voitto {
+        peli.kasittele(Syote::Ammu);
+        // Pareja otetaan jaon omassa ratkaisujärjestyksessä, joten peli ei jumitu.
+        let ratkaisu = peli.lauta.ratkaisu.clone();
+        let maara = if liput.voitto {
+            ratkaisu.len()
+        } else {
+            liput.pelatut.unwrap_or(0) as usize
+        };
+        for &(a, b) in ratkaisu.iter().take(maara) {
+            peli.edista(1500);
+            peli.valitse(a);
+            peli.valitse(b);
+        }
+        // Viimeinen pari jää valituksi, jotta korostus näkyy kuvassa.
+        if let Some(&(a, _)) = ratkaisu.get(maara) {
+            peli.valitse(a);
+        }
+        peli.edista(liput.aika_ms);
+    }
+}
+
+fn valmistele_blackjack(peli: &mut Blackjack, liput: &Liput) {
+    if liput.napit.is_some() || liput.kadet.is_some() || liput.konkurssi || liput.nimi {
+        peli.kasittele(Syote::Ammu);
+    }
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+            _ => Syote::Kirjain(merkki),
+        });
+        peli.edista(10_000);
+    }
+    if let Some(kasia) = liput.kadet {
+        // Pisin käsi näyttää, miten kortit mahtuvat kapeaankin kaistaan.
+        let kasi = |arvot: &[u8], panos| blackjack::Kasi {
+            kortit: arvot
+                .iter()
+                .map(|&arvo| Kortti {
+                    maa: Maa::KAIKKI[arvo as usize % Maa::KAIKKI.len()],
+                    arvo,
+                })
+                .collect(),
+            panos,
+            tuplattu: false,
+            halkaistu: true,
+            tulos: None,
+        };
+        let mallit: [&[u8]; 4] = [&[1, 1, 2, 2, 3, 3, 1, 1], &[10, 6], &[1, 5], &[13, 9]];
+        peli.poyta.kadet = mallit[..kasia.clamp(1, 4)]
+            .iter()
+            .map(|arvot| kasi(arvot, 25 * blackjack::YKSI))
+            .collect();
+        peli.poyta.jakaja = kasi(&[10, 7], 0).kortit;
+        peli.poyta.piilossa = true;
+        peli.poyta.vuoro = Vuoro::Pelaaja;
+    }
+    if liput.konkurssi {
+        // Kaikki rahat peliin: pelaajalle 17 ja jakajalle 20.
+        peli.kasittele(Syote::Kirjain('K'));
+        peli.poyta.kenka.extend([10, 7, 10, 10].map(|arvo| Kortti {
+            maa: Maa::Pata,
+            arvo,
+        }));
+        peli.kasittele(Syote::Ammu);
+        peli.kasittele(Syote::Kirjain('J'));
+        peli.edista(10_000);
+    }
+    if liput.nimi {
+        peli.poyta.rahat = blackjack::ALKURAHA + 120 * blackjack::YKSI;
+        peli.poistu();
+    }
+}
+
+fn valmistele_holdem(peli: &mut Holdem, liput: &Liput) {
+    if liput.napit.is_some() || liput.konkurssi || liput.voitto || liput.nimi {
+        peli.kasittele(Syote::Ammu);
+        peli.edista(100_000);
+    }
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+            _ => Syote::Kirjain(merkki),
+        });
+        peli.edista(100_000);
+    }
+    if liput.konkurssi {
+        peli.vaihe = holdem_peli::Vaihe::Havio;
+        peli.viesti = kieli::muotoile("holdem.havio", &[&5]);
+    }
+    if liput.voitto {
+        peli.vaihe = holdem_peli::Vaihe::Voitto;
+        peli.viesti = kieli::muotoile("holdem.voitto", &[&5000]);
+    }
+    if liput.nimi {
+        peli.poyta.pelaajat[0].rahat = 1300;
+        peli.poistu();
+    }
+}
+
 pub fn tallenna_aanet(kansio: &str) -> io::Result<()> {
     std::fs::create_dir_all(kansio)?;
     let mikseri = Mikseri::new();

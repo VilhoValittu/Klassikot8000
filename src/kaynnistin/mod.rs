@@ -1,5 +1,5 @@
 //! Pelin valinta ja käynnissä olevan pelin hallinta. Uusi peli lisätään tänne korttina
-//! (`PELIT`) ja `Kaynnissa`-muunnelmana; muun käynnistin hoitaa `Pelinakyma`-traitin kautta.
+//! (`PELIT`) ja rivinä `pelit!`-luetteloon; muun käynnistin hoitaa `Pelinakyma`-traitin kautta.
 
 pub mod netti;
 pub mod piirto;
@@ -61,21 +61,6 @@ pub enum KuvanAvain {
         listoja: u32,
         avain: (u32, u32),
     },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Laji {
-    Laivanupotus,
-    Luvut,
-    Pasianssi,
-    Mahjong,
-    Tiilirikko,
-    Asteroidit,
-    Silmukka,
-    Palikka,
-    Miinaharava,
-    Blackjack,
-    Holdem,
 }
 
 pub struct Kortti {
@@ -173,68 +158,60 @@ fn kortti(laji: Laji) -> &'static Kortti {
         .unwrap_or(&PELIT[0])
 }
 
-pub enum Kaynnissa {
-    Laivanupotus(Box<Peli>),
-    Luvut(Box<Luvut>),
-    Pasianssi(Box<Pasianssi>),
-    Mahjong(Box<Mahjong>),
-    Tiilirikko(Box<Tiilirikko>),
-    Asteroidit(Box<Asteroidit>),
-    Silmukka(Box<Silmukka>),
-    Palikka(Box<Palikkapeli>),
-    Miinaharava(Box<Miinaharava>),
-    Blackjack(Box<Blackjack>),
-    Holdem(Box<Holdem>),
+/// Tuottaa pelien luettelosta `Laji`-tyypin ja `Kaynnissa`-muunnelmat haaroineen. Jokaisella
+/// pelillä on `new(siemen)`, ja muun käynnistin hoitaa `Pelinakyma`-traitin kautta.
+macro_rules! pelit {
+    ($($laji:ident($tyyppi:ty)),* $(,)?) => {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub enum Laji {
+            $($laji,)*
+        }
+
+        pub enum Kaynnissa {
+            $($laji(Box<$tyyppi>),)*
+        }
+
+        impl Kaynnissa {
+            /// Uusi peli alkutilassaan, ilman tallennettuja asetuksia ja listoja.
+            fn uusi(laji: Laji, siemen: u64) -> Self {
+                match laji {
+                    $(Laji::$laji => Kaynnissa::$laji(Box::new(<$tyyppi>::new(siemen))),)*
+                }
+            }
+
+            pub fn nakyma(&self) -> &dyn Pelinakyma {
+                match self {
+                    $(Kaynnissa::$laji(peli) => &**peli,)*
+                }
+            }
+
+            pub fn nakyma_mut(&mut self) -> &mut dyn Pelinakyma {
+                match self {
+                    $(Kaynnissa::$laji(peli) => &mut **peli,)*
+                }
+            }
+
+            pub fn laji(&self) -> Laji {
+                match self {
+                    $(Kaynnissa::$laji(_) => Laji::$laji,)*
+                }
+            }
+        }
+    };
 }
 
-impl Kaynnissa {
-    pub fn nakyma(&self) -> &dyn Pelinakyma {
-        match self {
-            Kaynnissa::Laivanupotus(peli) => &**peli,
-            Kaynnissa::Luvut(peli) => &**peli,
-            Kaynnissa::Pasianssi(peli) => &**peli,
-            Kaynnissa::Mahjong(peli) => &**peli,
-            Kaynnissa::Tiilirikko(peli) => &**peli,
-            Kaynnissa::Asteroidit(peli) => &**peli,
-            Kaynnissa::Silmukka(peli) => &**peli,
-            Kaynnissa::Palikka(peli) => &**peli,
-            Kaynnissa::Miinaharava(peli) => &**peli,
-            Kaynnissa::Blackjack(peli) => &**peli,
-            Kaynnissa::Holdem(peli) => &**peli,
-        }
-    }
-
-    pub fn nakyma_mut(&mut self) -> &mut dyn Pelinakyma {
-        match self {
-            Kaynnissa::Laivanupotus(peli) => &mut **peli,
-            Kaynnissa::Luvut(peli) => &mut **peli,
-            Kaynnissa::Pasianssi(peli) => &mut **peli,
-            Kaynnissa::Mahjong(peli) => &mut **peli,
-            Kaynnissa::Tiilirikko(peli) => &mut **peli,
-            Kaynnissa::Asteroidit(peli) => &mut **peli,
-            Kaynnissa::Silmukka(peli) => &mut **peli,
-            Kaynnissa::Palikka(peli) => &mut **peli,
-            Kaynnissa::Miinaharava(peli) => &mut **peli,
-            Kaynnissa::Blackjack(peli) => &mut **peli,
-            Kaynnissa::Holdem(peli) => &mut **peli,
-        }
-    }
-
-    pub fn laji(&self) -> Laji {
-        match self {
-            Kaynnissa::Laivanupotus(_) => Laji::Laivanupotus,
-            Kaynnissa::Luvut(_) => Laji::Luvut,
-            Kaynnissa::Pasianssi(_) => Laji::Pasianssi,
-            Kaynnissa::Mahjong(_) => Laji::Mahjong,
-            Kaynnissa::Tiilirikko(_) => Laji::Tiilirikko,
-            Kaynnissa::Asteroidit(_) => Laji::Asteroidit,
-            Kaynnissa::Silmukka(_) => Laji::Silmukka,
-            Kaynnissa::Palikka(_) => Laji::Palikka,
-            Kaynnissa::Miinaharava(_) => Laji::Miinaharava,
-            Kaynnissa::Blackjack(_) => Laji::Blackjack,
-            Kaynnissa::Holdem(_) => Laji::Holdem,
-        }
-    }
+pelit! {
+    Laivanupotus(Peli),
+    Luvut(Luvut),
+    Pasianssi(Pasianssi),
+    Mahjong(Mahjong),
+    Tiilirikko(Tiilirikko),
+    Asteroidit(Asteroidit),
+    Silmukka(Silmukka),
+    Palikka(Palikkapeli),
+    Miinaharava(Miinaharava),
+    Blackjack(Blackjack),
+    Holdem(Holdem),
 }
 
 /// Pelin valinta ja käynnissä oleva peli. Asetukset säilyvät, kun peli vaihtuu.
@@ -481,48 +458,9 @@ impl Kaynnistin {
         let siemen = self.siemen;
         // Sama siemen toistaisi saman alkutilanteen, kun peli avataan uudelleen.
         self.siemen = self.siemen.wrapping_add(1);
-        let asetukset = self.tallennus.asetukset;
-        let mut peli = match laji {
-            Laji::Laivanupotus => {
-                let mut peli = Peli::new(siemen);
-                peli.vaikeus = asetukset.laivanupotus;
-                peli.tilastot = self.tallennus.laivatilasto;
-                Kaynnissa::Laivanupotus(Box::new(peli))
-            }
-            Laji::Luvut => {
-                let mut peli = Luvut::new(siemen);
-                if let Some(kesken) = self.tallennus.kesken {
-                    peli.palauta(kesken);
-                }
-                Kaynnissa::Luvut(Box::new(peli))
-            }
-            Laji::Pasianssi => {
-                let mut peli = Pasianssi::new(siemen);
-                peli.vaikeus = asetukset.pasianssi;
-                peli.variantti = asetukset.variantti;
-                peli.haastepisteet = self.tallennus.haastepisteet;
-                peli.haastenimi = self.tallennus.haastenimi.clone();
-                Kaynnissa::Pasianssi(Box::new(peli))
-            }
-            Laji::Mahjong => {
-                let mut peli = Mahjong::new(siemen);
-                peli.vaikeus = asetukset.mahjong;
-                Kaynnissa::Mahjong(Box::new(peli))
-            }
-            Laji::Tiilirikko => Kaynnissa::Tiilirikko(Box::new(Tiilirikko::new(siemen))),
-            Laji::Asteroidit => Kaynnissa::Asteroidit(Box::new(Asteroidit::new(siemen))),
-            Laji::Silmukka => Kaynnissa::Silmukka(Box::new(Silmukka::new(siemen))),
-            Laji::Palikka => Kaynnissa::Palikka(Box::new(Palikkapeli::new(siemen))),
-            Laji::Miinaharava => {
-                let mut peli = Miinaharava::new(siemen);
-                peli.vaikeus = asetukset.miinaharava;
-                peli.ajat = self.tallennus.miinaajat;
-                Kaynnissa::Miinaharava(Box::new(peli))
-            }
-            Laji::Blackjack => Kaynnissa::Blackjack(Box::new(Blackjack::new(siemen))),
-            Laji::Holdem => Kaynnissa::Holdem(Box::new(Holdem::new(siemen))),
-        };
+        let mut peli = Kaynnissa::uusi(laji, siemen);
         let nakyma = peli.nakyma_mut();
+        nakyma.lue_tallennuksesta(&self.tallennus);
         nakyma.aseta_aanet(self.aanet_paalla);
         for lista in nakyma.listat() {
             let tallennettu = self.tallennus.lista(lista.peli);
@@ -585,16 +523,7 @@ impl Kaynnistin {
         let Some(peli) = &mut self.peli else {
             return;
         };
-        match peli {
-            Kaynnissa::Laivanupotus(peli) => self.tallennus.laivatilasto = peli.tilastot,
-            Kaynnissa::Luvut(peli) => self.tallennus.kesken = peli.kesken(),
-            Kaynnissa::Pasianssi(peli) => {
-                self.tallennus.haastepisteet = peli.haastepisteet;
-                self.tallennus.haastenimi = peli.haastenimi.clone();
-            }
-            Kaynnissa::Miinaharava(peli) => self.tallennus.miinaajat = peli.ajat,
-            _ => {}
-        }
+        peli.nakyma().kirjaa_tallennukseen(&mut self.tallennus);
         for lista in peli.nakyma_mut().listat() {
             let tallennettu = self.tallennus.lista_mut(lista.peli);
             if let Some(paras) = lista.paras {
@@ -677,20 +606,8 @@ impl Kaynnistin {
         let nakyma = peli.nakyma_mut();
         nakyma.kasittele(syote);
         self.aanet_paalla = nakyma.aanet_paalla();
-        let poistuu = nakyma.lopeta();
-        // Pelin sisällä vaihdettu taso tai laji on seuraavallakin kerralla valmiina.
-        let asetukset = &mut self.tallennus.asetukset;
-        match peli {
-            Kaynnissa::Laivanupotus(peli) => asetukset.laivanupotus = peli.vaikeus,
-            Kaynnissa::Pasianssi(peli) => {
-                asetukset.pasianssi = peli.vaikeus;
-                asetukset.variantti = peli.variantti;
-            }
-            Kaynnissa::Miinaharava(peli) => asetukset.miinaharava = peli.vaikeus,
-            Kaynnissa::Mahjong(peli) => asetukset.mahjong = peli.vaikeus,
-            _ => {}
-        }
-        if poistuu {
+        nakyma.kirjaa_asetukset(&mut self.tallennus.asetukset);
+        if nakyma.lopeta() {
             self.paivita_tallennus();
             self.tallenna = true;
             self.peli = None;

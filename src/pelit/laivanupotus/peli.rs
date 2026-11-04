@@ -4,11 +4,12 @@ use klassikot8000::laivanupotus::{
 };
 
 use super::piirto;
+use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
-use crate::yhteinen::syote::Syote;
+use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{
     Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
 };
@@ -361,18 +362,20 @@ impl Peli {
 
     /// Käsittelee syötteen ja kertoo, muuttuiko näkymä.
     pub fn kasittele(&mut self, syote: Syote) -> bool {
-        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
-        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
-            return self.kasittele_nimi(syote);
-        }
-        if syote == Syote::Peru {
-            self.lopeta = true;
-            return false;
-        }
-        let kytkimella = matches!(syote, Syote::Klikkaus(x, y) if aanikytkimella(x, y));
-        if syote == Syote::VaihdaAanet || kytkimella {
-            self.aanet_paalla = !self.aanet_paalla;
-            return true;
+        match yleinen(
+            syote,
+            self.vaihe == Vaihe::Nimi,
+            &mut self.aanet_paalla,
+            aanikytkimella,
+        ) {
+            Yleinen::Peli => {}
+            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Peru => {
+                self.lopeta = true;
+                return false;
+            }
+            Yleinen::Aanet => return true,
+            Yleinen::Ohita => return false,
         }
         match self.vaihe {
             Vaihe::Alku => self.kasittele_alku(syote),
@@ -628,6 +631,19 @@ pub fn tulos_teksti(ampuja: &str, ruutu: Ruutu, tulos: Laukaustulos) -> String {
 }
 
 impl Pelinakyma for Peli {
+    fn lue_tallennuksesta(&mut self, tallennus: &Tallennus) {
+        self.vaikeus = tallennus.asetukset.laivanupotus;
+        self.tilastot = tallennus.laivatilasto;
+    }
+
+    fn kirjaa_asetukset(&self, asetukset: &mut Asetukset) {
+        asetukset.laivanupotus = self.vaikeus;
+    }
+
+    fn kirjaa_tallennukseen(&self, tallennus: &mut Tallennus) {
+        tallennus.laivatilasto = self.tilastot;
+    }
+
     fn kasittele(&mut self, syote: Syote) {
         Peli::kasittele(self, syote);
     }

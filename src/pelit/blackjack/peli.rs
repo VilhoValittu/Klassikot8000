@@ -6,7 +6,7 @@ use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
-use crate::yhteinen::syote::Syote;
+use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{
     self, Nettipeli, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
 };
@@ -187,23 +187,18 @@ impl Blackjack {
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
-        // Klikkaus jatkaa eteenpäin, jotta äänikytkin toimii nimeä kirjoittaessakin.
-        if self.vaihe == Vaihe::Nimi && !matches!(syote, Syote::Klikkaus(..)) {
-            self.kasittele_nimi(syote);
-            return;
-        }
-        if syote == Syote::Peru {
-            self.poistu();
-            return;
-        }
-        let kytkimella =
-            matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(self.vaihe, x, y));
-        if syote == Syote::VaihdaAanet || kytkimella {
-            self.aanet_paalla = !self.aanet_paalla;
-            return;
-        }
-        if self.vaihe == Vaihe::Nimi {
-            return;
+        let vaihe = self.vaihe;
+        let kytkimella = |x, y| piirto::aanikytkimella(vaihe, x, y);
+        match yleinen(
+            syote,
+            vaihe == Vaihe::Nimi,
+            &mut self.aanet_paalla,
+            kytkimella,
+        ) {
+            Yleinen::Peli => {}
+            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Peru => return self.poistu(),
+            Yleinen::Aanet | Yleinen::Ohita => return,
         }
         if self.vaihe == Vaihe::Alku {
             if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
