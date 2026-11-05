@@ -14,6 +14,9 @@ use crate::yhteinen::kieli::{self, Kieli};
 pub const NAYTETAAJUUS: usize = 32000;
 const FS: f32 = NAYTETAAJUUS as f32;
 const VOIMAKKUUS: f32 = 0.8;
+/// Yhtä aikaa soivien ja odottavien äänten enimmäismäärä. Ilman rajaa nopea räjähdyssarja
+/// summautuu yli täyden voimakkuuden ja säröytyy leikkurissa.
+const ENINTAAN_SOIVIA: usize = 12;
 /// Puhe alkaa näin paljon voitto- tai tappiosävelen jälkeen, kun sävel jo sammuu.
 pub const PUHE_VIIVE_MS: u32 = 700;
 
@@ -149,6 +152,23 @@ struct Soitto {
     kohta: usize,
 }
 
+/// Pelin äänikytkin ja soittojono. Käynnistin vie jonon mikserille joka kierroksella.
+#[derive(Debug)]
+pub struct Aanet {
+    pub paalla: bool,
+    /// Ääni ja viive millisekunteina.
+    pub jono: Vec<(Aani, u32)>,
+}
+
+impl Default for Aanet {
+    fn default() -> Self {
+        Self {
+            paalla: true,
+            jono: Vec::new(),
+        }
+    }
+}
+
 /// Soittaa päällekkäisiä ääniä. Ei tiedä äänilaitteesta mitään, joten sitä voi testata.
 pub struct Mikseri {
     naytteet: Vec<Vec<i16>>,
@@ -188,6 +208,14 @@ impl Mikseri {
     /// Puhe soi sillä kielellä, joka on valittuna soittohetkellä.
     pub fn soita(&mut self, aani: Aani, viive_ms: u32) {
         if self.paalla {
+            if self.soivat.len() >= ENINTAAN_SOIVIA {
+                // Pisimmälle soinut on jo enimmäkseen kuultu. Odottavat äänet, kuten
+                // tuloksen puhe, säilyvät, koska niiden kohta on vielä alussa.
+                let vanhin = (0..self.soivat.len()).max_by_key(|&i| self.soivat[i].kohta);
+                if let Some(i) = vanhin {
+                    self.soivat.swap_remove(i);
+                }
+            }
             self.soivat.push(Soitto {
                 indeksi: aani.indeksi(kieli::nykyinen()),
                 viive: viive_ms as usize * NAYTETAAJUUS / 1000,
@@ -200,15 +228,17 @@ impl Mikseri {
     pub fn tayta(&mut self, ulos: &mut [f32]) {
         ulos.fill(0.0);
         for soitto in &mut self.soivat {
-            let naytteet = &self.naytteet[soitto.indeksi];
-            for naytepaikka in ulos.iter_mut() {
-                if soitto.viive > 0 {
-                    soitto.viive -= 1;
-                } else if let Some(&nayte) = naytteet.get(soitto.kohta) {
-                    *naytepaikka += nayte as f32 * (VOIMAKKUUS / 32768.0);
-                    soitto.kohta += 1;
-                }
+            // Viive ohitetaan kerralla eikä näyte kerrallaan: äänisäie ehtii heikollakin koneella.
+            let alku = soitto.viive.min(ulos.len());
+            soitto.viive -= alku;
+            let jaljella = self.naytteet[soitto.indeksi]
+                .get(soitto.kohta..)
+                .unwrap_or_default();
+            let maara = (ulos.len() - alku).min(jaljella.len());
+            for (paikka, &nayte) in ulos[alku..alku + maara].iter_mut().zip(jaljella) {
+                *paikka += nayte as f32 * (VOIMAKKUUS / 32768.0);
             }
+            soitto.kohta += maara;
         }
         let naytteet = &self.naytteet;
         self.soivat.retain(|s| s.kohta < naytteet[s.indeksi].len());
@@ -822,5 +852,46 @@ mod tests {
         mikseri.tayta(&mut puskuri);
         assert!(puskuri.iter().all(|&nayte| nayte == 0.0));
         assert!(soi(&mut mikseri));
+    }
+
+    #[test]
+    fn puskurin_koko_ei_muuta_aanta() {
+        let soita = |mikseri: &mut Mikseri| {
+            mikseri.soita(Aani::Laukaus, 0);
+            mikseri.soita(Aani::Roiske, 7);
+            mikseri.soita(Aani::Voitto, 300);
+        };
+        let mut kerralla = Mikseri::new();
+        soita(&mut kerralla);
+        let mut odotettu = vec![0.0; NAYTETAAJUUS];
+        kerralla.tayta(&mut odotettu);
+
+        let mut paloina = Mikseri::new();
+        soita(&mut paloina);
+        let mut saatu = Vec::new();
+        for koko in [1, 3, 100, 223, 1000].into_iter().cycle() {
+            let koko = koko.min(NAYTETAAJUUS - saatu.len());
+            if koko == 0 {
+                break;
+            }
+            let mut pala = vec![0.0; koko];
+            paloina.tayta(&mut pala);
+            saatu.extend(pala);
+        }
+        assert_eq!(saatu, odotettu);
+    }
+
+    #[test]
+    fn soivia_on_rajattu_maara_ja_odottava_puhe_sailyy() {
+        let mut mikseri = Mikseri::new();
+        mikseri.soita(Aani::Voitit, PUHE_VIIVE_MS);
+        for _ in 0..3 * ENINTAAN_SOIVIA {
+            mikseri.soita(Aani::Kivi, 0);
+            let mut puskuri = vec![0.0; 64];
+            mikseri.tayta(&mut puskuri);
+        }
+        assert_eq!(mikseri.soivat.len(), ENINTAAN_SOIVIA);
+        let puhe = Aani::Voitit.indeksi(kieli::nykyinen());
+        assert!(mikseri.soivat.iter().any(|s| s.indeksi == puhe));
     }
 }

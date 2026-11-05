@@ -1,7 +1,7 @@
 // Pelien nettilista. Vastaukset ovat tekstiä, rivi muodossa "pisteet NIMI", jotta peli
 // ei tarvitse JSON-kirjastoa.
 
-import { lue_tulos, PELIT, YKSI_PER_NIMI } from "./tarkistus.js";
+import { lue_tulos, PELIT, SUURIN_RUNKO, YKSI_PER_NIMI } from "./tarkistus.js";
 
 const NAYTETTAVIA = 3;
 // Poistettu huijaustulos paljastaa alemmat, joten tietokantaan jää enemmän kuin näytetään.
@@ -37,6 +37,11 @@ async function lisaa(pyynto, env, peli) {
   const { success } = await env.RAJOITIN.limit({ key: osoite });
   if (!success) {
     return vastaus("liian monta tulosta\n", 429);
+  }
+  // Peli hylkää tuloksen 400:lla eikä yritä uudelleen, joten liian pitkä runko saa saman.
+  if (Number(pyynto.headers.get("content-length") ?? 0) > SUURIN_RUNKO) {
+    return vastaus("kelvoton tulos
+", 400);
   }
   const tulos = lue_tulos(await pyynto.text(), PELIT[peli]);
   if (!tulos) {

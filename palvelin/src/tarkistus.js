@@ -25,8 +25,13 @@ export const PELIT = {
 export const YKSI_PER_NIMI = new Set(["haasteet"]);
 
 const RIVI = /^([1-9][0-9]{0,8}) ([A-ZÄÖ0-9]{1,8})$/u;
+// Kelvollinen rivi on enintään 27 tavua. Pidempää pyyntöä ei kannata lukea eikä tutkia.
+export const SUURIN_RUNKO = 64;
 
 export function lue_tulos(teksti, suurin) {
+  if (teksti.length > SUURIN_RUNKO) {
+    return null;
+  }
   const osat = RIVI.exec(teksti.trim());
   if (!osat) {
     return null;

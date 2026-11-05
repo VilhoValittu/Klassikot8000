@@ -128,14 +128,14 @@ pub fn piirra(peli: &Tiilirikko, kuva: &mut [u32]) {
     } else {
         p.tiili_nakyma(peli);
     }
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 impl Piirtaja<'_> {
     fn tiili_alkuruutu(&mut self, peli: &Tiilirikko) {
         self.maisema(kaanna("tiilirikko.banneri"), &tiilimuuri());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
         self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
         self.aloituskehote(ALOITUS);
     }
@@ -237,7 +237,7 @@ impl Piirtaja<'_> {
         let kentta = format!("{}/{KENTTIA}", lauta.kentta + 1);
         for (i, (otsikko, arvo)) in [
             (kaanna("yhteinen.pisteet"), lauta.pisteet.to_string()),
-            (kaanna("yhteinen.paras"), peli.paras.to_string()),
+            (kaanna("yhteinen.paras"), peli.taulu.paras.to_string()),
             (kaanna("tiilirikko.kentta"), kentta),
         ]
         .into_iter()
@@ -279,8 +279,8 @@ impl Piirtaja<'_> {
             PARHAAT_Y,
             PARHAAT_L,
             PARHAAT_KOKO,
-            listan_otsikko(peli.netti_parhaat.is_some()),
-            peli.nakyva_lista(),
+            listan_otsikko(peli.taulu.netti.is_some()),
+            peli.taulu.nakyva(),
         );
     }
 

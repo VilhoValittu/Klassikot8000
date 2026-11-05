@@ -2,14 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::blackjack::{ALKURAHA, PIENIN_PANOS, Poyta, Tulos, Vuoro, YKSI};
 
 use super::piirto::{self, raha};
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    self, Nettipeli, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 const ALKUPANOS: u32 = 10 * YKSI;
 const LISAYKSET: [u32; 4] = [YKSI, 5 * YKSI, 25 * YKSI, 100 * YKSI];
@@ -50,13 +48,7 @@ pub struct Blackjack {
     pub poyta: Poyta,
     /// Seuraavan jaon panos. Säilyy kierroksesta toiseen, jos rahat riittävät.
     pub panos: u32,
-    pub parhaat: Vec<tulokset::Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<tulokset::Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<tulokset::Tulos>,
-    /// Suurin pöydästä viety voitto, myös listalle yltämätön.
-    pub paras: u32,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
@@ -64,8 +56,7 @@ pub struct Blackjack {
     pub viesti: String,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Jakajan siirtojen määrä: kuva muuttuu niistä ilman syötettä.
     siirtoja: u32,
@@ -80,16 +71,12 @@ impl Blackjack {
             vaihe: Vaihe::Alku,
             poyta: Poyta::new(&mut arpa),
             panos: ALKUPANOS,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
-            paras: 0,
+            taulu: Tulostaulu::new(Nettipeli::Blackjack),
             nimi: String::new(),
             uusi_tulos: false,
             viesti: String::new(),
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             siirtoja: 0,
             seuraava_siirto_ms: 0,
@@ -106,16 +93,11 @@ impl Blackjack {
         }
     }
 
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[tulokset::Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
-    }
-
     /// Pöydästä viety voitto on oma ennätys, vaikkei se yltäisi listalle.
     fn kirjaa_paras(&mut self) {
         let pisteet = self.poyta.pisteet();
-        if pisteet > self.paras {
-            self.paras = pisteet;
+        if pisteet > self.taulu.paras {
+            self.taulu.paras = pisteet;
             self.uusi_tulos = true;
         }
     }
@@ -125,9 +107,7 @@ impl Blackjack {
         if self.vaihe == Vaihe::Pelissa {
             self.kirjaa_paras();
         }
-        if self.vaihe == Vaihe::Pelissa
-            && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
-        {
+        if self.vaihe == Vaihe::Pelissa && self.taulu.mahtuu(self.poyta.pisteet()) {
             self.nimi.clear();
             self.vaihe = Vaihe::Nimi;
         } else {
@@ -140,15 +120,8 @@ impl Blackjack {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let tulos = tulokset::Tulos {
-            nimi: ota_nimi(&mut self.nimi),
-            pisteet: self.poyta.pisteet(),
-        };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        let pisteet = self.poyta.pisteet();
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.lopeta = true;
     }
@@ -171,7 +144,7 @@ impl Blackjack {
             self.poyta.jakajan_siirto();
             self.siirtoja = self.siirtoja.wrapping_add(1);
             self.seuraava_siirto_ms = self.seuraava_siirto_ms.saturating_add(JAKAJAN_SIIRTO_MS);
-            self.aanijono.push((Aani::Liuku, 0));
+            self.aanet.jono.push((Aani::Liuku, 0));
             if self.poyta.vuoro == Vuoro::Panostus {
                 self.kierros_paattyi();
             }
@@ -183,7 +156,7 @@ impl Blackjack {
         self.panos = ALKUPANOS;
         self.vaihe = Vaihe::Pelissa;
         self.viesti = kaanna("blackjack.aseta_panos").to_string();
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -192,7 +165,7 @@ impl Blackjack {
         match yleinen(
             syote,
             vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             kytkimella,
         ) {
             Yleinen::Peli => {}
@@ -292,7 +265,7 @@ impl Blackjack {
             return;
         }
         self.viesti.clear();
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         if self.poyta.vuoro == Vuoro::Panostus {
             self.kierros_paattyi();
         } else if self.poyta.vuoro == Vuoro::Vakuutus {
@@ -308,7 +281,7 @@ impl Blackjack {
     fn vakuutuspaatos(&mut self, ottaa: bool) {
         self.poyta.vakuuta(ottaa);
         self.viesti.clear();
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         if self.poyta.vuoro == Vuoro::Panostus {
             self.kierros_paattyi();
         } else if ottaa {
@@ -318,12 +291,12 @@ impl Blackjack {
 
     fn virhe(&mut self, avain: &str) {
         self.viesti = kaanna(avain).to_string();
-        self.aanijono.push((Aani::Virhe, 0));
+        self.aanet.jono.push((Aani::Virhe, 0));
     }
 
     fn pelaaja_siirsi(&mut self) {
         self.viesti.clear();
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         if self.poyta.vuoro == Vuoro::Jakaja {
             self.seuraava_siirto_ms = self.kello_ms.saturating_add(JAKAJAN_SIIRTO_MS);
         }
@@ -338,25 +311,26 @@ impl Blackjack {
         if self.poyta.rahat < PIENIN_PANOS {
             self.vaihe = Vaihe::Loppu;
             self.viesti = muotoile("blackjack.konkurssi", &[&raha(ALKURAHA)]);
-            self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if self.poyta.vakuutus_voitti() {
             let maksu = raha(2 * self.poyta.vakuutus);
             self.viesti = muotoile("blackjack.viesti_vakuutus", &[&maksu, &maara]);
-            self.aanijono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
         } else if blackjack {
             self.viesti = muotoile("blackjack.viesti_blackjack", &[&maara]);
-            self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
         } else if voitto > 0 {
             self.viesti = muotoile("blackjack.viesti_voitto", &[&maara]);
-            self.aanijono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
         } else if voitto < 0 {
             self.viesti = muotoile("blackjack.viesti_tappio", &[&maara]);
-            self.aanijono.push((Aani::Virhe, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Virhe, LOPPU_VIIVE_MS));
         } else {
             self.viesti = kaanna("blackjack.viesti_tasan").to_string();
-            self.aanijono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
         }
     }
 }
@@ -380,16 +354,8 @@ impl Pelinakyma for Blackjack {
         }
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -405,14 +371,8 @@ impl Pelinakyma for Blackjack {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Blackjack,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn kuvan_avain(&self) -> Option<(u32, u32)> {
@@ -427,6 +387,7 @@ impl Pelinakyma for Blackjack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset;
     use klassikot8000::blackjack::{Kortti, Maa};
 
     /// Peli panostusvaiheessa. Kortit nousevat annetussa järjestyksessä.
@@ -512,7 +473,7 @@ mod tests {
             peli.viesti,
             muotoile("blackjack.viesti_voitto", &[&raha(ALKUPANOS)])
         );
-        assert!(peli.aanijono.contains(&(Aani::Yhdistys, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Yhdistys, LOPPU_VIIVE_MS)));
     }
 
     #[test]
@@ -521,7 +482,7 @@ mod tests {
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.poyta.vuoro, Vuoro::Panostus);
         assert_eq!(peli.poyta.rahat, ALKURAHA + 15 * YKSI);
-        assert!(peli.aanijono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
     }
 
     #[test]
@@ -545,7 +506,7 @@ mod tests {
         peli.edista(10_000);
         assert_eq!(peli.vaihe, Vaihe::Loppu);
         assert_eq!(peli.poyta.rahat, 0);
-        assert!(peli.aanijono.contains(&(Aani::Tappio, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Tappio, LOPPU_VIIVE_MS)));
 
         // lopussa panos tai jako eivät enää toimi
         peli.kasittele(Syote::Ammu);
@@ -668,10 +629,10 @@ mod tests {
         assert!(!peli.lopeta);
         peli.kasittele(Syote::Ammu);
         assert!(peli.lopeta);
-        assert_eq!(peli.parhaat[0].nimi, "E");
-        assert_eq!(peli.parhaat[0].pisteet, 120);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "E");
+        assert_eq!(peli.taulu.parhaat[0].pisteet, 120);
         assert!(peli.uusi_tulos);
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 120);
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 120);
     }
 
     #[test]
@@ -679,11 +640,11 @@ mod tests {
         let mut peli = pelissa(&[]);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         let mut peli = pelissa(&[]);
         peli.poyta.rahat = ALKURAHA + 5 * YKSI;
-        peli.netti_parhaat = Some(vec![
+        peli.taulu.netti = Some(vec![
             tulokset::Tulos {
                 nimi: "A".to_string(),
                 pisteet: 100,
@@ -692,7 +653,7 @@ mod tests {
         ]);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
     }
 
     #[test]
@@ -710,7 +671,7 @@ mod tests {
         assert_ne!(peli.kuvan_askel(), kuva);
         peli.kasittele(Syote::Kirjain('A'));
         peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.parhaat[0].pisteet, 40);
+        assert_eq!(peli.taulu.parhaat[0].pisteet, 40);
     }
 
     #[test]

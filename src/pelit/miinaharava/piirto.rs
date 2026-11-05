@@ -223,14 +223,14 @@ pub fn piirra(peli: &Miinaharava, kuva: &mut [u32]) {
     } else {
         p.miinan_nakyma(peli);
     }
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 impl Piirtaja<'_> {
     fn miinan_alkuruutu(&mut self, peli: &Miinaharava) {
         self.maisema(kaanna("miinaharava.banneri"), &miinamalli());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
         let taso = peli.vaikeus;
         let kuvaus = muotoile(

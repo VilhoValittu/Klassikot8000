@@ -237,7 +237,7 @@ pub fn piirra(peli: &Silmukka, kuva: &mut [u32]) {
     } else {
         p.silmukan_nakyma(peli);
     }
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 fn pallo(k: &mut Kangas, keski: (i32, i32), sade: i32, vari: u32) {
@@ -247,8 +247,8 @@ fn pallo(k: &mut Kangas, keski: (i32, i32), sade: i32, vari: u32) {
 impl Piirtaja<'_> {
     fn silmukan_alkuruutu(&mut self, peli: &Silmukka) {
         self.maisema(kaanna("silmukka.banneri"), &ouroboros());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
         self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
         self.aloituskehote(ALOITUS);
     }
@@ -652,7 +652,7 @@ impl Piirtaja<'_> {
         let lauta = &peli.lauta;
         for (i, (otsikko, arvo)) in [
             (kaanna("yhteinen.pisteet"), lauta.pisteet.to_string()),
-            (kaanna("yhteinen.paras"), peli.paras.to_string()),
+            (kaanna("yhteinen.paras"), peli.taulu.paras.to_string()),
             (kaanna("silmukka.taso"), lauta.taso.to_string()),
             (kaanna("silmukka.pituus"), lauta.mato.len().to_string()),
         ]
@@ -668,8 +668,8 @@ impl Piirtaja<'_> {
             PARHAAT_Y,
             PARHAAT_L,
             PARHAAT_KOKO,
-            listan_otsikko(peli.netti_parhaat.is_some()),
-            peli.nakyva_lista(),
+            listan_otsikko(peli.taulu.netti.is_some()),
+            peli.taulu.nakyva(),
         );
     }
 

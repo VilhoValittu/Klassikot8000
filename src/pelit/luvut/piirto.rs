@@ -189,15 +189,15 @@ pub fn piirra(luvut: &Luvut, kuva: &mut [u32]) {
     } else {
         p.luvut_nakyma(luvut);
     }
-    p.aanikytkin(luvut.aanet_paalla);
+    p.aanikytkin(luvut.aanet.paalla);
 }
 
 impl Piirtaja<'_> {
     fn luvut_alkuruutu(&mut self, luvut: &Luvut) {
         let jatkuu = luvut.jatkuu;
         self.maisema(kaanna("luvut.banneri"), &lukupino());
-        let otsikko = listan_otsikko(luvut.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, luvut.nakyva_lista());
+        let otsikko = listan_otsikko(luvut.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, luvut.taulu.nakyva());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
         if jatkuu {
             self.teksti(48, y, kaanna(UUSI_PELI), KELTAINEN);
@@ -333,7 +333,7 @@ impl Piirtaja<'_> {
         let lauta: &Lukulauta = &luvut.lauta;
         for (i, (otsikko, arvo)) in [
             (kaanna("yhteinen.pisteet"), lauta.pisteet),
-            (kaanna("yhteinen.paras"), luvut.paras),
+            (kaanna("yhteinen.paras"), luvut.taulu.paras),
             (kaanna("luvut.suurin"), lauta.suurin()),
             (kaanna("yhteinen.siirrot"), luvut.siirtoja),
         ]
@@ -369,8 +369,8 @@ impl Piirtaja<'_> {
             PARHAAT_Y,
             PARHAAT_L,
             TULOS,
-            listan_otsikko(luvut.netti_parhaat.is_some()),
-            luvut.nakyva_lista(),
+            listan_otsikko(luvut.taulu.netti.is_some()),
+            luvut.taulu.nakyva(),
         );
     }
 

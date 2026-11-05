@@ -282,12 +282,12 @@ mod tests {
         peli.kasittele(Syote::Kirjain('S'));
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Voitto);
-        let oma = &peli.parhaat[Variantti::Spider as usize];
+        let oma = &peli.taulut[Variantti::Spider as usize].parhaat;
         assert_eq!(
             oma.iter().map(|t: &Tulos| &t.nimi[..]).collect::<Vec<_>>(),
             ["S"]
         );
-        assert!(peli.parhaat[Variantti::Klondike as usize].is_empty());
+        assert!(peli.taulut[Variantti::Klondike as usize].parhaat.is_empty());
     }
 
     #[test]

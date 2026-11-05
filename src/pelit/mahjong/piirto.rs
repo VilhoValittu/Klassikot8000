@@ -581,7 +581,7 @@ pub fn piirra_alku(peli: &Mahjong, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.mahjong_alkuruutu(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 pub fn piirra(peli: &Mahjong, ruutu: &mut [u32]) {
@@ -590,7 +590,7 @@ pub fn piirra(peli: &Mahjong, ruutu: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.mahjong_nakyma(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -610,8 +610,8 @@ fn sekunnit(ms: u32) -> String {
 impl Piirtaja<'_> {
     fn mahjong_alkuruutu(&mut self, peli: &Mahjong) {
         self.maisema(kaanna("mahjong.banneri"), &laattamalli());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
         let taso = peli.vaikeus;
         let kuvaus = muotoile(
@@ -951,14 +951,14 @@ impl Piirtaja<'_> {
             self.nappi(SIVU_TEKSTI_X, y, teksti, VALKOINEN, vari);
         }
 
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
         self.parhaat_lista(
             SIVU_TEKSTI_X,
             SIVU_PARHAAT_Y,
             SIVU_L - 36,
             TULOS,
             otsikko,
-            peli.nakyva_lista(),
+            peli.taulu.nakyva(),
         );
     }
 

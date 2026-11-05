@@ -3,14 +3,12 @@ use klassikot8000::miinaharava::{Avaus, Miinakentta, Paikka, SUURIN_AIKA, Vaikeu
 
 use super::piirto;
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 pub const RAJAHDYS_MS: u32 = 500;
 const LOPPU_VIIVE_MS: u32 = 250;
@@ -39,12 +37,7 @@ pub struct Miinaharava {
     pub ajat: [u32; 3],
     /// Tosi, kun uusi ennätys odottaa tiedostoon kirjoitusta.
     pub uusi_tulos: bool,
-    /// Top 3 pisteinä, suurin ensin. Pisteet tulevat ajasta ja tasosta.
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista, kun palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Nimetty tulos, jonka käynnistin lähettää nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     pub viesti: String,
@@ -56,8 +49,7 @@ pub struct Miinaharava {
     pub rajahdys: Option<u32>,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Ensimmäisen avauksen hetki: kello käy siitä asti.
     aika_alku: Option<u32>,
@@ -81,9 +73,7 @@ impl Miinaharava {
             lauta: Miinakentta::new(Vaikeus::Helppo),
             ajat: [0; 3],
             uusi_tulos: false,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Miinaharava),
             nimi: String::new(),
             viesti: String::new(),
             kursori: (0, 0),
@@ -91,8 +81,7 @@ impl Miinaharava {
             hiiren_ruutu: None,
             rajahdys: None,
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             aika_alku: None,
             loppuaika: None,
@@ -119,11 +108,6 @@ impl Miinaharava {
         self.loppuaika.unwrap_or(kulunut).min(SUURIN_AIKA)
     }
 
-    /// Nettilista, kun se on saatu, muuten omat tulokset.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
-    }
-
     /// Päättyneen pelin pisteet top-listalle.
     pub fn pisteet(&self) -> u32 {
         aikapisteet(self.vaikeus, self.aika())
@@ -134,15 +118,8 @@ impl Miinaharava {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let tulos = Tulos {
-            nimi: ota_nimi(&mut self.nimi),
-            pisteet: self.pisteet(),
-        };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        let pisteet = self.pisteet();
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Voitto;
     }
@@ -181,14 +158,14 @@ impl Miinaharava {
         self.aika_alku = None;
         self.loppuaika = None;
         self.viesti = kaanna("miinaharava.aloita").to_string();
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
         match yleinen(
             syote,
             self.vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
@@ -286,7 +263,8 @@ impl Miinaharava {
                 if self.aika_alku.is_none() {
                     self.aika_alku = Some(self.kello_ms);
                 }
-                self.aanijono
+                self.aanet
+                    .jono
                     .push((if maara > 1 { Aani::Liuku } else { Aani::Pomppu }, 0));
                 self.viesti.clear();
             }
@@ -294,9 +272,10 @@ impl Miinaharava {
                 self.loppuaika = Some(self.aika());
                 self.vaihe = Vaihe::Tappio;
                 self.rajahdys = Some(self.kello_ms);
-                self.aanijono.push((Aani::Rajahdys, 0));
-                self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Rajahdys, 0));
+                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.viesti = kaanna("miinaharava.pamaus").to_string();
             }
@@ -309,8 +288,9 @@ impl Miinaharava {
         let aika = self.aika().max(1);
         self.loppuaika = Some(aika);
         self.vaihe = Vaihe::Voitto;
-        self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
-        self.aanijono
+        self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+        self.aanet
+            .jono
             .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         let pisteet = self.pisteet();
         let paras = &mut self.ajat[tason_indeksi(self.vaikeus)];
@@ -321,7 +301,7 @@ impl Miinaharava {
         } else {
             self.viesti = muotoile("miinaharava.aika_viesti", &[&aika, &pisteet]);
         }
-        if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
+        if self.taulu.mahtuu(pisteet) {
             self.nimi.clear();
             self.vaihe = Vaihe::Nimi;
         }
@@ -329,7 +309,7 @@ impl Miinaharava {
 
     pub fn liputa(&mut self, ruutu: Paikka) {
         if self.lauta.liputa(ruutu) {
-            self.aanijono.push((Aani::Tiili, 0));
+            self.aanet.jono.push((Aani::Tiili, 0));
         }
     }
 
@@ -375,16 +355,8 @@ impl Pelinakyma for Miinaharava {
         kehys.venyta();
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -399,14 +371,8 @@ impl Pelinakyma for Miinaharava {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Miinaharava,
-            paras: None,
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn kuvan_avain(&self) -> Option<(u32, u32)> {
@@ -417,6 +383,7 @@ impl Pelinakyma for Miinaharava {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
     use klassikot8000::miinaharava::Tila;
 
     fn pelissa(vaikeus: Vaikeus, miinat: &[Paikka]) -> Miinaharava {
@@ -424,7 +391,7 @@ mod tests {
         peli.vaikeus = vaikeus;
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.lauta = Miinakentta::miinoista(vaikeus, miinat);
         peli
     }
@@ -448,13 +415,13 @@ mod tests {
             nimi: "V".to_string(),
             pisteet,
         };
-        assert_eq!(peli.parhaat, std::slice::from_ref(&tulos));
-        assert_eq!(peli.lahetys, Some(tulos));
+        assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
+        assert_eq!(peli.taulu.lahetys, Some(tulos));
         assert!(peli.uusi_tulos);
 
         // täydelle listalle heikompi tulos ei pääse, eikä nimeä kysytä
         let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0)]);
-        peli.parhaat = vec![
+        peli.taulu.parhaat = vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 5000,
@@ -464,7 +431,7 @@ mod tests {
         peli.avaa((1, 1));
         peli.avaa((8, 8));
         assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert!(peli.lahetys.is_none());
+        assert!(peli.taulu.lahetys.is_none());
     }
 
     #[test]
@@ -474,7 +441,7 @@ mod tests {
         peli.avaa((8, 8));
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         Pelinakyma::viimeistele(&mut peli);
-        assert_eq!(peli.parhaat[0].nimi, kaanna("yhteinen.oletusnimi"));
+        assert_eq!(peli.taulu.parhaat[0].nimi, kaanna("yhteinen.oletusnimi"));
     }
 
     fn klikkaa(peli: &mut Miinaharava, ruutu: Paikka) {
@@ -498,7 +465,7 @@ mod tests {
         peli.kasittele(Syote::Klikkaus(0, 300));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.vaikeus, Vaikeus::Helppo);
-        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Alku, 0)]);
     }
 
     #[test]
@@ -506,7 +473,7 @@ mod tests {
         let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0), (8, 8)]);
         klikkaa(&mut peli, (1, 1));
         assert!(peli.lauta.ruutu((1, 1)).auki);
-        assert_eq!(peli.aanijono, [(Aani::Pomppu, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Pomppu, 0)]);
 
         let (x, y) = piirto::ruudun_keskipiste(Vaikeus::Helppo, (0, 0));
         peli.kasittele(Syote::OikeaKlikkaus(x, y));
@@ -536,7 +503,7 @@ mod tests {
         assert_eq!(peli.kursori, (0, 0));
         peli.kasittele(Syote::Kirjain('F'));
         assert!(peli.lauta.ruutu((0, 0)).lippu);
-        assert_eq!(peli.aanijono.last(), Some(&(Aani::Tiili, 0)));
+        assert_eq!(peli.aanet.jono.last(), Some(&(Aani::Tiili, 0)));
         peli.kasittele(Syote::Hiiri(0, 0));
         assert!(!peli.kursori_nakyy);
     }
@@ -561,7 +528,7 @@ mod tests {
         let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0), (8, 8)]);
         klikkaa(&mut peli, (0, 0));
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.aanijono[0], (Aani::Rajahdys, 0));
+        assert_eq!(peli.aanet.jono[0], (Aani::Rajahdys, 0));
         assert!(peli.rajahdys.is_some());
         assert!(!peli.uusi_tulos);
         assert_eq!(peli.ajat, [0; 3]);
@@ -572,7 +539,7 @@ mod tests {
         peli.lauta = Miinakentta::miinoista(peli.vaikeus, &[(0, 0)]);
         klikkaa(peli, (1, 1));
         peli.edista(aika_ms);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         klikkaa(peli, (8, 8));
         assert_eq!(peli.vaihe, Vaihe::Voitto);
     }
@@ -581,7 +548,7 @@ mod tests {
     fn voitto_kirjaa_parhaan_ajan_vain_jos_se_paranee() {
         let mut peli = pelissa(Vaikeus::Helppo, &[(0, 0)]);
         // Täysi top 3, jottei nimikysely tule väliin.
-        peli.parhaat = vec![
+        peli.taulu.parhaat = vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 100_000,
@@ -593,9 +560,9 @@ mod tests {
         assert!(peli.uusi_tulos);
         assert_eq!(peli.paras_aika(), Some(40));
         assert!(peli.viesti.contains("40"));
-        assert!(peli.aanijono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
         assert_eq!(
-            peli.aanijono.last(),
+            peli.aanet.jono.last(),
             Some(&(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS))
         );
 

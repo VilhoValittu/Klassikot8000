@@ -6,14 +6,12 @@ use klassikot8000::{pyramidi as pyramidilogiikka, spider as spiderlogiikka};
 use super::piirto::{self, Kohta};
 use super::{haastenakyma, pyramidi, spider};
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi, paivita_nimen_tulos,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulos, Tulostaulu, muokkaa_nimea, ota_nimi};
 
 const TUPLAKLIKKAUS_MS: u32 = 400;
 // Pienempi liike on klikkauksen tärinää eikä vetämistä.
@@ -125,22 +123,14 @@ pub struct Pasianssi {
     pub pyramidi_valittu: Option<pyramidilogiikka::Paikka>,
     pub pyramidi_pito: Option<Pito<pyramidilogiikka::Paikka>>,
     /// Kunkin lajin oma lista, järjestys kuten `Variantti::KAIKKI`.
-    pub parhaat: [Vec<Tulos>; VARIANTTEJA],
-    /// Nettilistat. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: [Option<Vec<Tulos>>; VARIANTTEJA],
-    /// Kunkin lajin paras voitto, myös listalle yltämätön.
-    pub omat_parhaat: [u32; VARIANTTEJA],
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulut: [Tulostaulu; VARIANTTEJA],
     /// Käynnissä oleva haaste. `None` on tavallinen peli.
     pub haaste: Option<usize>,
     /// Listan osoitin.
     pub haaste_kursori: usize,
     pub haastepisteet: Haastepisteet,
-    pub haasteiden_parhaat: Vec<Tulos>,
-    pub netti_haasteet: Option<Vec<Tulos>>,
-    /// Haasteiden summa, joka odottaa lähetystä nettilistalle.
-    pub haaste_lahetys: Option<Tulos>,
+    /// Haasteiden summien lista.
+    pub haastetaulu: Tulostaulu,
     /// Kysytään kerran. Summa kasvaa haaste kerrallaan, joten rivi päivittyy saman nimen alle.
     pub haastenimi: String,
     /// Kirjoitettavana oleva nimimerkki.
@@ -155,8 +145,7 @@ pub struct Pasianssi {
     pub viesti: String,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     pub peliaika_ms: u32,
     pub voitto_alku: u32,
@@ -181,16 +170,11 @@ impl Pasianssi {
             pyramidi: pyramidilogiikka::Lauta::new(Vaikeus::Normaali, &mut Arpa::new(siemen)),
             pyramidi_valittu: None,
             pyramidi_pito: None,
-            parhaat: Default::default(),
-            netti_parhaat: Default::default(),
-            omat_parhaat: [0; VARIANTTEJA],
-            lahetys: None,
+            taulut: Variantti::KAIKKI.map(|variantti| Tulostaulu::new(nettipeli(variantti))),
             haaste: None,
             haaste_kursori: 0,
             haastepisteet: Haastepisteet::default(),
-            haasteiden_parhaat: Vec::new(),
-            netti_haasteet: None,
-            haaste_lahetys: None,
+            haastetaulu: Tulostaulu::new(Nettipeli::Haasteet),
             haastenimi: String::new(),
             nimi: String::new(),
             uusi_tulos: false,
@@ -205,8 +189,7 @@ impl Pasianssi {
             hiiri: (0, 0),
             viesti: String::new(),
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             peliaika_ms: 0,
             voitto_alku: 0,
@@ -221,17 +204,14 @@ impl Pasianssi {
         self.variantti as usize
     }
 
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        let i = self.lista_indeksi();
-        self.netti_parhaat[i].as_deref().unwrap_or(&self.parhaat[i])
+    /// Valitun lajin lista.
+    pub fn taulu(&self) -> &Tulostaulu {
+        &self.taulut[self.lista_indeksi()]
     }
 
-    /// Haasteiden lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn haastelista(&self) -> &[Tulos] {
-        self.netti_haasteet
-            .as_deref()
-            .unwrap_or(&self.haasteiden_parhaat)
+    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
+    pub fn nakyva_lista(&self) -> &[Tulos] {
+        self.taulu().nakyva()
     }
 
     /// Top-listan tulos: kaikkien haasteiden parhaiden pisteiden summa.
@@ -257,7 +237,7 @@ impl Pasianssi {
     }
 
     pub fn netti_vastasi(&self) -> bool {
-        self.netti_parhaat[self.lista_indeksi()].is_some()
+        self.taulu().netti.is_some()
     }
 
     /// Käynnissä olevan laudan taso.
@@ -365,7 +345,7 @@ impl Pasianssi {
             sarake: 0,
             syvyys: 0,
         };
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     /// Uusi peli vie sinne, mistä tähän peliin tultiin.
@@ -380,8 +360,9 @@ impl Pasianssi {
     fn siirrot_loppuivat(&mut self) {
         self.vaihe = Vaihe::Tappio;
         self.viesti = kaanna(SIIRROT_LOPPU).to_string();
-        self.aanijono.push((Aani::Tappio, VOITTO_VIIVE_MS));
-        self.aanijono
+        self.aanet.jono.push((Aani::Tappio, VOITTO_VIIVE_MS));
+        self.aanet
+            .jono
             .push((Aani::EiSiirtoja, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
     }
 
@@ -450,13 +431,8 @@ impl Pasianssi {
             return;
         }
         let pisteet = self.pisteet();
-        let tulos = Tulos { nimi, pisteet };
         let i = self.lista_indeksi();
-        lisaa_tulos(&mut self.parhaat[i], tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat[i] {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulut[i].lisaa(Tulos { nimi, pisteet });
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Voitto;
     }
@@ -466,11 +442,7 @@ impl Pasianssi {
             nimi: self.haastenimi.clone(),
             pisteet: self.haasteiden_summa(),
         };
-        paivita_nimen_tulos(&mut self.haasteiden_parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_haasteet {
-            paivita_nimen_tulos(lista, tulos.clone());
-        }
-        self.haaste_lahetys = Some(tulos);
+        self.haastetaulu.lisaa(tulos);
         self.uusi_tulos = true;
     }
 
@@ -485,7 +457,7 @@ impl Pasianssi {
         }
         let summa = self.haasteiden_summa();
         self.viesti = muotoile(HAASTE_VOITTO, &[&pisteet, &summa]);
-        if parani && mahtuu_parhaisiin(self.haastelista(), summa) {
+        if parani && self.haastetaulu.mahtuu(summa) {
             if self.haastenimi.is_empty() {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
@@ -510,7 +482,7 @@ impl Pasianssi {
         match yleinen(
             syote,
             vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             kytkimella,
         ) {
             Yleinen::Peli => {}
@@ -713,7 +685,7 @@ impl Pasianssi {
         } else if peruttu {
             self.viesti.clear();
             self.kursori.syvyys = 0;
-            self.aanijono.push((Aani::Liuku, 0));
+            self.aanet.jono.push((Aani::Liuku, 0));
         } else {
             self.virhe(EI_PERUTTAVAA);
         }
@@ -735,7 +707,7 @@ impl Pasianssi {
 
     pub(super) fn virhe(&mut self, viesti: &str) {
         self.viesti = kaanna(viesti).to_string();
-        self.aanijono.push((Aani::Virhe, 0));
+        self.aanet.jono.push((Aani::Virhe, 0));
     }
 
     /// Yhteinen loppu kaikille laudan muuttaneille siirroille.
@@ -750,19 +722,20 @@ impl Pasianssi {
         if self.variantti != Variantti::Pyramidi {
             self.kursori.syvyys = 0;
         }
-        self.aanijono.push((aani, 0));
+        self.aanet.jono.push((aani, 0));
         if self.lauta_voitettu() {
             self.vaihe = Vaihe::Voitto;
             self.voitto_alku = self.kello_ms;
-            self.aanijono.push((Aani::Voitto, VOITTO_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Voitto, VOITTO_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::Voitit, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
             if let Some(haaste) = self.haaste {
                 self.haaste_voitettu(haaste);
                 return;
             }
             let pisteet = self.pisteet();
-            let oma = &mut self.omat_parhaat[self.variantti as usize];
+            let oma = &mut self.taulut[self.variantti as usize].paras;
             if pisteet > *oma {
                 *oma = pisteet;
                 self.uusi_tulos = true;
@@ -773,7 +746,7 @@ impl Pasianssi {
                 VOITTOVIESTI
             };
             self.viesti = muotoile(viesti, &[&pisteet]);
-            if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
+            if self.taulu().mahtuu(pisteet) {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
             }
@@ -1007,16 +980,8 @@ impl Pelinakyma for Pasianssi {
         }
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -1031,32 +996,9 @@ impl Pelinakyma for Pasianssi {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        let nykyinen = self.variantti;
-        let mut lahetys = Some(&mut self.lahetys);
-        let mut listat: Vec<Lista<'_>> = Variantti::KAIKKI
-            .into_iter()
-            .zip(self.parhaat.iter_mut().zip(&mut self.netti_parhaat))
-            .zip(&mut self.omat_parhaat)
-            .map(|((variantti, (parhaat, netti)), paras)| Lista {
-                peli: nettipeli(variantti),
-                paras: Some(paras),
-                parhaat,
-                netti,
-                lahetys: if variantti == nykyinen {
-                    lahetys.take()
-                } else {
-                    None
-                },
-            })
-            .collect();
-        listat.push(Lista {
-            peli: Nettipeli::Haasteet,
-            paras: None,
-            parhaat: &mut self.haasteiden_parhaat,
-            netti: &mut self.netti_haasteet,
-            lahetys: Some(&mut self.haaste_lahetys),
-        });
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        let mut listat: Vec<_> = self.taulut.iter_mut().collect();
+        listat.push(&mut self.haastetaulu);
         listat
     }
 
@@ -1070,599 +1012,4 @@ impl Pelinakyma for Pasianssi {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use klassikot8000::pasianssi::{Kortti, Maa, Sarake};
-
-    fn pelissa() -> Pasianssi {
-        let mut peli = Pasianssi::new(1);
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        peli.lauta.tila.pakka.clear();
-        peli.lauta.tila.sarakkeet = Default::default();
-        peli
-    }
-
-    fn kortti(maa: Maa, arvo: u8) -> Kortti {
-        Kortti { maa, arvo }
-    }
-
-    fn aseta(peli: &mut Pasianssi, sarake: usize, kortit: &[Kortti]) {
-        peli.lauta.tila.sarakkeet[sarake] = Sarake {
-            kortit: kortit.to_vec(),
-            piilossa: 0,
-        };
-    }
-
-    /// Kaksi saraketta, joiden välillä musta 6 siirtyy punaisen 7:n päälle.
-    fn kaksi_saraketta() -> Pasianssi {
-        let mut peli = pelissa();
-        aseta(&mut peli, 0, &[kortti(Maa::Pata, 6)]);
-        aseta(&mut peli, 1, &[kortti(Maa::Hertta, 7)]);
-        peli
-    }
-
-    fn kortin_keskipiste(peli: &Pasianssi, sarake: usize, kortti: usize) -> (i32, i32) {
-        let (x, y) = piirto::kortin_paikka(&peli.lauta, Lahde::Sarake { sarake, kortti });
-        (x + 20, y + 20)
-    }
-
-    /// Tyhjentää haasteen laudan niin, että seuraava keräys voittaa.
-    fn yhden_kortin_paassa_voitosta(peli: &mut Pasianssi) {
-        peli.lauta.tila.pakka.clear();
-        peli.lauta.tila.jate.clear();
-        peli.lauta.tila.sarakkeet = Default::default();
-        for (i, &maa) in Maa::KAIKKI.iter().enumerate() {
-            peli.lauta.tila.perustat[i] = (1..=13).map(|arvo| kortti(maa, arvo)).collect();
-        }
-        let viimeinen = peli.lauta.tila.perustat[0].pop().unwrap();
-        aseta(peli, 0, &[viimeinen]);
-    }
-
-    #[test]
-    fn haasteet_avautuvat_ja_esc_palaa_alkuruudulle() {
-        let mut peli = Pasianssi::new(1);
-        peli.kasittele(Syote::Kirjain('H'));
-        assert_eq!(peli.vaihe, Vaihe::Haasteet);
-        peli.kasittele(Syote::Peru);
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-        assert!(!peli.lopeta);
-
-        let (x, y) = piirto::haastenapin_keskipiste();
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.vaihe, Vaihe::Haasteet);
-        let (x, y) = haastenakyma::takaisin_keskipiste();
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-    }
-
-    #[test]
-    fn haastelistan_osoitin_liikkuu_ruudukossa_ja_lajit_vaihtuvat() {
-        let mut peli = Pasianssi::new(1);
-        peli.kasittele(Syote::Kirjain('H'));
-        peli.kasittele(Syote::Nuoli(-1, 0));
-        peli.kasittele(Syote::Nuoli(0, -1));
-        assert_eq!(peli.haaste_kursori, 0);
-        peli.kasittele(Syote::Nuoli(1, 0));
-        assert_eq!(peli.haaste_kursori, HAASTERIVILLA);
-        peli.kasittele(Syote::Nuoli(0, 1));
-        assert_eq!(peli.haaste_kursori, HAASTERIVILLA + 1);
-        for _ in 0..10 {
-            peli.kasittele(Syote::Nuoli(1, 0));
-        }
-        assert!(peli.haaste_kursori < HAASTEITA);
-        peli.kasittele(Syote::Numero(2));
-        assert_eq!(peli.variantti, Variantti::Spider);
-        peli.kasittele(Syote::Numero(9));
-        assert_eq!(peli.variantti, Variantti::Spider);
-        let (x, y) = haastenakyma::lajin_keskipiste(Variantti::Pyramidi);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.variantti, Variantti::Pyramidi);
-        assert_eq!(peli.vaihe, Vaihe::Haasteet);
-    }
-
-    #[test]
-    fn jokaisen_lajin_haaste_alkaa_klikkaamalla_ja_kello_nollautuu() {
-        for laji in Variantti::KAIKKI {
-            let mut peli = Pasianssi::new(1);
-            peli.variantti = laji;
-            peli.peliaika_ms = 5000;
-            peli.kasittele(Syote::Kirjain('H'));
-            let (x, y) = haastenakyma::haasteen_keskipiste(HAASTEITA - 1);
-            peli.kasittele(Syote::Klikkaus(x, y));
-            assert_eq!(peli.vaihe, Vaihe::Pelissa);
-            assert_eq!(peli.haaste, Some(HAASTEITA - 1));
-            assert_eq!(peli.peliaika_ms, 0);
-            assert_eq!(peli.laudan_vaikeus(), Vaikeus::Vaikea);
-            assert_eq!(peli.viesti, kaanna(HAASTE_VIESTI));
-        }
-    }
-
-    #[test]
-    fn haasteessa_peruutus_toimii_vaikeallakin_ja_k_palaa_listaan() {
-        let mut peli = Pasianssi::new(1);
-        peli.aloita_haaste(HAASTEITA - 1);
-        let alku = peli.lauta.tila.clone();
-        peli.kasittele(Syote::Kirjain('N'));
-        assert_ne!(peli.lauta.tila, alku);
-        peli.kasittele(Syote::Kirjain('U'));
-        assert_eq!(peli.lauta.tila, alku);
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.vaihe, Vaihe::Haasteet);
-        assert_eq!(peli.haaste, None);
-
-        // Tavallinen peli palaa alkuruudulle kuten ennenkin.
-        peli.vaihe = Vaihe::Alku;
-        peli.kasittele(Syote::Ammu);
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-    }
-
-    /// Laudan tila lajista riippumatta, jotta testi voi verrata jakoja.
-    fn laudan_tila(peli: &Pasianssi) -> String {
-        match peli.variantti {
-            Variantti::Klondike => format!("{:?}", peli.lauta.tila),
-            Variantti::Spider => format!("{:?}", peli.spider.tila),
-            Variantti::Pyramidi => format!("{:?}", peli.pyramidi.tila),
-        }
-    }
-
-    #[test]
-    fn r_aloittaa_saman_jaon_alusta_joka_lajissa() {
-        for variantti in Variantti::KAIKKI {
-            let mut peli = Pasianssi::new(3);
-            peli.variantti = variantti;
-            peli.kasittele(Syote::Ammu);
-            let alku = laudan_tila(&peli);
-            peli.kasittele(Syote::Kirjain('N'));
-            peli.edista(5000);
-            assert_ne!(laudan_tila(&peli), alku, "{variantti:?}");
-            peli.kasittele(Syote::Kirjain('R'));
-            assert_eq!(laudan_tila(&peli), alku, "{variantti:?}");
-            assert_eq!(peli.vaihe, Vaihe::Pelissa);
-            assert_eq!(peli.peliaika_ms, 0);
-
-            // Napista sama, ja tappion jälkeenkin jako alkaa alusta.
-            peli.kasittele(Syote::Kirjain('N'));
-            let (x, y) = match variantti {
-                Variantti::Klondike => piirto::napin_keskipiste(Nappi::Alusta),
-                Variantti::Spider => spider::piirto::napin_keskipiste(Nappi::Alusta),
-                Variantti::Pyramidi => pyramidi::piirto::napin_keskipiste(Nappi::Alusta),
-            };
-            peli.siirrot_loppuivat();
-            peli.kasittele(Syote::Klikkaus(x, y));
-            assert_eq!(laudan_tila(&peli), alku, "{variantti:?}");
-            assert_eq!(peli.vaihe, Vaihe::Pelissa);
-
-            // Uusi peli jakaa eri kortit.
-            peli.kasittele(Syote::Kirjain('K'));
-            peli.kasittele(Syote::Ammu);
-            assert_ne!(laudan_tila(&peli), alku, "{variantti:?}");
-        }
-    }
-
-    #[test]
-    fn r_aloittaa_haasteen_alusta() {
-        let mut peli = Pasianssi::new(1);
-        peli.aloita_haaste(HAASTEITA - 1);
-        let alku = peli.lauta.tila.clone();
-        peli.kasittele(Syote::Kirjain('N'));
-        peli.kasittele(Syote::Kirjain('R'));
-        assert_eq!(peli.lauta.tila, alku);
-        assert_eq!(peli.haaste, Some(HAASTEITA - 1));
-        assert_eq!(peli.viesti, kaanna(HAASTE_VIESTI));
-    }
-
-    #[test]
-    fn jumiutunut_haaste_ei_paaty_tappioon_vaan_voi_peruuttaa() {
-        let mut peli = Pasianssi::new(1);
-        peli.aloita_haaste(HAASTEITA - 1);
-        peli.lauta.tila.pakka.clear();
-        peli.lauta.tila.jate = vec![kortti(Maa::Hertta, 5)];
-        peli.lauta.tila.kierratykset = 2;
-        peli.lauta.tila.perustat = Default::default();
-        aseta(&mut peli, 0, &[kortti(Maa::Pata, 9)]);
-        aseta(
-            &mut peli,
-            1,
-            &[kortti(Maa::Risti, 5), kortti(Maa::Hertta, 1)],
-        );
-        for sarake in 2..SARAKKEITA {
-            aseta(&mut peli, sarake, &[kortti(Maa::Pata, 9)]);
-        }
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.viesti, kaanna(HAASTE_JUMISSA));
-        peli.kasittele(Syote::Kirjain('U'));
-        assert_eq!(peli.lauta.tila.perustat[0].len(), 0);
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-    }
-
-    #[test]
-    fn haasteen_voitto_kysyy_nimen_kerran_ja_summa_korvaa_rivin() {
-        let mut peli = Pasianssi::new(1);
-        peli.aloita_haaste(0);
-        yhden_kortin_paassa_voitosta(&mut peli);
-        peli.edista(10_000);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Nimi);
-        let eka = haasteet::pisteet(0, 10);
-        assert_eq!(peli.nimen_pisteet(), eka);
-        peli.kasittele(Syote::Kirjain('V'));
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert_eq!(peli.haastenimi, "V");
-        assert_eq!(peli.haastepisteet[0][0], eka);
-        let lahetetty = peli.haaste_lahetys.take().unwrap();
-        assert_eq!(lahetetty.pisteet, eka);
-        // Tavallisten pelien listat eivät muutu.
-        assert!(peli.parhaat[0].is_empty());
-        assert_eq!(peli.lahetys, None);
-
-        // Seuraava haaste ei enää kysy nimeä, ja rivi päivittyy saman nimen alle.
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.vaihe, Vaihe::Haasteet);
-        peli.aloita_haaste(HAASTEITA - 1);
-        yhden_kortin_paassa_voitosta(&mut peli);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        let summa = eka + haasteet::pisteet(HAASTEITA - 1, 0);
-        assert_eq!(peli.haasteiden_summa(), summa);
-        assert_eq!(peli.haaste_lahetys.take().unwrap().pisteet, summa);
-        assert_eq!(peli.haasteiden_parhaat.len(), 1);
-        assert_eq!(peli.haasteiden_parhaat[0].pisteet, summa);
-        assert_eq!(peli.lapaistyja_haasteita(), 2);
-    }
-
-    #[test]
-    fn huonompi_uusinta_ei_muuta_tulosta_eika_laheta_mitaan() {
-        let mut peli = Pasianssi::new(1);
-        peli.haastenimi = "V".to_string();
-        peli.aloita_haaste(0);
-        yhden_kortin_paassa_voitosta(&mut peli);
-        peli.kasittele(Syote::Kirjain('A'));
-        let paras = peli.haastepisteet[0][0];
-        peli.haaste_lahetys = None;
-        peli.uusi_tulos = false;
-
-        peli.kasittele(Syote::Kirjain('K'));
-        peli.aloita_haaste(0);
-        yhden_kortin_paassa_voitosta(&mut peli);
-        peli.edista(60_000);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert_eq!(peli.haastepisteet[0][0], paras);
-        assert_eq!(peli.haaste_lahetys, None);
-        assert!(!peli.uusi_tulos);
-    }
-
-    #[test]
-    fn listalle_yltamaton_summa_sailyy_mutta_ei_kysy_nimea() {
-        let mut peli = Pasianssi::new(1);
-        peli.netti_haasteet = Some(vec![
-            Tulos {
-                nimi: "A".to_string(),
-                pisteet: 600_000,
-            };
-            3
-        ]);
-        peli.aloita_haaste(0);
-        yhden_kortin_paassa_voitosta(&mut peli);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert!(peli.haastepisteet[0][0] > 0);
-        assert!(peli.uusi_tulos);
-        assert_eq!(peli.haaste_lahetys, None);
-    }
-
-    #[test]
-    fn laji_vaihtuu_alkuruudulla_ja_jokaisella_on_oma_listansa() {
-        let mut peli = Pasianssi::new(1);
-        peli.parhaat[Variantti::Spider as usize] = vec![Tulos {
-            nimi: "S".to_string(),
-            pisteet: 5,
-        }];
-        assert!(peli.nakyva_lista().is_empty());
-        peli.kasittele(Syote::Nuoli(1, 0));
-        assert_eq!(peli.variantti, Variantti::Spider);
-        assert_eq!(peli.nakyva_lista()[0].nimi, "S");
-        peli.kasittele(Syote::Nuoli(1, 0));
-        assert_eq!(peli.variantti, Variantti::Pyramidi);
-        peli.kasittele(Syote::Nuoli(1, 0));
-        assert_eq!(peli.variantti, Variantti::Pyramidi);
-        assert_eq!(peli.vaikeus, Vaikeus::Normaali);
-
-        let (x, y) = piirto::variantin_keskipiste(Variantti::Spider);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.variantti, Variantti::Spider);
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-        peli.kasittele(Syote::Numero(3));
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.spider.vaikeus, Vaikeus::Vaikea);
-    }
-
-    #[test]
-    fn alussa_valitaan_taso_ja_peli_alkaa_sillä() {
-        let mut peli = Pasianssi::new(1);
-        peli.kasittele(Syote::Numero(3));
-        assert_eq!(peli.vaikeus, Vaikeus::Vaikea);
-        peli.kasittele(Syote::Nuoli(0, -1));
-        assert_eq!(peli.vaikeus, Vaikeus::Normaali);
-        let (x, y) = piirto::vaikeuden_keskipiste(Vaikeus::Helppo);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.vaikeus, Vaikeus::Helppo);
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.lauta.vaikeus, Vaikeus::Helppo);
-        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
-    }
-
-    #[test]
-    fn veto_siirtaa_kortin_ja_laiton_pudotus_ahkaisee() {
-        let mut peli = kaksi_saraketta();
-        let (x, y) = kortin_keskipiste(&peli, 0, 0);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert!(peli.pito.is_some());
-        let (kx, ky) = kortin_keskipiste(&peli, 1, 0);
-        peli.kasittele(Syote::Hiiri(kx, ky));
-        assert!(peli.pito.is_some_and(|pito| pito.liikkui));
-        peli.kasittele(Syote::Vapautus(kx, ky));
-        assert_eq!(peli.lauta.tila.sarakkeet[1].kortit.len(), 2);
-        assert!(peli.pito.is_none());
-
-        let mut peli = pelissa();
-        aseta(&mut peli, 0, &[kortti(Maa::Pata, 6)]);
-        aseta(&mut peli, 1, &[kortti(Maa::Pata, 7)]);
-        let (x, y) = kortin_keskipiste(&peli, 0, 0);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        let (kx, ky) = kortin_keskipiste(&peli, 1, 0);
-        peli.kasittele(Syote::Hiiri(kx, ky));
-        peli.kasittele(Syote::Vapautus(kx, ky));
-        assert_eq!(peli.lauta.tila.sarakkeet[0].kortit.len(), 1);
-        assert_eq!(peli.viesti, kaanna(EI_KAY));
-        assert!(peli.aanijono.contains(&(Aani::Virhe, 0)));
-    }
-
-    #[test]
-    fn klikkaus_valitsee_ja_toinen_klikkaus_siirtaa() {
-        let mut peli = kaksi_saraketta();
-        let (x, y) = kortin_keskipiste(&peli, 0, 0);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        peli.kasittele(Syote::Vapautus(x, y));
-        assert!(peli.valittu.is_some());
-
-        let (kx, ky) = kortin_keskipiste(&peli, 1, 0);
-        peli.kasittele(Syote::Klikkaus(kx, ky));
-        assert_eq!(peli.lauta.tila.sarakkeet[1].kortit.len(), 2);
-        assert!(peli.valittu.is_none());
-    }
-
-    #[test]
-    fn tuplaklikkaus_vie_perustalle_ja_hidas_ei() {
-        let mut peli = pelissa();
-        aseta(&mut peli, 0, &[kortti(Maa::Risti, 1)]);
-        let (x, y) = kortin_keskipiste(&peli, 0, 0);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        peli.kasittele(Syote::Vapautus(x, y));
-        peli.edista(TUPLAKLIKKAUS_MS + 1);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        peli.kasittele(Syote::Vapautus(x, y));
-        assert_eq!(peli.lauta.tila.perustat[Maa::Risti as usize].len(), 0);
-
-        peli.edista(100);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.lauta.tila.perustat[Maa::Risti as usize].len(), 1);
-    }
-
-    #[test]
-    fn pakan_klikkaus_ja_n_nostavat_ja_lopussa_tulee_viesti() {
-        let mut peli = Pasianssi::new(1);
-        peli.vaikeus = Vaikeus::Vaikea;
-        peli.kasittele(Syote::Ammu);
-        let (x, y) = piirto::kortin_kulma_pakka();
-        peli.kasittele(Syote::Klikkaus(x + 5, y + 5));
-        assert_eq!(peli.lauta.tila.jate.len(), 3);
-        peli.kasittele(Syote::Kirjain('N'));
-        assert_eq!(peli.lauta.tila.jate.len(), 6);
-        for _ in 0..100 {
-            peli.kasittele(Syote::Kirjain('N'));
-        }
-        assert_eq!(peli.viesti, kaanna(PAKKA_LOPPU));
-    }
-
-    #[test]
-    fn kursori_liikkuu_jonon_ylos_ja_ylarivi_ohittaa_tyhjan_paikan() {
-        let mut peli = pelissa();
-        peli.kasittele(Syote::Nuoli(0, 1));
-        assert_eq!(peli.kursorin_kohta(), Some(Kohta::Jate));
-        peli.kasittele(Syote::Nuoli(0, 1));
-        assert_eq!(peli.kursorin_kohta(), Some(Kohta::Perusta(0)));
-        peli.kasittele(Syote::Nuoli(0, -1));
-        assert_eq!(peli.kursorin_kohta(), Some(Kohta::Jate));
-
-        aseta(
-            &mut peli,
-            1,
-            &[kortti(Maa::Hertta, 9), kortti(Maa::Pata, 8)],
-        );
-        peli.kasittele(Syote::Nuoli(1, 0));
-        let kohta = |kortti| Kohta::Sarake { sarake: 1, kortti };
-        assert_eq!(peli.kursorin_kohta(), Some(kohta(Some(1))));
-        peli.kasittele(Syote::Nuoli(-1, 0));
-        assert_eq!(peli.kursorin_kohta(), Some(kohta(Some(0))));
-        peli.kasittele(Syote::Nuoli(-1, 0));
-        assert_eq!(peli.kursorin_kohta(), Some(Kohta::Jate));
-    }
-
-    #[test]
-    fn nappaimilla_siirto_ja_toinen_painallus_peruu_valinnan() {
-        let mut peli = kaksi_saraketta();
-        peli.kasittele(Syote::Nuoli(1, 0));
-        peli.kasittele(Syote::Ammu);
-        assert!(peli.valittu.is_some());
-        peli.kasittele(Syote::Ammu);
-        assert!(peli.valittu.is_none());
-
-        peli.kasittele(Syote::Ammu);
-        peli.kasittele(Syote::Nuoli(0, 1));
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.lauta.tila.sarakkeet[1].kortit.len(), 2);
-    }
-
-    #[test]
-    fn esc_peruu_ensin_valinnan_ja_sitten_palaa_valikkoon() {
-        let mut peli = kaksi_saraketta();
-        peli.kasittele(Syote::Nuoli(1, 0));
-        peli.kasittele(Syote::Ammu);
-        peli.kasittele(Syote::Peru);
-        assert!(peli.valittu.is_none());
-        assert!(!peli.lopeta);
-        peli.kasittele(Syote::Peru);
-        assert!(peli.lopeta);
-    }
-
-    #[test]
-    fn peruutus_ja_keraa_toimivat_napeista_ja_vaikealla_ei_voi_perua() {
-        let mut peli = kaksi_saraketta();
-        aseta(&mut peli, 2, &[kortti(Maa::Risti, 1)]);
-        let (x, y) = piirto::napin_keskipiste(Nappi::Keraa);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.lauta.tila.perustat[Maa::Risti as usize].len(), 1);
-        let (x, y) = piirto::napin_keskipiste(Nappi::Peruuta);
-        peli.kasittele(Syote::Klikkaus(x, y));
-        assert_eq!(peli.lauta.tila.perustat[Maa::Risti as usize].len(), 0);
-
-        let mut peli = Pasianssi::new(1);
-        peli.vaikeus = Vaikeus::Vaikea;
-        peli.kasittele(Syote::Ammu);
-        peli.kasittele(Syote::Kirjain('N'));
-        peli.kasittele(Syote::Kirjain('U'));
-        assert_eq!(peli.viesti, kaanna(EI_PERUUTUSTA));
-        assert_eq!(peli.lauta.tila.jate.len(), 3);
-    }
-
-    #[test]
-    fn viimeinen_kortti_voittaa_ja_kello_pysahtyy() {
-        let mut peli = pelissa();
-        for (i, &maa) in Maa::KAIKKI.iter().enumerate() {
-            peli.lauta.tila.perustat[i] = (1..=13).map(|arvo| kortti(maa, arvo)).collect();
-        }
-        let viimeinen = peli.lauta.tila.perustat[0].pop().unwrap();
-        aseta(&mut peli, 0, &[viimeinen]);
-        peli.edista(1000);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Nimi);
-        assert!(peli.aanijono.contains(&(Aani::Voitto, VOITTO_VIIVE_MS)));
-        peli.edista(1000);
-        assert_eq!(peli.peliaika_ms, 1000);
-
-        // Tulos riippuu vain ajasta, ja nimi kirjoitetaan ennen kuin loppu kuittaa mitään.
-        let pisteet = aikapisteet(Vaikeus::Normaali, 1);
-        assert_eq!(peli.viesti, muotoile(VOITTOVIESTI, &[&pisteet]));
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Nimi);
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.nimi, "K");
-        peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert!(peli.uusi_tulos);
-        assert_eq!(
-            peli.parhaat[Variantti::Klondike as usize][0].pisteet,
-            pisteet
-        );
-        assert_eq!(peli.lahetys.as_ref().unwrap().nimi, "K");
-
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-        peli.vaihe = Vaihe::Voitto;
-        peli.kasittele(Syote::Kirjain('E'));
-        assert!(peli.lopeta);
-    }
-
-    #[test]
-    fn listalle_yltamaton_voitto_ja_keskeytys_eivat_kysy_nimea() {
-        let mut peli = pelissa();
-        peli.netti_parhaat[Variantti::Klondike as usize] = Some(vec![
-            Tulos {
-                nimi: "A".to_string(),
-                pisteet: 100_000,
-            };
-            3
-        ]);
-        for (i, &maa) in Maa::KAIKKI.iter().enumerate() {
-            peli.lauta.tila.perustat[i] = (1..=13).map(|arvo| kortti(maa, arvo)).collect();
-        }
-        let viimeinen = peli.lauta.tila.perustat[0].pop().unwrap();
-        aseta(&mut peli, 0, &[viimeinen]);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert_eq!(peli.lahetys, None);
-        // Listalle yltämätönkin voitto on oma ennätys, ja se tallennetaan.
-        let pisteet = aikapisteet(Vaikeus::Normaali, 0);
-        assert_eq!(peli.omat_parhaat, [pisteet, 0, 0]);
-        assert!(peli.uusi_tulos);
-
-        let mut peli = pelissa();
-        peli.kasittele(Syote::Peru);
-        assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
-    }
-
-    #[test]
-    fn pisteet_laskevat_ajan_kuluessa_ja_havio_ei_anna_mitaan() {
-        let mut peli = pelissa();
-        let alussa = peli.pisteet();
-        peli.edista(1000);
-        assert!(peli.pisteet() < alussa);
-        peli.vaihe = Vaihe::Tappio;
-        assert_eq!(peli.pisteet(), 0);
-    }
-
-    #[test]
-    fn peli_loppuu_kun_siirrot_loppuvat_ja_kello_pysahtyy() {
-        let mut peli = pelissa();
-        peli.lauta.vaikeus = Vaikeus::Vaikea;
-        peli.lauta.tila.kierratykset = 2;
-        peli.lauta.tila.jate = vec![kortti(Maa::Hertta, 5)];
-        aseta(&mut peli, 0, &[kortti(Maa::Pata, 9)]);
-        aseta(
-            &mut peli,
-            1,
-            &[kortti(Maa::Risti, 5), kortti(Maa::Hertta, 1)],
-        );
-        peli.edista(1000);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.viesti, kaanna(SIIRROT_LOPPU));
-        assert!(peli.aanijono.contains(&(Aani::Tappio, VOITTO_VIIVE_MS)));
-        peli.edista(1000);
-        assert_eq!(peli.peliaika_ms, 1000);
-
-        // Lopussa kortteja ei enää liikuteta, vain uusi peli tai valikko.
-        peli.kasittele(Syote::Kirjain('N'));
-        assert_eq!(peli.lauta.tila.jate.len(), 1);
-        peli.kasittele(Syote::Kirjain('K'));
-        assert_eq!(peli.vaihe, Vaihe::Alku);
-    }
-
-    #[test]
-    fn jonon_osan_siirto_pitaa_pelin_kaynnissa_ja_vihje_nakyy() {
-        let mut peli = pelissa();
-        aseta(
-            &mut peli,
-            0,
-            &[
-                kortti(Maa::Hertta, 9),
-                kortti(Maa::Pata, 8),
-                kortti(Maa::Hertta, 7),
-            ],
-        );
-        aseta(&mut peli, 1, &[kortti(Maa::Risti, 8)]);
-        aseta(&mut peli, 2, &[kortti(Maa::Hertta, 1)]);
-        peli.kasittele(Syote::Kirjain('A'));
-        assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.viesti, kaanna(JUMISSA));
-    }
-}
+mod tests;

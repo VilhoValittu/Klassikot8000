@@ -2,14 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::asteroidit::{ASKEL_MS, Avaruus, Ohjaus, Piste, Tapahtuma, Tila};
 
 use super::piirto;
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 pub const RAJAHDYS_MS: u32 = 450;
 // Ikkunan raahaus voi pysäyttää silmukan: kivet eivät saa sen jälkeen hypätä kerralla pitkälle.
@@ -46,12 +44,7 @@ pub struct Rajahdys {
 pub struct Asteroidit {
     pub vaihe: Vaihe,
     pub lauta: Avaruus,
-    pub paras: u32,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun päättyneen pelin ennätys odottaa tiedostoon kirjoitusta.
@@ -60,8 +53,7 @@ pub struct Asteroidit {
     pub rajahdykset: Vec<Rajahdys>,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     pub ohjaus: Ohjaus,
     /// Pelaaja poistuu kesken pelin: peli seisoo, ja nimen jälkeen palataan valikkoon.
@@ -78,17 +70,13 @@ impl Asteroidit {
         Self {
             vaihe: Vaihe::Alku,
             lauta: Avaruus::new(0, &mut arpa),
-            paras: 0,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Asteroidit),
             nimi: String::new(),
             uusi_tulos: false,
             viesti: String::new(),
             rajahdykset: Vec::new(),
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             ohjaus: Ohjaus::default(),
             poistuu: false,
@@ -97,11 +85,6 @@ impl Asteroidit {
             lautanen_ms: 0,
             arpa,
         }
-    }
-
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
     /// Pohjassa olevat nuolet. Nuolella kääntäminen ohittaa hiiren tähtäimen.
@@ -137,11 +120,11 @@ impl Asteroidit {
         self.lautanen_ms = self.lautanen_ms.saturating_sub(ms);
         if self.lauta.tyontaa && self.moottori_ms == 0 {
             self.moottori_ms = MOOTTORIN_VALI_MS;
-            self.aanijono.push((Aani::Moottori, 0));
+            self.aanet.jono.push((Aani::Moottori, 0));
         }
         if self.lauta.lautanen.is_some() && self.lautanen_ms == 0 {
             self.lautanen_ms = LAUTASEN_VALI_MS;
-            self.aanijono.push((Aani::Lautanen, 0));
+            self.aanet.jono.push((Aani::Lautanen, 0));
         }
     }
 
@@ -154,35 +137,36 @@ impl Asteroidit {
     }
 
     fn kasittele_tapahtuma(&mut self, tapahtuma: Tapahtuma) {
-        self.paras = self.paras.max(self.lauta.pisteet);
+        self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         match tapahtuma {
             Tapahtuma::Kivi { paikka, koko } => {
-                self.aanijono.push((Aani::Kivi, 0));
+                self.aanet.jono.push((Aani::Kivi, 0));
                 self.rajahda(paikka, koko.sade() * 1.5);
             }
             Tapahtuma::LautanenTuhoutui { paikka } => {
-                self.aanijono.push((Aani::Rajahdys, 0));
+                self.aanet.jono.push((Aani::Rajahdys, 0));
                 self.rajahda(paikka, 45.0);
             }
-            Tapahtuma::LautanenAmpui => self.aanijono.push((Aani::Ammus, 0)),
+            Tapahtuma::LautanenAmpui => self.aanet.jono.push((Aani::Ammus, 0)),
             Tapahtuma::Menetys { paikka } => {
-                self.aanijono.push((Aani::Rajahdys, 0));
+                self.aanet.jono.push((Aani::Rajahdys, 0));
                 self.rajahda(paikka, 70.0);
                 self.viesti = muotoile("asteroidit.alus_tuhoutui", &[&self.lauta.elamat]);
             }
             Tapahtuma::Palasi => self.viesti.clear(),
             Tapahtuma::Lisaelama => {
-                self.aanijono.push((Aani::Yhdistys, 0));
+                self.aanet.jono.push((Aani::Yhdistys, 0));
                 self.viesti = kaanna("asteroidit.lisaalus").to_string();
             }
             Tapahtuma::UusiAalto => {
-                self.aanijono.push((Aani::Alku, 0));
+                self.aanet.jono.push((Aani::Alku, 0));
                 self.viesti = muotoile("asteroidit.uusi_aalto", &[&(self.lauta.aalto + 1)]);
             }
             Tapahtuma::Ohi { paikka } => {
-                self.aanijono.push((Aani::Rajahdys, 0));
-                self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Rajahdys, 0));
+                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.rajahda(paikka, 70.0);
                 self.lopeta_peli();
@@ -191,7 +175,7 @@ impl Asteroidit {
     }
 
     fn lopeta_peli(&mut self) {
-        self.vaihe = if mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        self.vaihe = if self.taulu.mahtuu(self.lauta.pisteet) {
             self.nimi.clear();
             Vaihe::Nimi
         } else {
@@ -206,14 +190,8 @@ impl Asteroidit {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.lauta.pisteet;
-        let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Tappio;
         self.lopeta = self.poistuu;
@@ -222,7 +200,7 @@ impl Asteroidit {
     /// Esc tai ikkunan sulkeminen kesken pelin: listalle yltävä tulos ei saa kadota.
     pub fn poistu(&mut self) {
         let kesken = matches!(self.vaihe, Vaihe::Pelissa | Vaihe::Tauko);
-        if kesken && mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        if kesken && self.taulu.mahtuu(self.lauta.pisteet) {
             self.nimi.clear();
             self.poistuu = true;
             self.vaihe = Vaihe::Nimi;
@@ -246,7 +224,7 @@ impl Asteroidit {
         self.viesti.clear();
         self.rajahdykset.clear();
         self.kertyma_ms = 0;
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     /// Ikkuna menetti kohdistuksen: alus ei saa tuhoutua pelaajan poissa ollessa.
@@ -260,7 +238,7 @@ impl Asteroidit {
         match yleinen(
             syote,
             self.vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
@@ -302,13 +280,13 @@ impl Asteroidit {
             Syote::Ammu | Syote::Klikkaus(..) => {
                 let lahti = self.lauta.ammu();
                 if lahti {
-                    self.aanijono.push((Aani::Ammus, 0));
+                    self.aanet.jono.push((Aani::Ammus, 0));
                 }
             }
             Syote::Kirjain('H') => {
                 let hyppasi = self.lauta.hyppaa(&mut self.arpa);
                 if hyppasi {
-                    self.aanijono.push((Aani::Liuku, 0));
+                    self.aanet.jono.push((Aani::Liuku, 0));
                 }
             }
             Syote::Kirjain('P') => self.vaihe = Vaihe::Tauko,
@@ -350,16 +328,8 @@ impl Pelinakyma for Asteroidit {
         kehys.venyta();
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -375,14 +345,8 @@ impl Pelinakyma for Asteroidit {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Asteroidit,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn toimintapeli(&self) -> bool {
@@ -405,13 +369,14 @@ impl Pelinakyma for Asteroidit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
     use klassikot8000::asteroidit::{Kivi, Koko};
 
     fn pelissa() -> Asteroidit {
         let mut peli = Asteroidit::new(1);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli
     }
 
@@ -428,7 +393,7 @@ mod tests {
             pyorinta: 0.0,
             muoto: 0,
         }];
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli
     }
 
@@ -439,11 +404,11 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Alku);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
-        peli.aanijono.clear();
+        assert_eq!(peli.aanet.jono, [(Aani::Alku, 0)]);
+        peli.aanet.jono.clear();
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.lauta.ammukset.len(), 1);
-        assert_eq!(peli.aanijono, [(Aani::Ammus, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Ammus, 0)]);
     }
 
     #[test]
@@ -513,9 +478,9 @@ mod tests {
         peli.aseta_nuolet(0, true);
         peli.edista(16);
         peli.edista(16);
-        assert_eq!(peli.aanijono, [(Aani::Moottori, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Moottori, 0)]);
         peli.edista(MOOTTORIN_VALI_MS);
-        assert_eq!(peli.aanijono.len(), 2);
+        assert_eq!(peli.aanet.jono.len(), 2);
     }
 
     #[test]
@@ -524,7 +489,7 @@ mod tests {
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         assert_eq!(peli.lauta.pisteet, 140);
-        assert_eq!(peli.paras, 140);
+        assert_eq!(peli.taulu.paras, 140);
         assert!(peli.uusi_tulos);
         assert_eq!(peli.rajahdykset.len(), 2);
 
@@ -533,13 +498,13 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         peli.kasittele(Syote::Kirjain('K'));
         peli.kasittele(Syote::VaihdaAanet);
-        assert!(peli.aanet_paalla);
+        assert!(peli.aanet.paalla);
         peli.uusi_tulos = false;
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
         assert!(peli.uusi_tulos);
-        assert_eq!(peli.parhaat[0].nimi, "KM");
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 140);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "KM");
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 140);
     }
 
     #[test]
@@ -551,15 +516,15 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let mut peli = paattyva(40);
-        peli.netti_parhaat = Some(taysi);
+        peli.taulu.netti = Some(taysi);
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.pisteet, 0);
-        assert_eq!(peli.paras, 140);
+        assert_eq!(peli.taulu.paras, 140);
     }
 
     #[test]
@@ -590,9 +555,9 @@ mod tests {
         peli.kasittele(Syote::Peru);
         assert!(!peli.lopeta);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.parhaat[0].nimi, "NIMETÖN");
+        assert_eq!(peli.taulu.parhaat[0].nimi, "NIMETÖN");
         peli.vahvista_nimi();
-        assert_eq!(peli.parhaat.len(), 1);
+        assert_eq!(peli.taulu.parhaat.len(), 1);
     }
 
     #[test]
@@ -612,14 +577,14 @@ mod tests {
         peli.kasittele(Syote::Kirjain('B'));
         peli.kasittele(Syote::Ammu);
         assert!(peli.lopeta);
-        assert_eq!(peli.parhaat[0].nimi, "B");
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 500);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "B");
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 500);
     }
 
     #[test]
     fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
         let mut peli = paattyva(500);
-        peli.netti_parhaat = Some(vec![
+        peli.taulu.netti = Some(vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 1000,
@@ -630,12 +595,12 @@ mod tests {
         assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         let mut peli = paattyva(500);
         peli.poistu();
         peli.vahvista_nimi();
-        assert_eq!(peli.parhaat[0].nimi, "NIMETÖN");
+        assert_eq!(peli.taulu.parhaat[0].nimi, "NIMETÖN");
     }
 
     #[test]

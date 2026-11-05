@@ -4,6 +4,7 @@ mod kaynnistin;
 #[cfg(debug_assertions)]
 mod kehitys;
 mod pelit;
+mod virheloki;
 mod yhteinen;
 
 use std::mem::{ManuallyDrop, take};
@@ -149,7 +150,7 @@ fn tallenna(polku: Option<&Path>, kaynnistin: &Kaynnistin) {
     if let Some(polku) = polku
         && let Err(virhe) = tallennus::kirjoita_tiedosto(polku, &kaynnistin.tallennus)
     {
-        eprintln!("{}: {virhe}", polku.display());
+        virheloki::kirjaa(&format!("{}: {virhe}", polku.display()));
     }
 }
 
@@ -167,7 +168,7 @@ fn avaa_selaimessa(osoite: &str) {
         Ok(mut lapsi) => {
             thread::spawn(move || lapsi.wait());
         }
-        Err(virhe) => eprintln!("{ohjelma}: {virhe}"),
+        Err(virhe) => virheloki::kirjaa(&format!("{ohjelma}: {virhe}")),
     }
 }
 
@@ -363,6 +364,7 @@ fn main() -> ExitCode {
         let mut kaynnistin = Kaynnistin::new(aikasiemen());
         let polku = tallennus::oletuspolku();
         if let Some(polku) = &polku {
+            virheloki::ota_kayttoon(polku.with_file_name("virheet.txt"));
             kaynnistin.lataa(tallennus::lue_tiedosto(polku));
         }
         let netti = Netti::kaynnista(kaynnistin::netti::OSOITE);
@@ -375,7 +377,7 @@ fn main() -> ExitCode {
     match pelisilmukka(kaynnistin, &mut kehys, polku.as_deref(), netti) {
         Ok(()) => ExitCode::SUCCESS,
         Err(virhe) => {
-            eprintln!("{virhe}");
+            virheloki::kirjaa(&virhe.to_string());
             ExitCode::FAILURE
         }
     }

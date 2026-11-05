@@ -129,7 +129,7 @@ impl Piirtaja<'_> {
         let otsikko = format!(
             "{} - {}",
             kaanna("pasianssi.haasteet_otsikko"),
-            listan_otsikko(peli.netti_haasteet.is_some())
+            listan_otsikko(peli.haastetaulu.netti.is_some())
         );
         let leveys = SIVU_L - 36;
         self.parhaat_lista(
@@ -138,7 +138,7 @@ impl Piirtaja<'_> {
             leveys,
             OTSIKKO,
             &otsikko,
-            peli.haastelista(),
+            peli.haastetaulu.nakyva(),
         );
 
         let summa = peli.haasteiden_summa().to_string();

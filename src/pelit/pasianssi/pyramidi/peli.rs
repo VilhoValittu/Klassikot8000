@@ -301,8 +301,11 @@ mod tests {
         peli.kasittele(Syote::Kirjain('P'));
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Voitto);
-        assert_eq!(peli.parhaat[Variantti::Pyramidi as usize][0].nimi, "P");
-        assert!(peli.parhaat[Variantti::Klondike as usize].is_empty());
+        assert_eq!(
+            peli.taulut[Variantti::Pyramidi as usize].parhaat[0].nimi,
+            "P"
+        );
+        assert!(peli.taulut[Variantti::Klondike as usize].parhaat.is_empty());
     }
 
     #[test]

@@ -1,31 +1,19 @@
 //! Käynnistimen ja pelin välinen sopimus. Käynnistin hoitaa jokaista peliä tämän kautta,
-//! joten uusi peli tarvitsee käynnistimeen vain korttinsa ja rivin `pelit!`-luetteloon.
+//! joten uusi peli tarvitsee käynnistimeen vain rivin `pelit!`-luetteloon.
 
-use super::aanet::Aani;
+use super::aanet::Aanet;
 use super::piirto::Kehys;
 use super::syote::Syote;
-use super::tulokset::{Nettipeli, Tulos};
+use super::tulokset::Tulostaulu;
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
-
-/// Pelin yksi top-lista käynnistimen silmin: käynnistin täyttää sen tallennuksesta ja
-/// nettilistasta ja kirjaa siitä tallennukseen ja jonoon.
-pub struct Lista<'a> {
-    pub peli: Nettipeli,
-    /// Pelin oma ennätys, jos se pidetään listasta erillään.
-    pub paras: Option<&'a mut u32>,
-    pub parhaat: &'a mut Vec<Tulos>,
-    pub netti: &'a mut Option<Vec<Tulos>>,
-    /// Lähtevä tulos. Vain listalla, jolle peli juuri nyt kirjaa tuloksia.
-    pub lahetys: Option<&'a mut Option<Tulos>>,
-}
 
 pub trait Pelinakyma {
     fn kasittele(&mut self, syote: Syote);
     fn edista(&mut self, ms: u32);
     fn piirra(&self, kehys: &mut Kehys);
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)>;
-    fn aanet_paalla(&self) -> bool;
-    fn aseta_aanet(&mut self, paalla: bool);
+    /// Pelin äänikytkin ja soittojono. Käynnistin asettaa kytkimen pelin alkaessa ja lukee
+    /// sen jokaisen syötteen jälkeen, koska peli vaihtaa sitä itse M-näppäimestä.
+    fn aanet(&mut self) -> &mut Aanet;
     /// Peli on valmis palaamaan valikkoon.
     fn lopeta(&self) -> bool;
 
@@ -37,7 +25,8 @@ pub trait Pelinakyma {
     /// Ikkuna suljetaan kesken pelin: nimeä odottava tulos kirjataan, ettei se katoa.
     fn viimeistele(&mut self) {}
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
+    /// Pelin top-listat. Käynnistin lähettää jokaisen taulun `lahetys`-tuloksen.
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
         Vec::new()
     }
 

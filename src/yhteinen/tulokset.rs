@@ -122,6 +122,63 @@ pub fn paivita_nimen_tulos(parhaat: &mut Vec<Tulos>, tulos: Tulos) {
     lisaa_tulos(parhaat, tulos);
 }
 
+/// Pelin yksi top-lista: oma ennätys, omat parhaat, nettilista ja lähtevä tulos. Käynnistin
+/// täyttää sen tallennuksesta ja nettilistasta ja kirjaa siitä tallennukseen ja jonoon.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tulostaulu {
+    pub peli: Nettipeli,
+    /// Oma ennätys, myös listalle yltämätön. Pysyy nollana, jos peli ei pidä sitä.
+    pub paras: u32,
+    pub parhaat: Vec<Tulos>,
+    /// Nettilista. `None`, kunnes palvelin on vastannut.
+    pub netti: Option<Vec<Tulos>>,
+    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
+    pub lahetys: Option<Tulos>,
+}
+
+impl Tulostaulu {
+    pub fn new(peli: Nettipeli) -> Self {
+        Self {
+            peli,
+            paras: 0,
+            parhaat: Vec::new(),
+            netti: None,
+            lahetys: None,
+        }
+    }
+
+    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
+    pub fn nakyva(&self) -> &[Tulos] {
+        self.netti.as_deref().unwrap_or(&self.parhaat)
+    }
+
+    pub fn mahtuu(&self, pisteet: u32) -> bool {
+        mahtuu_parhaisiin(self.nakyva(), pisteet)
+    }
+
+    /// Kirjaa tuloksen kirjoitetulla nimellä omalle listalle, nettilistalle ja lähtemään.
+    pub fn kirjaa(&mut self, nimi: &mut String, pisteet: u32) {
+        self.lisaa(Tulos {
+            nimi: ota_nimi(nimi),
+            pisteet,
+        });
+    }
+
+    /// Lisää tuloksen omalle listalle, nettilistalle ja lähtemään.
+    pub fn lisaa(&mut self, tulos: Tulos) {
+        let lisaa = if self.peli.yksi_per_nimi() {
+            paivita_nimen_tulos
+        } else {
+            lisaa_tulos
+        };
+        lisaa(&mut self.parhaat, tulos.clone());
+        if let Some(lista) = &mut self.netti {
+            lisaa(lista, tulos.clone());
+        }
+        self.lahetys = Some(tulos);
+    }
+}
+
 /// Ottaa kirjoitetun nimen. Ikkunan sulkeminen ei saa hävittää tulosta, joten tyhjä
 /// nimi korvataan oletuksella.
 pub fn ota_nimi(nimi: &mut String) -> String {
@@ -199,6 +256,35 @@ mod tests {
                 .filter(|p| p.tunnus() == peli.tunnus());
             assert_eq!(samat.count(), 1, "{peli:?}");
         }
+    }
+
+    #[test]
+    fn taulu_kirjaa_tuloksen_kaikille_listoille_ja_lahtemaan() {
+        let mut taulu = Tulostaulu::new(Nettipeli::Luvut);
+        let mut nimi = "A".to_string();
+        taulu.kirjaa(&mut nimi, 50);
+        assert!(nimi.is_empty());
+        assert_eq!(taulu.nakyva(), taulu.parhaat);
+        taulu.netti = Some(Vec::new());
+        assert!(taulu.nakyva().is_empty());
+        nimi.push('B');
+        taulu.kirjaa(&mut nimi, 40);
+        let b = Tulos {
+            nimi: "B".to_string(),
+            pisteet: 40,
+        };
+        assert_eq!(taulu.parhaat.len(), 2);
+        assert_eq!(taulu.nakyva(), std::slice::from_ref(&b));
+        assert_eq!(taulu.lahetys, Some(b));
+
+        // Yhden rivin listalla saman nimen uusi tulos korvaa vanhan.
+        let mut haasteet = Tulostaulu::new(Nettipeli::Haasteet);
+        for pisteet in [10, 20] {
+            nimi.push('C');
+            haasteet.kirjaa(&mut nimi, pisteet);
+        }
+        assert_eq!(haasteet.parhaat.len(), 1);
+        assert_eq!(haasteet.parhaat[0].pisteet, 20);
     }
 
     #[test]

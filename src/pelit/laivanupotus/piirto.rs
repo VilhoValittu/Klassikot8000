@@ -218,7 +218,7 @@ pub fn piirra(peli: &Peli, kuva: &mut [u32]) {
     } else {
         p.pelinakyma(peli);
     }
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 /// Alkuruudun ja käynnistimen malli.
@@ -229,8 +229,8 @@ pub fn alkumalli() -> Vec<vektori::Tahko> {
 impl Piirtaja<'_> {
     fn alkuruutu(&mut self, peli: &Peli) {
         self.maisema(kaanna("laivanupotus.banneri"), &alkumalli());
-        let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-        self.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+        let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+        self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
 
         self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
         self.tasovalinta(peli.vaikeus);
@@ -708,7 +708,7 @@ mod tests {
         peli.nimi = "AMIRAALI".to_string();
         piirra(&peli, &mut kuva);
         peli.vaihe = Vaihe::Alku;
-        peli.parhaat = vec![
+        peli.taulu.parhaat = vec![
             crate::yhteinen::tulokset::Tulos {
                 nimi: "AMIRAALI".to_string(),
                 pisteet: SUURIN_TULOS,

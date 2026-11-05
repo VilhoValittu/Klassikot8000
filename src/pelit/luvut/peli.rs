@@ -3,14 +3,12 @@ use klassikot8000::luvut::{Lukulauta, Ruudut, Siirto, Suunta, TAVOITE};
 
 use super::piirto;
 use crate::kaynnistin::tallennus::Tallennus;
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 pub const LIUKU_MS: u32 = 110;
 pub const KIPINA_MS: u32 = 450;
@@ -46,12 +44,7 @@ pub enum Nappi {
 pub struct Luvut {
     pub vaihe: Vaihe,
     pub lauta: Lukulauta,
-    pub paras: u32,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun uusi tulos odottaa tiedostoon kirjoitusta.
@@ -65,8 +58,7 @@ pub struct Luvut {
     pub viime_siirto: Option<(Siirto, u32)>,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Alkuruudulla odottaa tallennettu peli, jota voi jatkaa.
     pub jatkuu: bool,
@@ -82,10 +74,7 @@ impl Luvut {
         Self {
             vaihe: Vaihe::Alku,
             lauta: Lukulauta::new(&mut arpa),
-            paras: 0,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Luvut),
             nimi: String::new(),
             uusi_tulos: false,
             siirtoja: 0,
@@ -94,8 +83,7 @@ impl Luvut {
             hiiren_suunta: None,
             viime_siirto: None,
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             jatkuu: false,
             jatkettu: false,
@@ -104,18 +92,13 @@ impl Luvut {
         }
     }
 
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
-    }
-
     pub fn palauta(&mut self, kesken: Kesken) {
         self.lauta = Lukulauta::ruuduista(kesken.ruudut);
         self.lauta.pisteet = kesken.pisteet;
         self.siirtoja = kesken.siirrot;
         self.jatkettu = kesken.jatkettu;
         self.jatkuu = true;
-        self.paras = self.paras.max(kesken.pisteet);
+        self.taulu.paras = self.taulu.paras.max(kesken.pisteet);
     }
 
     /// Tallennettava tilanne. Päättynyttä tai aloittamatonta peliä ei tallenneta.
@@ -159,7 +142,7 @@ impl Luvut {
 
     /// Uusi peli hylkää nykyisen, joten hyvä tulos kirjataan ensin listalle.
     fn hylkaa_ja_aloita(&mut self) {
-        if mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        if self.taulu.mahtuu(self.lauta.pisteet) {
             self.uusi_alkaa = true;
             self.kysy_nimi();
         } else {
@@ -173,7 +156,7 @@ impl Luvut {
     }
 
     fn paata_peli(&mut self) {
-        if mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        if self.taulu.mahtuu(self.lauta.pisteet) {
             self.kysy_nimi();
         } else {
             self.vaihe = Vaihe::Tappio;
@@ -185,14 +168,8 @@ impl Luvut {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.lauta.pisteet;
-        let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         if std::mem::take(&mut self.uusi_alkaa) {
             self.aloita_alusta();
@@ -212,7 +189,7 @@ impl Luvut {
         match yleinen(
             syote,
             self.vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
@@ -231,7 +208,7 @@ impl Luvut {
                     self.hylkaa_ja_aloita();
                 } else if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
                     self.vaihe = Vaihe::Pelissa;
-                    self.aanijono.push((Aani::Alku, 0));
+                    self.aanet.jono.push((Aani::Alku, 0));
                     if self.jatkuu {
                         self.jatkuu = false;
                         self.viesti = kaanna("luvut.jatketaan_tallennettua").to_string();
@@ -295,32 +272,34 @@ impl Luvut {
     pub fn siirra(&mut self, suunta: Suunta) {
         let Some(siirto) = self.lauta.siirra(suunta, &mut self.arpa) else {
             self.ei_liiku = true;
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
             return;
         };
         self.ei_liiku = false;
         self.siirtoja += 1;
-        self.paras = self.paras.max(self.lauta.pisteet);
+        self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         self.viesti = if siirto.pisteet > 0 {
             muotoile("luvut.siirto_pisteet", &[&self.siirtoja, &siirto.pisteet])
         } else {
             muotoile("luvut.siirto", &[&self.siirtoja])
         };
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         if siirto.pisteet > 0 {
-            self.aanijono.push((Aani::Yhdistys, YHDISTYS_VIIVE_MS));
+            self.aanet.jono.push((Aani::Yhdistys, YHDISTYS_VIIVE_MS));
         }
         self.viime_siirto = Some((siirto, self.kello_ms));
 
         if !self.jatkettu && self.lauta.suurin() >= TAVOITE {
             self.vaihe = Vaihe::Voitto;
-            self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if !self.lauta.on_siirtoja() {
             self.paata_peli();
-            self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         }
     }
@@ -350,16 +329,8 @@ impl Pelinakyma for Luvut {
         kehys.venyta();
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -374,14 +345,8 @@ impl Pelinakyma for Luvut {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Luvut,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn nuolet_toistuvat(&self) -> bool {
@@ -392,6 +357,7 @@ impl Pelinakyma for Luvut {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
 
     fn pelissa(ruudut: [[u32; 4]; 4]) -> Luvut {
         let mut luvut = Luvut::new(1);
@@ -426,7 +392,7 @@ mod tests {
         let mut uusi = Luvut::new(2);
         uusi.palauta(kesken);
         assert_eq!(uusi.vaihe, Vaihe::Alku);
-        assert_eq!(uusi.paras, 4);
+        assert_eq!(uusi.taulu.paras, 4);
         uusi.kasittele(Syote::Ammu);
         assert_eq!(uusi.vaihe, Vaihe::Pelissa);
         assert_eq!(uusi.lauta, luvut.lauta);
@@ -453,12 +419,12 @@ mod tests {
         assert_eq!(luvut.vaihe, Vaihe::Nimi);
         assert!(luvut.kesken().is_some());
         luvut.kasittele(Syote::Ammu);
-        assert_eq!(luvut.parhaat[0].pisteet, 500);
+        assert_eq!(luvut.taulu.parhaat[0].pisteet, 500);
         assert_eq!(luvut.vaihe, Vaihe::Alku);
         assert!(!luvut.jatkuu);
         assert_eq!(luvut.lauta.pisteet, 0);
         assert_eq!(luvut.siirtoja, 0);
-        assert_eq!(luvut.paras, 500);
+        assert_eq!(luvut.taulu.paras, 500);
         assert_eq!(luvut.kesken(), None);
     }
 
@@ -518,12 +484,13 @@ mod tests {
         luvut.kasittele(Syote::Nuoli(0, -1));
         assert_eq!(luvut.lauta.arvo((0, 0)), 4);
         assert_eq!(luvut.lauta.pisteet, 4);
-        assert_eq!(luvut.paras, 4);
+        assert_eq!(luvut.taulu.paras, 4);
         assert_eq!(luvut.siirtoja, 1);
         assert!(luvut.viesti.contains("+4"));
         assert!(
             luvut
-                .aanijono
+                .aanet
+                .jono
                 .contains(&(Aani::Yhdistys, YHDISTYS_VIIVE_MS))
         );
     }
@@ -531,11 +498,11 @@ mod tests {
     #[test]
     fn liikkumaton_siirto_ahkaisee_eika_kuluta_vuoroa() {
         let mut luvut = pelissa([[2, 0, 0, 0], [0; 4], [0; 4], [0; 4]]);
-        luvut.aanijono.clear();
+        luvut.aanet.jono.clear();
         luvut.kasittele(Syote::Nuoli(0, -1));
         assert!(luvut.ei_liiku);
         assert_eq!(luvut.siirtoja, 0);
-        assert_eq!(luvut.aanijono, [(Aani::Virhe, 0)]);
+        assert_eq!(luvut.aanet.jono, [(Aani::Virhe, 0)]);
     }
 
     #[test]
@@ -565,7 +532,7 @@ mod tests {
     fn uudestaan_nollaa_pelin_mutta_parhaan_ei() {
         let mut luvut = pelissa(LAHES_VOITTO);
         luvut.kasittele(Syote::Nuoli(0, -1));
-        let paras = luvut.paras;
+        let paras = luvut.taulu.paras;
         assert!(paras >= 2048);
         luvut.kasittele(Syote::Kirjain('K'));
         assert_eq!(luvut.vaihe, Vaihe::Nimi);
@@ -573,7 +540,7 @@ mod tests {
         assert_eq!(luvut.vaihe, Vaihe::Alku);
         assert_eq!(luvut.lauta.pisteet, 0);
         assert_eq!(luvut.siirtoja, 0);
-        assert_eq!(luvut.paras, paras);
+        assert_eq!(luvut.taulu.paras, paras);
     }
 
     #[test]
@@ -585,7 +552,7 @@ mod tests {
 
         // M on kirjain eikä äänikytkin, ja nimen pituudella on raja
         luvut.kasittele(Syote::VaihdaAanet);
-        assert!(luvut.aanet_paalla);
+        assert!(luvut.aanet.paalla);
         for kirjain in "ÄXXXXXXXXX".chars() {
             luvut.kasittele(Syote::Kirjain(kirjain));
         }
@@ -596,14 +563,14 @@ mod tests {
 
         assert_eq!(luvut.vaihe, Vaihe::Tappio);
         assert!(luvut.uusi_tulos);
-        assert_eq!(luvut.parhaat.len(), 1);
-        assert_eq!(luvut.parhaat[0].nimi, "MÄXXXXX7");
-        assert_eq!(luvut.parhaat[0].pisteet, 4);
+        assert_eq!(luvut.taulu.parhaat.len(), 1);
+        assert_eq!(luvut.taulu.parhaat[0].nimi, "MÄXXXXX7");
+        assert_eq!(luvut.taulu.parhaat[0].pisteet, 4);
 
         // tappion jälkeinen uusi peli ei kirjaa samaa tulosta toiseen kertaan
         luvut.kasittele(Syote::Kirjain('K'));
         assert_eq!(luvut.vaihe, Vaihe::Alku);
-        assert_eq!(luvut.parhaat.len(), 1);
+        assert_eq!(luvut.taulu.parhaat.len(), 1);
     }
 
     #[test]
@@ -618,20 +585,20 @@ mod tests {
         };
 
         let mut luvut = pelissa(LUKKOON_PISTEILLA);
-        luvut.netti_parhaat = Some(taysi(1000));
+        luvut.taulu.netti = Some(taysi(1000));
         luvut.kasittele(Syote::Nuoli(0, -1));
         assert_eq!(luvut.vaihe, Vaihe::Tappio);
-        assert_eq!(luvut.lahetys, None);
+        assert_eq!(luvut.taulu.lahetys, None);
 
         let mut luvut = pelissa(LUKKOON_PISTEILLA);
-        luvut.parhaat = taysi(1000);
-        luvut.netti_parhaat = Some(taysi(2));
+        luvut.taulu.parhaat = taysi(1000);
+        luvut.taulu.netti = Some(taysi(2));
         luvut.kasittele(Syote::Nuoli(0, -1));
         assert_eq!(luvut.vaihe, Vaihe::Nimi);
         luvut.kasittele(Syote::Kirjain('B'));
         luvut.kasittele(Syote::Ammu);
-        assert_eq!(luvut.netti_parhaat.as_ref().unwrap()[0].nimi, "B");
-        assert_eq!(luvut.lahetys.as_ref().unwrap().pisteet, 4);
+        assert_eq!(luvut.taulu.netti.as_ref().unwrap()[0].nimi, "B");
+        assert_eq!(luvut.taulu.lahetys.as_ref().unwrap().pisteet, 4);
     }
 
     #[test]
@@ -640,15 +607,15 @@ mod tests {
         luvut.kasittele(Syote::Nuoli(0, -1));
         luvut.kasittele(Syote::Kirjain('B'));
         luvut.kasittele(Syote::Ammu);
-        assert_eq!(luvut.nakyva_lista()[0].nimi, "B");
-        assert_eq!(luvut.netti_parhaat, None);
-        assert_eq!(luvut.lahetys.as_ref().unwrap().nimi, "B");
+        assert_eq!(luvut.taulu.nakyva()[0].nimi, "B");
+        assert_eq!(luvut.taulu.netti, None);
+        assert_eq!(luvut.taulu.lahetys.as_ref().unwrap().nimi, "B");
     }
 
     #[test]
     fn listalle_yltamaton_tappio_ei_kysy_nimea() {
         let mut luvut = pelissa(LUKKOON_PISTEILLA);
-        luvut.parhaat = (0..3)
+        luvut.taulu.parhaat = (0..3)
             .map(|_| Tulos {
                 nimi: "A".to_string(),
                 pisteet: 4,
@@ -664,13 +631,13 @@ mod tests {
         luvut.kasittele(Syote::Nuoli(0, -1));
         luvut.kasittele(Syote::Peru);
         assert!(!luvut.lopeta);
-        assert_eq!(luvut.parhaat[0].nimi, "NIMETÖN");
+        assert_eq!(luvut.taulu.parhaat[0].nimi, "NIMETÖN");
 
         let mut luvut = pelissa(LUKKOON_PISTEILLA);
         luvut.kasittele(Syote::Nuoli(0, -1));
         luvut.kasittele(Syote::Kirjain('A'));
         luvut.vahvista_nimi();
-        assert_eq!(luvut.parhaat[0].nimi, "A");
+        assert_eq!(luvut.taulu.parhaat[0].nimi, "A");
         assert_eq!(luvut.vaihe, Vaihe::Tappio);
     }
 

@@ -427,10 +427,9 @@ impl Piirtaja<'_> {
         if let Some(tilastot) = kaynnistin.valitun_tilastot() {
             self.tilastolaatikko(tilastot);
         }
-        if let Some((netista, parhaat)) = kaynnistin.valitun_parhaat() {
-            let laji = kaynnistin.valikon_listan_laji();
-            self.listalaatikko(netista, laji, parhaat, kaynnistin.valitun_oma_paras());
-        }
+        let (netista, parhaat) = kaynnistin.valitun_parhaat();
+        let laji = kaynnistin.valikon_listan_laji();
+        self.listalaatikko(netista, laji, parhaat, kaynnistin.valitun_oma_paras());
         self.ohjepalkki();
     }
 

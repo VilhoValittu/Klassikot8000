@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lue_tulos, PELIT, YKSI_PER_NIMI } from "../src/tarkistus.js";
+import { lue_tulos, PELIT, SUURIN_RUNKO, YKSI_PER_NIMI } from "../src/tarkistus.js";
 
 test("kelvollinen tulos luetaan", () => {
   assert.deepEqual(lue_tulos("120 VÄINÖ7\n", 1000), { pisteet: 120, nimi: "VÄINÖ7" });
@@ -40,4 +40,11 @@ test("miinaharavan lista hyväksyy vaikeimman kentän parhaan tuloksen", () => {
 test("laivanupotuksen lista hyväksyy nopeimman vaikean voiton", () => {
   assert.deepEqual(lue_tulos("252 AMIRAALI", PELIT.laivanupotus), { pisteet: 252, nimi: "AMIRAALI" });
   assert.equal(lue_tulos("253 A", PELIT.laivanupotus), null);
+});
+
+test("liian pitkä runko hylätään, mutta pisin kelvollinen rivi mahtuu", () => {
+  const pisin = "999999999 ÄÄÄÄÄÄÄÄ";
+  assert.ok(new TextEncoder().encode(pisin).length <= SUURIN_RUNKO);
+  assert.deepEqual(lue_tulos(pisin, 1e9), { pisteet: 999999999, nimi: "ÄÄÄÄÄÄÄÄ" });
+  assert.equal(lue_tulos(`12 A${" ".repeat(SUURIN_RUNKO)}`, 1000), null);
 });

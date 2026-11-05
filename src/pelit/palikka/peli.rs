@@ -2,14 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::palikka::{Paikka, Palikkalauta, SIVU, Vaihto, vierekkain};
 
 use super::piirto;
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 pub const VAIHTO_MS: u32 = 130;
 pub const POKSAHDUS_MS: u32 = 170;
@@ -103,12 +101,7 @@ pub fn kohta(kulunut: u32, kierroksia: usize) -> Kohta {
 pub struct Palikkapeli {
     pub vaihe: Vaihe,
     pub lauta: Palikkalauta,
-    pub paras: u32,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
@@ -122,8 +115,7 @@ pub struct Palikkapeli {
     pub animaatio: Option<Animaatio>,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Palikka, josta hiirellä raahataan.
     raahaus: Option<Paikka>,
@@ -140,10 +132,7 @@ impl Palikkapeli {
         Self {
             vaihe: Vaihe::Alku,
             lauta: Palikkalauta::new(&mut arpa),
-            paras: 0,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Palikka),
             nimi: String::new(),
             uusi_tulos: false,
             viesti: String::new(),
@@ -153,19 +142,13 @@ impl Palikkapeli {
             hiiren_ruutu: None,
             animaatio: None,
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             raahaus: None,
             viime_toimi_ms: 0,
             poistuu: false,
             arpa,
         }
-    }
-
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
     /// Kuva riippuu tästä ja syötteestä. `None`, kun alkuruudun malli pyörii.
@@ -204,8 +187,9 @@ impl Palikkapeli {
         }
         // Loppu odottaa toiston loppua, jotta viimeinen ketju näkyy kokonaan.
         if self.vaihe == Vaihe::Pelissa && self.animaatio.is_none() && self.lauta.ohi {
-            self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
             self.lopeta_peli();
         }
@@ -213,7 +197,7 @@ impl Palikkapeli {
 
     fn lopeta_peli(&mut self) {
         self.valittu = None;
-        self.vaihe = if mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        self.vaihe = if self.taulu.mahtuu(self.lauta.pisteet) {
             self.nimi.clear();
             Vaihe::Nimi
         } else {
@@ -228,14 +212,8 @@ impl Palikkapeli {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.lauta.pisteet;
-        let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Tappio;
         self.lopeta = self.poistuu;
@@ -244,7 +222,7 @@ impl Palikkapeli {
     /// Esc tai ikkunan sulkeminen kesken pelin: listalle yltävä tulos ei saa kadota.
     pub fn poistu(&mut self) {
         if matches!(self.vaihe, Vaihe::Pelissa | Vaihe::Tauko)
-            && mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet)
+            && self.taulu.mahtuu(self.lauta.pisteet)
         {
             self.nimi.clear();
             self.poistuu = true;
@@ -272,14 +250,14 @@ impl Palikkapeli {
         self.animaatio = None;
         self.raahaus = None;
         self.viime_toimi_ms = self.kello_ms;
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
         match yleinen(
             syote,
             self.vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
@@ -382,28 +360,29 @@ impl Palikkapeli {
         self.valittu = None;
         let alku = self.kello_ms;
         let Some(vaihto) = self.lauta.vaihda(a, b, &mut self.arpa) else {
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
             self.viesti = kaanna("palikka.huono").to_string();
             self.animaatio = Some(Animaatio::Huti { a, b, alku });
             return;
         };
-        self.paras = self.paras.max(self.lauta.pisteet);
-        self.aanijono.push((Aani::Liuku, 0));
+        self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
+        self.aanet.jono.push((Aani::Liuku, 0));
         for (i, kierros) in vaihto.kierrokset.iter().enumerate() {
             let viive = VAIHTO_MS + i as u32 * (POKSAHDUS_MS + PUTOAMINEN_MS);
-            self.aanijono
+            self.aanet
+                .jono
                 .push((HELINAT[i.min(HELINAT.len() - 1)], viive));
             if !kierros.rajahdykset.is_empty() {
-                self.aanijono.push((Aani::Rajahdys, viive));
+                self.aanet.jono.push((Aani::Rajahdys, viive));
             }
             if !kierros.luodut.is_empty() {
-                self.aanijono.push((Aani::Yhdistys, viive));
+                self.aanet.jono.push((Aani::Yhdistys, viive));
             }
         }
         let ketju = vaihto.kierrokset.len();
         self.viesti = if vaihto.uusi_taso {
             let viive = vaihdon_kesto(ketju as u32);
-            self.aanijono.push((Aani::Alku, viive));
+            self.aanet.jono.push((Aani::Alku, viive));
             muotoile("palikka.uusi_taso", &[&self.lauta.taso])
         } else if ketju > 1 {
             muotoile("palikka.ketju", &[&ketju, &vaihto.pisteet])
@@ -442,16 +421,8 @@ impl Pelinakyma for Palikkapeli {
         kehys.venyta();
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -467,14 +438,8 @@ impl Pelinakyma for Palikkapeli {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Palikka,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn kuvan_avain(&self) -> Option<(u32, u32)> {
@@ -490,6 +455,7 @@ impl Pelinakyma for Palikkapeli {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
     use klassikot8000::palikka::{Palikka, Ruudut};
 
     /// Lauta, jossa (2,2) ja (3,2) vaihtamalla syntyy kolmen suora.
@@ -511,7 +477,7 @@ mod tests {
         let mut peli = Palikkapeli::new(1);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.lauta = Palikkalauta::ruuduista(yksi_siirto());
         peli
     }
@@ -544,9 +510,9 @@ mod tests {
         assert!(peli.lauta.pisteet >= 30);
         assert_eq!(peli.valittu, None);
         assert!(peli.animoi());
-        assert_eq!(peli.paras, peli.lauta.pisteet);
-        assert_eq!(peli.aanijono[0], (Aani::Liuku, 0));
-        assert_eq!(peli.aanijono[1], (Aani::Helina1, VAIHTO_MS));
+        assert_eq!(peli.taulu.paras, peli.lauta.pisteet);
+        assert_eq!(peli.aanet.jono[0], (Aani::Liuku, 0));
+        assert_eq!(peli.aanet.jono[1], (Aani::Helina1, VAIHTO_MS));
         assert!(peli.viesti.contains('+'));
     }
 
@@ -574,7 +540,7 @@ mod tests {
         klikkaa(&mut peli, (6, 6));
         klikkaa(&mut peli, (6, 7));
         assert_eq!(peli.lauta, lauta);
-        assert_eq!(peli.aanijono, [(Aani::Virhe, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Virhe, 0)]);
         assert!(matches!(peli.animaatio, Some(Animaatio::Huti { .. })));
         peli.edista(HUTI_MS);
         assert!(!peli.animoi());
@@ -691,14 +657,14 @@ mod tests {
         peli.kasittele(Syote::Kirjain('K'));
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.parhaat[0].nimi, "K");
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 40);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "K");
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 40);
     }
 
     #[test]
     fn listalle_yltamaton_loppu_ja_uusi_peli() {
         let mut peli = pelissa();
-        peli.netti_parhaat = Some(vec![
+        peli.taulu.netti = Some(vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 1000,
@@ -706,15 +672,15 @@ mod tests {
             3
         ]);
         jumissa(&mut peli, 40);
-        peli.paras = 40;
+        peli.taulu.paras = 40;
         peli.edista(1);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.pisteet, 0);
-        assert_eq!(peli.paras, 40);
+        assert_eq!(peli.taulu.paras, 40);
     }
 
     #[test]
@@ -736,7 +702,7 @@ mod tests {
         peli.kasittele(Syote::Kirjain('B'));
         peli.kasittele(Syote::Ammu);
         assert!(peli.lopeta);
-        assert_eq!(peli.parhaat[0].nimi, "B");
+        assert_eq!(peli.taulu.parhaat[0].nimi, "B");
 
         // Ilman pisteitä toinen Esc poistuu heti.
         let mut peli = pelissa();
@@ -744,7 +710,7 @@ mod tests {
         assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
     }
 
     #[test]

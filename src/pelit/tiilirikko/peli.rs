@@ -2,14 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::tiilirikko::{ASKEL_MS, Tapahtuma, Tiilipeli, Tila};
 
 use super::piirto;
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 pub const KIPINA_MS: u32 = 350;
 // Ikkunan raahaus voi pysäyttää silmukan: pallo ei saa sen jälkeen hypätä kerralla pitkälle.
@@ -36,12 +34,7 @@ pub enum Nappi {
 pub struct Tiilirikko {
     pub vaihe: Vaihe,
     pub lauta: Tiilipeli,
-    pub paras: u32,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun päättyneen pelin ennätys odottaa tiedostoon kirjoitusta.
@@ -51,8 +44,7 @@ pub struct Tiilirikko {
     pub kipinat: Vec<(usize, usize, u32)>,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Pohjassa olevien nuolten suunta: -1, 0 tai 1.
     pub ohjaus: i8,
@@ -70,17 +62,13 @@ impl Tiilirikko {
         Self {
             vaihe: Vaihe::Alku,
             lauta: Tiilipeli::new(0, &mut arpa),
-            paras: 0,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Tiilirikko),
             nimi: String::new(),
             uusi_tulos: false,
             viesti: String::new(),
             kipinat: Vec::new(),
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             ohjaus: 0,
             poistuu: false,
@@ -88,11 +76,6 @@ impl Tiilirikko {
             loppu: Vaihe::Tappio,
             arpa,
         }
-    }
-
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
     pub fn edista(&mut self, ms: u32) {
@@ -113,49 +96,51 @@ impl Tiilirikko {
     }
 
     fn kasittele_tapahtuma(&mut self, tapahtuma: Tapahtuma) {
-        self.paras = self.paras.max(self.lauta.pisteet);
+        self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         match tapahtuma {
-            Tapahtuma::Seina | Tapahtuma::Maila => self.aanijono.push((Aani::Pomppu, 0)),
+            Tapahtuma::Seina | Tapahtuma::Maila => self.aanet.jono.push((Aani::Pomppu, 0)),
             Tapahtuma::Tiili {
                 rivi,
                 sarake,
                 rikki,
             } => {
-                self.aanijono.push((Aani::Tiili, 0));
+                self.aanet.jono.push((Aani::Tiili, 0));
                 if rikki {
                     self.kipinat.push((rivi, sarake, self.kello_ms));
                 }
             }
             Tapahtuma::UusiPallo => {
-                self.aanijono.push((Aani::Yhdistys, 0));
+                self.aanet.jono.push((Aani::Yhdistys, 0));
                 self.viesti = kaanna("tiilirikko.uusi_pallo").to_string();
             }
             Tapahtuma::Superpallo => {
-                self.aanijono.push((Aani::Yhdistys, 0));
+                self.aanet.jono.push((Aani::Yhdistys, 0));
                 self.viesti = kaanna("tiilirikko.superpallo").to_string();
             }
             Tapahtuma::ToinenMeni => {
-                self.aanijono.push((Aani::Puhkus, 0));
+                self.aanet.jono.push((Aani::Puhkus, 0));
                 self.viesti = kaanna("tiilirikko.toinen_meni").to_string();
             }
             Tapahtuma::Menetys => {
-                self.aanijono.push((Aani::Rajahdys, 0));
+                self.aanet.jono.push((Aani::Rajahdys, 0));
                 self.viesti = muotoile("tiilirikko.pallo_meni", &[&self.lauta.elamat]);
             }
             Tapahtuma::KenttaLapi { bonus } => {
-                self.aanijono.push((Aani::Yhdistys, 0));
+                self.aanet.jono.push((Aani::Yhdistys, 0));
                 self.viesti = muotoile("tiilirikko.kentta_lapi", &[&bonus]);
             }
             Tapahtuma::Voitto { bonus } => {
-                self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.lopeta_peli(Vaihe::Voitto);
                 self.viesti = muotoile("tiilirikko.loppubonus", &[&bonus, &self.lauta.pisteet]);
             }
             Tapahtuma::Ohi => {
-                self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.lopeta_peli(Vaihe::Tappio);
             }
@@ -164,7 +149,7 @@ impl Tiilirikko {
 
     fn lopeta_peli(&mut self, vaihe: Vaihe) {
         self.loppu = vaihe;
-        self.vaihe = if mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        self.vaihe = if self.taulu.mahtuu(self.lauta.pisteet) {
             self.nimi.clear();
             Vaihe::Nimi
         } else {
@@ -180,14 +165,8 @@ impl Tiilirikko {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.lauta.pisteet;
-        let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = self.loppu;
         self.lopeta = self.poistuu;
@@ -196,7 +175,7 @@ impl Tiilirikko {
     /// Esc tai ikkunan sulkeminen kesken pelin: listalle yltävä tulos ei saa kadota.
     pub fn poistu(&mut self) {
         let kesken = matches!(self.vaihe, Vaihe::Pelissa | Vaihe::Tauko);
-        if kesken && mahtuu_parhaisiin(self.nakyva_lista(), self.lauta.pisteet) {
+        if kesken && self.taulu.mahtuu(self.lauta.pisteet) {
             self.nimi.clear();
             self.poistuu = true;
             self.vaihe = Vaihe::Nimi;
@@ -220,7 +199,7 @@ impl Tiilirikko {
         self.viesti.clear();
         self.kipinat.clear();
         self.kertyma_ms = 0;
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     /// Ikkuna menetti kohdistuksen: lennossa oleva pallo ei saa kadota pelaajan poissa ollessa.
@@ -234,7 +213,7 @@ impl Tiilirikko {
         match yleinen(
             syote,
             self.vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
@@ -304,16 +283,8 @@ impl Pelinakyma for Tiilirikko {
         kehys.venyta();
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -329,14 +300,8 @@ impl Pelinakyma for Tiilirikko {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Tiilirikko,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn toimintapeli(&self) -> bool {
@@ -359,6 +324,7 @@ impl Pelinakyma for Tiilirikko {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
     use klassikot8000::tiilirikko::{KENTTIA, KORKEUS, LEVEYS, MAILA_L, RIVEJA, SARAKKEITA};
 
     fn lennossa() -> Tiilirikko {
@@ -373,11 +339,11 @@ mod tests {
     fn paattyva(pisteet: u32) -> Tiilirikko {
         let mut peli = lennossa();
         peli.lauta.pisteet = pisteet;
-        peli.paras = pisteet;
+        peli.taulu.paras = pisteet;
         peli.lauta.elamat = 1;
         peli.lauta.pallot[0].paikka = (LEVEYS / 2.0, KORKEUS + 8.0);
         peli.lauta.pallot[0].nopeus = (0.0, 300.0);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli
     }
 
@@ -461,7 +427,7 @@ mod tests {
     #[test]
     fn viimeisen_pallon_menetys_paattaa_pelin_ja_paras_sailyy_uudessa() {
         let mut peli = paattyva(40);
-        peli.parhaat = (0..3)
+        peli.taulu.parhaat = (0..3)
             .map(|_| Tulos {
                 nimi: "A".to_string(),
                 pisteet: 40,
@@ -471,7 +437,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Tappio);
         assert!(peli.uusi_tulos);
         assert_eq!(
-            peli.aanijono,
+            peli.aanet.jono,
             [
                 (Aani::Tappio, LOPPU_VIIVE_MS),
                 (Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS)
@@ -481,7 +447,7 @@ mod tests {
         peli.kasittele(Syote::Kirjain('K'));
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.pisteet, 0);
-        assert_eq!(peli.paras, 40);
+        assert_eq!(peli.taulu.paras, 40);
     }
 
     #[test]
@@ -495,14 +461,14 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         peli.kasittele(Syote::Kirjain('K'));
         peli.kasittele(Syote::VaihdaAanet);
-        assert!(peli.aanet_paalla);
+        assert!(peli.aanet.paalla);
         peli.uusi_tulos = false;
         peli.kasittele(Syote::Ammu);
 
         assert_eq!(peli.vaihe, Vaihe::Tappio);
         assert!(peli.uusi_tulos);
-        assert_eq!(peli.parhaat[0].nimi, "KM");
-        assert_eq!(peli.parhaat[0].pisteet, 40);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "KM");
+        assert_eq!(peli.taulu.parhaat[0].pisteet, 40);
     }
 
     #[test]
@@ -512,14 +478,14 @@ mod tests {
         peli.kasittele(Syote::Peru);
         assert!(!peli.lopeta);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.parhaat[0].nimi, "NIMETÖN");
+        assert_eq!(peli.taulu.parhaat[0].nimi, "NIMETÖN");
 
         let mut peli = paattyva(40);
         peli.edista(ASKEL_MS);
         peli.vahvista_nimi();
-        assert_eq!(peli.parhaat.len(), 1);
+        assert_eq!(peli.taulu.parhaat.len(), 1);
         peli.vahvista_nimi();
-        assert_eq!(peli.parhaat.len(), 1);
+        assert_eq!(peli.taulu.parhaat.len(), 1);
     }
 
     #[test]
@@ -534,21 +500,21 @@ mod tests {
         };
 
         let mut peli = paattyva(40);
-        peli.netti_parhaat = Some(taysi(1000));
+        peli.taulu.netti = Some(taysi(1000));
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Tappio);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         let mut peli = paattyva(40);
-        peli.parhaat = taysi(1000);
-        peli.netti_parhaat = Some(taysi(10));
+        peli.taulu.parhaat = taysi(1000);
+        peli.taulu.netti = Some(taysi(10));
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         peli.kasittele(Syote::Kirjain('B'));
         peli.kasittele(Syote::Ammu);
-        let lista = peli.netti_parhaat.as_ref().unwrap();
+        let lista = peli.taulu.netti.as_ref().unwrap();
         assert_eq!(lista[0].nimi, "B");
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 40);
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 40);
     }
 
     #[test]
@@ -557,9 +523,9 @@ mod tests {
         peli.edista(ASKEL_MS);
         peli.kasittele(Syote::Kirjain('B'));
         peli.kasittele(Syote::Ammu);
-        assert_eq!(peli.nakyva_lista()[0].nimi, "B");
-        assert_eq!(peli.netti_parhaat, None);
-        assert_eq!(peli.lahetys.as_ref().unwrap().nimi, "B");
+        assert_eq!(peli.taulu.nakyva()[0].nimi, "B");
+        assert_eq!(peli.taulu.netti, None);
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().nimi, "B");
     }
 
     #[test]
@@ -582,7 +548,7 @@ mod tests {
         peli.edista(ASKEL_MS);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         assert!(peli.lauta.pisteet > 1000);
-        assert_eq!(peli.paras, peli.lauta.pisteet);
+        assert_eq!(peli.taulu.paras, peli.lauta.pisteet);
         assert!(peli.viesti.contains("Aikabonus"));
 
         peli.kasittele(Syote::Kirjain('A'));
@@ -600,11 +566,11 @@ mod tests {
         peli.lauta.supertiilet = [[false; SARAKKEITA]; RIVEJA];
         peli.lauta.pallot[0].paikka = (30.0, 80.0);
         peli.lauta.pallot[0].nopeus = (0.0, -300.0);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.edista(ASKEL_MS);
         assert_eq!(peli.kipinat.len(), 1);
-        assert_eq!(peli.aanijono, [(Aani::Tiili, 0)]);
-        assert_eq!(peli.paras, 10);
+        assert_eq!(peli.aanet.jono, [(Aani::Tiili, 0)]);
+        assert_eq!(peli.taulu.paras, 10);
         peli.edista(KIPINA_MS);
         assert!(peli.kipinat.is_empty());
     }
@@ -619,19 +585,19 @@ mod tests {
         peli.lauta.pallotiilet[0][0] = true;
         peli.lauta.pallot[0].paikka = (30.0, 80.0);
         peli.lauta.pallot[0].nopeus = (0.0, -300.0);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.edista(ASKEL_MS);
         assert_eq!(peli.lauta.pallot.len(), 2);
-        assert_eq!(peli.aanijono, [(Aani::Tiili, 0), (Aani::Yhdistys, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Tiili, 0), (Aani::Yhdistys, 0)]);
         assert_eq!(peli.viesti, kaanna("tiilirikko.uusi_pallo"));
 
         peli.lauta.pallot[1].paikka = (LEVEYS / 2.0, KORKEUS + 8.0);
         peli.lauta.pallot[1].nopeus = (0.0, 300.0);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.edista(ASKEL_MS);
         assert_eq!(peli.lauta.pallot.len(), 1);
         assert_eq!(peli.lauta.elamat, klassikot8000::tiilirikko::ELAMIA);
-        assert_eq!(peli.aanijono, [(Aani::Puhkus, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Puhkus, 0)]);
         assert_eq!(peli.viesti, kaanna("tiilirikko.toinen_meni"));
     }
 
@@ -650,14 +616,14 @@ mod tests {
         peli.kasittele(Syote::Kirjain('B'));
         peli.kasittele(Syote::Ammu);
         assert!(peli.lopeta);
-        assert_eq!(peli.parhaat[0].nimi, "B");
-        assert_eq!(peli.lahetys.as_ref().unwrap().pisteet, 500);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "B");
+        assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 500);
     }
 
     #[test]
     fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
         let mut peli = paattyva(500);
-        peli.netti_parhaat = Some(vec![
+        peli.taulu.netti = Some(vec![
             Tulos {
                 nimi: "A".to_string(),
                 pisteet: 1000,
@@ -668,12 +634,12 @@ mod tests {
         assert!(!peli.lopeta);
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         let mut peli = paattyva(500);
         peli.poistu();
         peli.vahvista_nimi();
-        assert_eq!(peli.parhaat[0].nimi, "NIMETÖN");
+        assert_eq!(peli.taulu.parhaat[0].nimi, "NIMETÖN");
     }
 
     #[test]

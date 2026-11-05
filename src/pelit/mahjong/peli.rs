@@ -5,14 +5,12 @@ use klassikot8000::mahjong::{
 
 use super::piirto;
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 /// Otetun parin pisteet nousevat laudalta näin kauan.
 pub const PONNAHDUS_MS: u32 = 900;
@@ -60,20 +58,15 @@ pub struct Mahjong {
     pub kursori: usize,
     /// Kursori näkyy vasta, kun näppäimistöä on käytetty.
     pub kursori_nakyy: bool,
-    /// Oma paras tulos, myös listalle yltämätön.
-    pub paras: u32,
     /// Tosi, kun uusi tulos odottaa tiedostoon kirjoitusta.
     pub uusi_tulos: bool,
-    pub parhaat: Vec<Tulos>,
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    pub lahetys: Option<Tulos>,
+    pub taulu: Tulostaulu,
     pub nimi: String,
     pub viesti: String,
     pub ponnahdus: Option<Ponnahdus>,
     pub voitto_alku: u32,
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Pelattu aika: kello käy vain kesken olevassa pelissä.
     pub peliaika_ms: u32,
@@ -99,27 +92,18 @@ impl Mahjong {
             hiiren_laatta: None,
             kursori: 0,
             kursori_nakyy: false,
-            paras: 0,
             uusi_tulos: false,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
+            taulu: Tulostaulu::new(Nettipeli::Mahjong),
             nimi: String::new(),
             viesti: String::new(),
             ponnahdus: None,
             voitto_alku: 0,
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             peliaika_ms: 0,
             arpa,
         }
-    }
-
-    /// Nettilista, kun se on saatu, muuten omat tulokset.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
     }
 
     fn juhlii(&self) -> bool {
@@ -167,7 +151,7 @@ impl Mahjong {
         self.ponnahdus = None;
         self.peliaika_ms = 0;
         self.viesti = kaanna("mahjong.aloita").to_string();
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
     }
 
     fn ensimmainen_vapaa(&self) -> Option<usize> {
@@ -184,7 +168,7 @@ impl Mahjong {
         match yleinen(
             syote,
             vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             kytkimella,
         ) {
             Yleinen::Peli => {}
@@ -223,15 +207,8 @@ impl Mahjong {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let tulos = Tulos {
-            nimi: ota_nimi(&mut self.nimi),
-            pisteet: self.lauta.pisteet,
-        };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        let pisteet = self.lauta.pisteet;
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = self.loppuvaihe();
     }
@@ -340,20 +317,20 @@ impl Mahjong {
         }
         if !self.lauta.vapaa(i) {
             self.viesti = kaanna("mahjong.ei_vapaa").to_string();
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
             return;
         }
         match self.valittu {
             None => {
                 self.valittu = Some(i);
-                self.aanijono.push((Aani::Tiili, 0));
+                self.aanet.jono.push((Aani::Tiili, 0));
             }
             Some(j) if j == i => self.valittu = None,
             Some(j) if self.lauta.kelpaa(j, i) => self.ota_pari(j, i),
             Some(_) => {
                 self.valittu = Some(i);
                 self.viesti = kaanna("mahjong.ei_pari").to_string();
-                self.aanijono.push((Aani::Tiili, 0));
+                self.aanet.jono.push((Aani::Tiili, 0));
             }
         }
     }
@@ -381,7 +358,7 @@ impl Mahjong {
         } else {
             muotoile("mahjong.pari", &[&pisteet])
         };
-        self.aanijono.push((Aani::Yhdistys, 0));
+        self.aanet.jono.push((Aani::Yhdistys, 0));
         if ketju > 1 {
             let helina = [
                 Aani::Helina1,
@@ -392,7 +369,7 @@ impl Mahjong {
                 Aani::Helina6,
             ];
             let i = (ketju.min(SUURIN_KETJU) as usize).saturating_sub(2);
-            self.aanijono.push((helina[i.min(helina.len() - 1)], 60));
+            self.aanet.jono.push((helina[i.min(helina.len() - 1)], 60));
         }
         if self.hiiren_laatta.is_some_and(|i| i == a || i == b) {
             self.hiiren_laatta = None;
@@ -401,20 +378,22 @@ impl Mahjong {
             Tila::Kesken => {}
             Tila::Jumissa => {
                 self.viesti = muotoile("mahjong.jumissa", &[&SEKOITUKSEN_HINTA]);
-                self.aanijono.push((Aani::EiSiirtoja, LOPPU_VIIVE_MS));
+                self.aanet.jono.push((Aani::EiSiirtoja, LOPPU_VIIVE_MS));
             }
             Tila::Voitto => {
                 self.voitto_alku = self.kello_ms;
                 self.viesti = muotoile("mahjong.voitto_viesti", &[&self.lauta.pisteet]);
-                self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             }
             Tila::Tappio => {
                 self.viesti = muotoile("mahjong.tappio_viesti", &[&self.lauta.pisteet]);
-                self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             }
@@ -427,12 +406,12 @@ impl Mahjong {
     /// Päättynyt peli kirjaa ennätyksen ja kysyy nimen, jos tulos yltää listalle.
     fn paata(&mut self) {
         let pisteet = self.lauta.pisteet;
-        if pisteet > self.paras {
-            self.paras = pisteet;
+        if pisteet > self.taulu.paras {
+            self.taulu.paras = pisteet;
             self.uusi_tulos = true;
         }
         self.vaihe = self.loppuvaihe();
-        if mahtuu_parhaisiin(self.nakyva_lista(), pisteet) {
+        if self.taulu.mahtuu(pisteet) {
             self.nimi.clear();
             self.vaihe = Vaihe::Nimi;
         }
@@ -444,11 +423,11 @@ impl Mahjong {
                 self.vihje = Some(pari);
                 self.valittu = None;
                 self.viesti = muotoile("mahjong.vihje", &[&VIHJEEN_HINTA]);
-                self.aanijono.push((Aani::Pomppu, 0));
+                self.aanet.jono.push((Aani::Pomppu, 0));
             }
             None => {
                 self.viesti = muotoile("mahjong.jumissa", &[&SEKOITUKSEN_HINTA]);
-                self.aanijono.push((Aani::Virhe, 0));
+                self.aanet.jono.push((Aani::Virhe, 0));
             }
         }
     }
@@ -458,11 +437,12 @@ impl Mahjong {
             self.valittu = None;
             self.vihje = None;
             self.ponnahdus = None;
-            self.aanijono.push((Aani::Liuku, 0));
+            self.aanet.jono.push((Aani::Liuku, 0));
             if self.lauta.tila == Tila::Tappio {
                 self.viesti = muotoile("mahjong.tappio_viesti", &[&self.lauta.pisteet]);
-                self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-                self.aanijono
+                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet
+                    .jono
                     .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
                 self.paata();
             } else {
@@ -470,7 +450,7 @@ impl Mahjong {
             }
         } else {
             self.viesti = kaanna("mahjong.ei_sekoituksia").to_string();
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
         }
     }
 
@@ -480,7 +460,7 @@ impl Mahjong {
             self.vihje = None;
             self.ponnahdus = None;
             self.viesti = kaanna("mahjong.peruttu").to_string();
-            self.aanijono.push((Aani::Liuku, 0));
+            self.aanet.jono.push((Aani::Liuku, 0));
         } else {
             let avain = if self.lauta.vaikeus.voi_perua() {
                 "mahjong.ei_peruttavaa"
@@ -488,7 +468,7 @@ impl Mahjong {
                 "mahjong.ei_perua_vaikealla"
             };
             self.viesti = kaanna(avain).to_string();
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
         }
     }
 
@@ -532,16 +512,8 @@ impl Pelinakyma for Mahjong {
         }
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -556,14 +528,8 @@ impl Pelinakyma for Mahjong {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Mahjong,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn kuvan_avain(&self) -> Option<(u32, u32)> {
@@ -582,6 +548,7 @@ impl Pelinakyma for Mahjong {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::yhteinen::tulokset::Tulos;
     use klassikot8000::mahjong::{PARIN_PISTEET, Paikka, TYHJENNYSBONUS};
 
     /// Neljä erillistä laattaa, kaksi paria: kaikki ovat vapaita.
@@ -601,7 +568,7 @@ mod tests {
         let mut peli = Mahjong::new(1);
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
-        peli.aanijono.clear();
+        peli.aanet.jono.clear();
         peli.lauta = pieni_lauta(Vaikeus::Helppo, laatat);
         peli
     }
@@ -627,7 +594,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Pelissa);
         assert_eq!(peli.lauta.vaikeus, Vaikeus::Normaali);
         assert_eq!(peli.lauta.jaljella(), 124);
-        assert_eq!(peli.aanijono, [(Aani::Alku, 0)]);
+        assert_eq!(peli.aanet.jono, [(Aani::Alku, 0)]);
     }
 
     #[test]
@@ -647,7 +614,7 @@ mod tests {
         assert_eq!(peli.lauta.jaljella(), 2);
         assert_eq!(peli.lauta.pisteet, PARIN_PISTEET);
         assert!(peli.ponnahdus.is_some());
-        assert!(peli.aanijono.contains(&(Aani::Yhdistys, 0)));
+        assert!(peli.aanet.jono.contains(&(Aani::Yhdistys, 0)));
         assert_eq!(peli.kuvan_askel(), None);
         peli.edista(PONNAHDUS_MS);
         assert!(peli.ponnahdus.is_none());
@@ -678,7 +645,7 @@ mod tests {
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         let pisteet = PARIN_PISTEET + TYHJENNYSBONUS + Vaikeus::Helppo.aikaraja_s();
         assert_eq!(peli.lauta.pisteet, pisteet);
-        assert_eq!(peli.paras, pisteet);
+        assert_eq!(peli.taulu.paras, pisteet);
         assert!(peli.uusi_tulos);
         // Juhla elää ensin joka ruudussa.
         assert_eq!(peli.kuvan_askel(), None);
@@ -691,8 +658,8 @@ mod tests {
             nimi: "Ä".to_string(),
             pisteet,
         };
-        assert_eq!(peli.parhaat, std::slice::from_ref(&tulos));
-        assert_eq!(peli.lahetys, Some(tulos));
+        assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
+        assert_eq!(peli.taulu.lahetys, Some(tulos));
         peli.edista(JUHLA_MS);
         assert!(peli.kuvan_askel().is_some());
         peli.kasittele(Syote::Kirjain('K'));
@@ -793,6 +760,6 @@ mod tests {
         peli.valitse(1);
         assert_eq!(peli.vaihe, Vaihe::Nimi);
         Pelinakyma::viimeistele(&mut peli);
-        assert_eq!(peli.parhaat[0].nimi, kaanna("yhteinen.oletusnimi"));
+        assert_eq!(peli.taulu.parhaat[0].nimi, kaanna("yhteinen.oletusnimi"));
     }
 }

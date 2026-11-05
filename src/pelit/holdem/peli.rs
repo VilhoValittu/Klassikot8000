@@ -2,14 +2,12 @@ use klassikot8000::Arpa;
 use klassikot8000::holdem::{ALKURAHA, Kulku, PELAAJA, PELAAJIA, Poyta, Toimi};
 
 use super::piirto::{self, kaden_nimi, pelaajan_nimi};
-use crate::yhteinen::aanet::{Aani, PUHE_VIIVE_MS};
+use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
-use crate::yhteinen::pelinakyma::{Lista, Pelinakyma};
+use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{
-    Nettipeli, Tulos, lisaa_tulos, mahtuu_parhaisiin, muokkaa_nimea, ota_nimi,
-};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
 /// Koneen teko, kortin käännös ja käden näyttö etenevät tässä tahdissa.
 const ASKEL_MS: u32 = 900;
@@ -57,13 +55,7 @@ pub struct Holdem {
     pub poyta: Poyta,
     /// Oma kokonaispanos kadulla, johon korotus nostaisi.
     pub korotus: u32,
-    pub parhaat: Vec<Tulos>,
-    /// Nettilista. `None`, kunnes palvelin on vastannut.
-    pub netti_parhaat: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
-    /// Suurin pöydästä viety voitto, myös listalle yltämätön.
-    pub paras: u32,
+    pub taulu: Tulostaulu,
     /// Kirjoitettavana oleva nimimerkki.
     pub nimi: String,
     /// Tosi, kun tulos odottaa tiedostoon kirjoitusta.
@@ -72,8 +64,7 @@ pub struct Holdem {
     poistuu: bool,
     pub viesti: String,
     pub lopeta: bool,
-    pub aanet_paalla: bool,
-    pub aanijono: Vec<(Aani, u32)>,
+    pub aanet: Aanet,
     pub kello_ms: u32,
     /// Siirtojen määrä: kuva muuttuu niistä ilman syötettä.
     siirtoja: u32,
@@ -88,17 +79,13 @@ impl Holdem {
             vaihe: Vaihe::Alku,
             poyta: Poyta::new(&mut arpa),
             korotus: 0,
-            parhaat: Vec::new(),
-            netti_parhaat: None,
-            lahetys: None,
-            paras: 0,
+            taulu: Tulostaulu::new(Nettipeli::Holdem),
             nimi: String::new(),
             uusi_tulos: false,
             poistuu: false,
             viesti: String::new(),
             lopeta: false,
-            aanet_paalla: true,
-            aanijono: Vec::new(),
+            aanet: Aanet::default(),
             kello_ms: 0,
             siirtoja: 0,
             seuraava_siirto_ms: 0,
@@ -115,16 +102,11 @@ impl Holdem {
         }
     }
 
-    /// Esillä oleva lista: nettilista, tai oma lista, jos verkkoon ei ole saatu yhteyttä.
-    pub fn nakyva_lista(&self) -> &[Tulos] {
-        self.netti_parhaat.as_deref().unwrap_or(&self.parhaat)
-    }
-
     /// Pöydästä viety voitto on oma ennätys, vaikkei se yltäisi listalle.
     fn kirjaa_paras(&mut self) {
         let pisteet = self.poyta.pisteet();
-        if pisteet > self.paras {
-            self.paras = pisteet;
+        if pisteet > self.taulu.paras {
+            self.taulu.paras = pisteet;
             self.uusi_tulos = true;
         }
     }
@@ -134,9 +116,7 @@ impl Holdem {
         if self.vaihe == Vaihe::Pelissa {
             self.kirjaa_paras();
         }
-        if self.vaihe == Vaihe::Pelissa
-            && mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet())
-        {
+        if self.vaihe == Vaihe::Pelissa && self.taulu.mahtuu(self.poyta.pisteet()) {
             self.nimi.clear();
             self.poistuu = true;
             self.vaihe = Vaihe::Nimi;
@@ -150,14 +130,8 @@ impl Holdem {
         if self.vaihe != Vaihe::Nimi {
             return;
         }
-        let nimi = ota_nimi(&mut self.nimi);
         let pisteet = self.poyta.pisteet();
-        let tulos = Tulos { nimi, pisteet };
-        lisaa_tulos(&mut self.parhaat, tulos.clone());
-        if let Some(lista) = &mut self.netti_parhaat {
-            lisaa_tulos(lista, tulos.clone());
-        }
-        self.lahetys = Some(tulos);
+        self.taulu.kirjaa(&mut self.nimi, pisteet);
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Voitto;
         self.lopeta = self.poistuu;
@@ -199,21 +173,21 @@ impl Holdem {
     fn siirto(&mut self) {
         self.poyta.etene(&mut self.arpa);
         self.siirtoja = self.siirtoja.wrapping_add(1);
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         self.tila_muuttui();
     }
 
     fn aloita(&mut self) {
         self.poyta = Poyta::new(&mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
-        self.aanijono.push((Aani::Alku, 0));
+        self.aanet.jono.push((Aani::Alku, 0));
         self.uusi_jako();
     }
 
     fn uusi_jako(&mut self) {
         self.poyta.jaa(&mut self.arpa);
         self.seuraava_siirto_ms = self.kello_ms.saturating_add(ASKEL_MS);
-        self.aanijono.push((Aani::Liuku, 0));
+        self.aanet.jono.push((Aani::Liuku, 0));
         self.tila_muuttui();
     }
 
@@ -241,25 +215,27 @@ impl Holdem {
             self.vaihe = Vaihe::Havio;
             let sija = self.poyta.rahoissa() + 1;
             self.viesti = muotoile("holdem.havio", &[&sija]);
-            self.aanijono.push((Aani::Tappio, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
         } else if self.poyta.rahoissa() == 1 {
             self.vaihe = Vaihe::Voitto;
             self.kirjaa_paras();
             let kaikki = ALKURAHA * PELAAJIA as u32;
             self.viesti = muotoile("holdem.voitto", &[&kaikki]);
-            self.aanijono.push((Aani::Voitto, LOPPU_VIIVE_MS));
-            self.aanijono
+            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet
+                .jono
                 .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
-            if mahtuu_parhaisiin(self.nakyva_lista(), self.poyta.pisteet()) {
+            if self.taulu.mahtuu(self.poyta.pisteet()) {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
             }
         } else if voitti {
-            self.aanijono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
         } else {
-            self.aanijono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
+            self.aanet.jono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
         }
     }
 
@@ -308,7 +284,7 @@ impl Holdem {
         match yleinen(
             syote,
             vaihe == Vaihe::Nimi,
-            &mut self.aanet_paalla,
+            &mut self.aanet.paalla,
             kytkimella,
         ) {
             Yleinen::Peli => {}
@@ -382,7 +358,7 @@ impl Holdem {
             self.tee(Toimi::Korota(self.korotus));
         } else {
             self.viesti = kaanna("holdem.ei_korotusta").to_string();
-            self.aanijono.push((Aani::Virhe, 0));
+            self.aanet.jono.push((Aani::Virhe, 0));
         }
     }
 
@@ -390,7 +366,7 @@ impl Holdem {
         if self.poyta.toimi(toimi) {
             self.siirtoja = self.siirtoja.wrapping_add(1);
             self.seuraava_siirto_ms = self.kello_ms.saturating_add(ASKEL_MS);
-            self.aanijono.push((Aani::Liuku, 0));
+            self.aanet.jono.push((Aani::Liuku, 0));
             self.tila_muuttui();
         }
     }
@@ -433,16 +409,8 @@ impl Pelinakyma for Holdem {
         }
     }
 
-    fn aanijono(&mut self) -> &mut Vec<(Aani, u32)> {
-        &mut self.aanijono
-    }
-
-    fn aanet_paalla(&self) -> bool {
-        self.aanet_paalla
-    }
-
-    fn aseta_aanet(&mut self, paalla: bool) {
-        self.aanet_paalla = paalla;
+    fn aanet(&mut self) -> &mut Aanet {
+        &mut self.aanet
     }
 
     fn lopeta(&self) -> bool {
@@ -458,14 +426,8 @@ impl Pelinakyma for Holdem {
         self.vahvista_nimi();
     }
 
-    fn listat(&mut self) -> Vec<Lista<'_>> {
-        vec![Lista {
-            peli: Nettipeli::Holdem,
-            paras: Some(&mut self.paras),
-            parhaat: &mut self.parhaat,
-            netti: &mut self.netti_parhaat,
-            lahetys: Some(&mut self.lahetys),
-        }]
+    fn listat(&mut self) -> Vec<&mut Tulostaulu> {
+        vec![&mut self.taulu]
     }
 
     fn kuvan_avain(&self) -> Option<(u32, u32)> {
@@ -673,7 +635,7 @@ mod tests {
         peli.poyta.pelaajat[1].rahat = 0;
         peli.jako_paattyi();
         assert_eq!(peli.vaihe, Vaihe::Havio);
-        assert!(peli.aanijono.contains(&(Aani::Tappio, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Tappio, LOPPU_VIIVE_MS)));
         // Kolme on yhä rahoissa, joten pelaajan sija on neljäs.
         assert_eq!(peli.viesti, muotoile("holdem.havio", &[&4]));
         peli.kasittele(Syote::Ammu);
@@ -694,18 +656,18 @@ mod tests {
         peli.poyta.pelaajat[PELAAJA].rahat = ALKURAHA * PELAAJIA as u32;
         peli.jako_paattyi();
         assert_eq!(peli.vaihe, Vaihe::Nimi);
-        assert!(peli.aanijono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+        assert!(peli.aanet.jono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
         assert_eq!(peli.viesti, muotoile("holdem.voitto", &[&5000]));
         peli.kasittele(Syote::Kirjain('K'));
         peli.kasittele(Syote::Ammu);
         assert_eq!(peli.vaihe, Vaihe::Voitto);
         assert!(!peli.lopeta);
-        assert_eq!(peli.parhaat[0].pisteet, 4000);
+        assert_eq!(peli.taulu.parhaat[0].pisteet, 4000);
         // Kertaalleen kirjattu voitto ei kirjaudu toista kertaa poistuttaessa.
-        peli.lahetys = None;
+        peli.taulu.lahetys = None;
         peli.kasittele(Syote::Peru);
         assert!(peli.lopeta);
-        assert_eq!(peli.lahetys, None);
+        assert_eq!(peli.taulu.lahetys, None);
 
         peli.lopeta = false;
         peli.kasittele(Syote::Kirjain('K'));
@@ -726,8 +688,8 @@ mod tests {
         assert_eq!(peli.poyta.pelaajat[PELAAJA].tila, Tila::Mukana);
         peli.kasittele(Syote::Ammu);
         assert!(peli.lopeta);
-        assert_eq!(peli.parhaat[0].nimi, "K");
-        assert_eq!(peli.parhaat[0].pisteet, 300);
+        assert_eq!(peli.taulu.parhaat[0].nimi, "K");
+        assert_eq!(peli.taulu.parhaat[0].pisteet, 300);
     }
 
     #[test]

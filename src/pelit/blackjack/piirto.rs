@@ -208,11 +208,11 @@ pub fn piirra_alku(peli: &Blackjack, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.maisema(kaanna("blackjack.banneri"), &pelimerkkipinot());
-    let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-    p.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+    let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+    p.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
     p.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
     p.aloituskehote(ALOITUS);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 pub fn piirra(peli: &Blackjack, ruutu: &mut [u32]) {
@@ -221,7 +221,7 @@ pub fn piirra(peli: &Blackjack, ruutu: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.bj_poyta(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 impl Piirtaja<'_> {

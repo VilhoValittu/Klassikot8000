@@ -238,11 +238,11 @@ pub fn piirra_alku(peli: &Holdem, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.maisema(kaanna("holdem.banneri"), &poytamalli());
-    let otsikko = listan_otsikko(peli.netti_parhaat.is_some());
-    p.parhaat_alkuruudulla(otsikko, peli.nakyva_lista());
+    let otsikko = listan_otsikko(peli.taulu.netti.is_some());
+    p.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
     p.alkuohje(&ALKU_OSAT, &ALKU_RIVIT);
     p.aloituskehote(ALOITUS);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 pub fn piirra(peli: &Holdem, ruutu: &mut [u32]) {
@@ -251,7 +251,7 @@ pub fn piirra(peli: &Holdem, ruutu: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.he_poyta(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 /// Kuuluuko kortti jonkun potin voittaneen pelaajan parhaaseen käteen.

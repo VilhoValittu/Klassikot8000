@@ -379,7 +379,7 @@ pub fn piirra_alku(peli: &Pasianssi, kuva: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.pasianssi_alkuruutu(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 pub fn piirra(peli: &Pasianssi, ruutu: &mut [u32]) {
@@ -388,7 +388,7 @@ pub fn piirra(peli: &Pasianssi, ruutu: &mut [u32]) {
         kello: peli.kello_ms,
     };
     p.pasianssi_nakyma(peli);
-    p.aanikytkin(peli.aanet_paalla);
+    p.aanikytkin(peli.aanet.paalla);
 }
 
 impl Piirtaja<'_> {
