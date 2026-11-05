@@ -1,7 +1,13 @@
 // Pelien nettilista. Vastaukset ovat tekstiä, rivi muodossa "pisteet NIMI", jotta peli
 // ei tarvitse JSON-kirjastoa.
 
-import { lue_tulos, PELIT, SUURIN_RUNKO, YKSI_PER_NIMI } from "./tarkistus.js";
+import {
+  allekirjoitus_kelpaa,
+  lue_tulos,
+  PELIT,
+  SUURIN_RUNKO,
+  YKSI_PER_NIMI,
+} from "./tarkistus.js";
 
 const NAYTETTAVIA = 3;
 // Poistettu huijaustulos paljastaa alemmat, joten tietokantaan jää enemmän kuin näytetään.
@@ -33,6 +39,11 @@ async function lista(env, peli) {
 }
 
 async function lisaa(pyynto, env, peli) {
+  // Ilman avainta mikään tulos ei kelpaisi. 503 jättää tuloksen pelin jonoon, joten se lähtee,
+  // kun salaisuus on asetettu (wrangler secret put TULOSAVAIN).
+  if (!env.TULOSAVAIN) {
+    return vastaus("tulosavain puuttuu palvelimelta\n", 503);
+  }
   const osoite = pyynto.headers.get("cf-connecting-ip") ?? "tuntematon";
   const { success } = await env.RAJOITIN.limit({ key: osoite });
   if (!success) {
@@ -40,10 +51,14 @@ async function lisaa(pyynto, env, peli) {
   }
   // Peli hylkää tuloksen 400:lla eikä yritä uudelleen, joten liian pitkä runko saa saman.
   if (Number(pyynto.headers.get("content-length") ?? 0) > SUURIN_RUNKO) {
-    return vastaus("kelvoton tulos
-", 400);
+    return vastaus("kelvoton tulos\n", 400);
   }
-  const tulos = lue_tulos(await pyynto.text(), PELIT[peli]);
+  const runko = await pyynto.text();
+  const allekirjoitus = pyynto.headers.get("x-allekirjoitus");
+  if (!(await allekirjoitus_kelpaa(env.TULOSAVAIN, peli, runko, allekirjoitus))) {
+    return vastaus("kelvoton allekirjoitus\n", 400);
+  }
+  const tulos = lue_tulos(runko, PELIT[peli]);
   if (!tulos) {
     return vastaus("kelvoton tulos\n", 400);
   }

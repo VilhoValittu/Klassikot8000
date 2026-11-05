@@ -16,7 +16,7 @@ use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
 use klassikot8000::silmukka::{self, Otus};
 use klassikot8000::tiilirikko::{self, Tiilipeli};
 
-use crate::kaynnistin::netti::{Netti, Pyynto, Vastaus};
+use crate::kaynnistin::netti::{Netti, Pyynto, Vastaus, tulosavain};
 use crate::kaynnistin::{Kaynnissa, Kaynnistin, Laji, PELIT, piirto, tallennus};
 use crate::pelit::asteroidit::peli::Asteroidit;
 use crate::pelit::blackjack::peli::Blackjack;
@@ -344,7 +344,10 @@ pub fn aloita(kehys: &mut Kehys) -> Alku {
         return lopetus(tulos, polku);
     }
     // Kehitysajo ei koske oikeaan nettilistaan ilman lippua.
-    let netti = liput.netti.as_deref().and_then(Netti::kaynnista);
+    let netti = liput
+        .netti
+        .as_deref()
+        .and_then(|osoite| Netti::kaynnista(osoite, tulosavain()));
     if let (Some(netti), Some(julkaisut)) = (&netti, &liput.julkaisut) {
         netti.laheta(Pyynto::HaeVersio(julkaisut.clone()));
     }

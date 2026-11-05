@@ -367,7 +367,7 @@ fn main() -> ExitCode {
             virheloki::ota_kayttoon(polku.with_file_name("virheet.txt"));
             kaynnistin.lataa(tallennus::lue_tiedosto(polku));
         }
-        let netti = Netti::kaynnista(kaynnistin::netti::OSOITE);
+        let netti = Netti::kaynnista(kaynnistin::netti::OSOITE, kaynnistin::netti::tulosavain());
         if let Some(netti) = &netti {
             netti.laheta(Pyynto::HaeVersio(kaynnistin::netti::JULKAISUT.to_string()));
         }

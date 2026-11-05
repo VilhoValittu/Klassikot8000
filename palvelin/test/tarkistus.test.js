@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lue_tulos, PELIT, SUURIN_RUNKO, YKSI_PER_NIMI } from "../src/tarkistus.js";
+import {
+  allekirjoitus_kelpaa,
+  lue_tulos,
+  PELIT,
+  SUURIN_RUNKO,
+  YKSI_PER_NIMI,
+} from "../src/tarkistus.js";
 
 test("kelvollinen tulos luetaan", () => {
   assert.deepEqual(lue_tulos("120 VÄINÖ7\n", 1000), { pisteet: 120, nimi: "VÄINÖ7" });
@@ -47,4 +53,25 @@ test("liian pitkä runko hylätään, mutta pisin kelvollinen rivi mahtuu", () =
   assert.ok(new TextEncoder().encode(pisin).length <= SUURIN_RUNKO);
   assert.deepEqual(lue_tulos(pisin, 1e9), { pisteet: 999999999, nimi: "ÄÄÄÄÄÄÄÄ" });
   assert.equal(lue_tulos(`12 A${" ".repeat(SUURIN_RUNKO)}`, 1000), null);
+});
+
+// Sama avain ja allekirjoitus ovat pelin testissä (kaynnistin/allekirjoitus.rs).
+const AVAIN = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, "0")).join("");
+const ALLEKIRJOITUS = "b749393e7f9c87cb24073eef4b9abf4bb361b5f6e1a3b4ad4a21d57823dde500";
+
+test("pelin allekirjoitus kelpaa", async () => {
+  assert.ok(await allekirjoitus_kelpaa(AVAIN, "luvut", "120 VÄINÖ7", ALLEKIRJOITUS));
+  assert.ok(
+    await allekirjoitus_kelpaa(`${AVAIN}\n`, "luvut", "120 VÄINÖ7", ALLEKIRJOITUS.toUpperCase()),
+  );
+});
+
+test("muutettu tulos, toinen peli tai puuttuva allekirjoitus hylätään", async () => {
+  assert.ok(!(await allekirjoitus_kelpaa(AVAIN, "luvut", "121 VÄINÖ7", ALLEKIRJOITUS)));
+  assert.ok(!(await allekirjoitus_kelpaa(AVAIN, "tiilirikko", "120 VÄINÖ7", ALLEKIRJOITUS)));
+  assert.ok(!(await allekirjoitus_kelpaa(AVAIN, "luvut", "120 VÄINÖ7", null)));
+  assert.ok(!(await allekirjoitus_kelpaa(AVAIN, "luvut", "120 VÄINÖ7", "zz")));
+  const toinen = AVAIN.replace(/^00/, "ff");
+  assert.ok(!(await allekirjoitus_kelpaa(toinen, "luvut", "120 VÄINÖ7", ALLEKIRJOITUS)));
+  assert.ok(!(await allekirjoitus_kelpaa("", "luvut", "120 VÄINÖ7", ALLEKIRJOITUS)));
 });

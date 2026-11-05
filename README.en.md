@@ -76,12 +76,10 @@ No-limit poker against four computers. Everyone starts with 1000, and the last o
 
 ## Get playing
 
-Grab the package for your machine from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest) and unpack it. The download is under 1 MB for Windows and under 3 MB for Linux.
+Grab the Windows package (`windows-x64`) from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest), unpack it and run `klassikot8000-<version>.exe`. The download is under 1 MB.
 
-- **Windows** (`windows-x64`): run `klassikot8000-<version>.exe`.
-- **Linux** (`linux-x64`, `linux-arm64`): run `klassikot8000-<version>`. The game needs X11 or XWayland, plus the ALSA library for sound; desktop machines usually have these already.
-- **macOS** (`macos-universal`, Intel and Apple Silicon): run `Klassikot8000-<version>.app`. The package isn't signed by Apple, so macOS blocks the first launch. Remove the block in Terminal: `xattr -d com.apple.quarantine Klassikot8000-<version>.app`.
+A game built from source plays the same, but doesn't send scores to the online list: the list only accepts scores from the release packages.
 
 ## License
 
-Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`. In the macOS package, both are in `Klassikot8000-<version>.app/Contents/Resources`.
+Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`.

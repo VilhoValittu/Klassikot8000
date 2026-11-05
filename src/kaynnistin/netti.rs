@@ -9,7 +9,11 @@ use std::time::Duration;
 use ureq::Agent;
 use ureq::tls::{TlsConfig, TlsProvider};
 
+use super::allekirjoitus::allekirjoita;
 use crate::yhteinen::tulokset::{Nettipeli, Tulos, lista_tekstista};
+
+// `build.rs` kirjoittaa tähän julkaisijan avaimen peitettynä tai `None`, jos avainta ei ole.
+include!(concat!(env!("OUT_DIR"), "/tulosavain.rs"));
 
 #[cfg(not(debug_assertions))]
 pub const OSOITE: &str = "https://klassikot8000-tulokset.palvelin.workers.dev";
@@ -26,6 +30,15 @@ pub const JULKAISUSIVU: &str = concat!(julkaisut!(), "/releases/latest");
 pub const VERSIO: &str = env!("CARGO_PKG_VERSION");
 const AIKARAJA: Duration = Duration::from_secs(8);
 const KELVOTON_PYYNTO: u16 = 400;
+const ALLEKIRJOITUS: &str = "x-allekirjoitus";
+
+/// Nettilistan allekirjoitusavain. Sama avain on palvelimella salaisuutena.
+pub type Avain = [u8; 32];
+
+/// Ohjelmaan käännetty avain. Ilman sitä tuloksia ei lähetetä, vaan ne jäävät jonoon.
+pub fn tulosavain() -> Option<Avain> {
+    TULOSAVAIN.map(|(peitetty, peite)| std::array::from_fn(|i| peitetty[i] ^ peite[i]))
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Pyynto {
@@ -51,12 +64,12 @@ pub struct Netti {
 
 impl Netti {
     /// Säikeen luonnin epäonnistuminen tarkoittaa vain, että peliä pelataan ilman nettilistaa.
-    pub fn kaynnista(osoite: &str) -> Option<Self> {
+    pub fn kaynnista(osoite: &str, avain: Option<Avain>) -> Option<Self> {
         let (pyynnot, saapuvat) = channel();
         let (lahtevat, vastaukset) = channel();
         let osoite = osoite.to_string();
         thread::Builder::new()
-            .spawn(move || aja(&osoite, saapuvat, lahtevat))
+            .spawn(move || aja(&osoite, avain, saapuvat, lahtevat))
             .ok()?;
         Some(Self {
             pyynnot,
@@ -70,7 +83,7 @@ impl Netti {
     }
 }
 
-fn aja(osoite: &str, saapuvat: Receiver<Pyynto>, lahtevat: Sender<Vastaus>) {
+fn aja(osoite: &str, avain: Option<Avain>, saapuvat: Receiver<Pyynto>, lahtevat: Sender<Vastaus>) {
     let agentti: Agent = Agent::config_builder()
         .timeout_global(Some(AIKARAJA))
         .tls_config(
@@ -81,7 +94,7 @@ fn aja(osoite: &str, saapuvat: Receiver<Pyynto>, lahtevat: Sender<Vastaus>) {
         .build()
         .into();
     for pyynto in saapuvat {
-        let vastaukset = kasittele(&agentti, osoite, pyynto);
+        let vastaukset = kasittele(&agentti, osoite, avain.as_ref(), pyynto);
         for vastaus in vastaukset {
             if lahtevat.send(vastaus).is_err() {
                 return;
@@ -90,7 +103,7 @@ fn aja(osoite: &str, saapuvat: Receiver<Pyynto>, lahtevat: Sender<Vastaus>) {
     }
 }
 
-fn kasittele(agentti: &Agent, osoite: &str, pyynto: Pyynto) -> Vec<Vastaus> {
+fn kasittele(agentti: &Agent, osoite: &str, avain: Option<&Avain>, pyynto: Pyynto) -> Vec<Vastaus> {
     match pyynto {
         Pyynto::Hae(peli) => {
             let tunnus = peli.tunnus();
@@ -101,11 +114,17 @@ fn kasittele(agentti: &Agent, osoite: &str, pyynto: Pyynto) -> Vec<Vastaus> {
                 .collect()
         }
         Pyynto::Laheta(peli, tulos) => {
+            // Kehitysversio ilman avainta ei lähetä: palvelin hylkäisi tuloksen.
+            let Some(avain) = avain else {
+                return Vec::new();
+            };
             let tunnus = peli.tunnus();
+            let runko = format!("{} {}", tulos.pisteet, tulos.nimi);
             let vastaus = agentti
                 .post(format!("{osoite}/tulos?peli={tunnus}"))
                 .content_type("text/plain; charset=utf-8")
-                .send(format!("{} {}", tulos.pisteet, tulos.nimi));
+                .header(ALLEKIRJOITUS, allekirjoita(avain, tunnus, &runko))
+                .send(runko);
             match vastaus {
                 // Palvelin hylkää tämän joka kerta, joten uudelleenyritys olisi turha.
                 Err(ureq::Error::StatusCode(KELVOTON_PYYNTO)) => {
@@ -177,20 +196,25 @@ mod tests {
                 let mut alku = String::new();
                 lukija.read_line(&mut alku).unwrap();
                 let mut pituus = 0;
+                let mut allekirjoitus = String::new();
                 loop {
                     let mut rivi = String::new();
                     lukija.read_line(&mut rivi).unwrap();
                     if rivi.trim().is_empty() {
                         break;
                     }
-                    if let Some(arvo) = rivi.to_lowercase().strip_prefix("content-length:") {
+                    let pieni = rivi.to_lowercase();
+                    if let Some(arvo) = pieni.strip_prefix("content-length:") {
                         pituus = arvo.trim().parse().unwrap();
+                    }
+                    if let Some(arvo) = pieni.strip_prefix(&format!("{ALLEKIRJOITUS}:")) {
+                        allekirjoitus = format!(" allekirjoitus={}", arvo.trim());
                     }
                 }
                 let mut runko = vec![0; pituus];
                 lukija.read_exact(&mut runko).unwrap();
                 pyynnot.push(format!(
-                    "{} {}",
+                    "{}{allekirjoitus} {}",
                     alku.trim(),
                     String::from_utf8(runko).unwrap()
                 ));
@@ -200,6 +224,8 @@ mod tests {
         });
         (osoite, saie)
     }
+
+    const TESTIAVAIN: Avain = [7; 32];
 
     fn http(status: &str, runko: &str) -> String {
         format!(
@@ -220,7 +246,7 @@ mod tests {
         let lista = http("200 OK", "120 VÄINÖ\n50 B\n");
         let hylatty = http("400 Bad Request", "kelvoton tulos\n");
         let (osoite, saie) = palvelin(vec![lista.clone(), lista, hylatty]);
-        let netti = Netti::kaynnista(&osoite).unwrap();
+        let netti = Netti::kaynnista(&osoite, Some(TESTIAVAIN)).unwrap();
         let odotettu = vec![tulos("VÄINÖ", 120), tulos("B", 50)];
 
         netti.laheta(Pyynto::Hae(Nettipeli::Tiilirikko));
@@ -249,6 +275,19 @@ mod tests {
         assert!(pyynnot[0].starts_with("GET /top3?peli=tiilirikko "));
         assert!(pyynnot[1].starts_with("POST /tulos?peli=luvut "));
         assert!(pyynnot[1].ends_with(" 120 VÄINÖ"));
+        let allekirjoitus = allekirjoita(&TESTIAVAIN, "luvut", "120 VÄINÖ");
+        assert!(pyynnot[1].contains(&format!(" allekirjoitus={allekirjoitus} ")));
+    }
+
+    #[test]
+    fn ilman_avainta_tulosta_ei_laheteta_vaan_se_jaa_jonoon() {
+        let kuuntelija = TcpListener::bind("127.0.0.1:0").unwrap();
+        let osoite = format!("http://{}", kuuntelija.local_addr().unwrap());
+        let agentti = Agent::new_with_defaults();
+        let pyynto = Pyynto::Laheta(Nettipeli::Luvut, tulos("A", 1));
+        assert!(kasittele(&agentti, &osoite, None, pyynto).is_empty());
+        kuuntelija.set_nonblocking(true).unwrap();
+        assert!(kuuntelija.accept().is_err(), "yhteyttä ei saa avata");
     }
 
     #[test]
@@ -289,7 +328,14 @@ mod tests {
             http("404 Not Found", ""),
         ]);
         let agentti = Agent::new_with_defaults();
-        let hae = || kasittele(&agentti, &osoite, Pyynto::HaeVersio(osoite.clone()));
+        let hae = || {
+            kasittele(
+                &agentti,
+                &osoite,
+                Some(&TESTIAVAIN),
+                Pyynto::HaeVersio(osoite.clone()),
+            )
+        };
         assert_eq!(hae(), [Vastaus::UusiVersio("999.0.0".to_string())]);
         assert!(hae().is_empty());
         assert!(hae().is_empty());
@@ -303,7 +349,7 @@ mod tests {
         let (osoite, saie) = palvelin(vec![http("500 Oops", "")]);
         let agentti = Agent::new_with_defaults();
         let pyynto = Pyynto::Laheta(Nettipeli::Luvut, tulos("A", 1));
-        assert!(kasittele(&agentti, &osoite, pyynto).is_empty());
+        assert!(kasittele(&agentti, &osoite, Some(&TESTIAVAIN), pyynto).is_empty());
         saie.join().unwrap();
     }
 
@@ -313,6 +359,14 @@ mod tests {
         let osoite = format!("http://{}", kuuntelija.local_addr().unwrap());
         drop(kuuntelija);
         let agentti = Agent::new_with_defaults();
-        assert!(kasittele(&agentti, &osoite, Pyynto::Hae(Nettipeli::Luvut)).is_empty());
+        assert!(
+            kasittele(
+                &agentti,
+                &osoite,
+                Some(&TESTIAVAIN),
+                Pyynto::Hae(Nettipeli::Luvut)
+            )
+            .is_empty()
+        );
     }
 }

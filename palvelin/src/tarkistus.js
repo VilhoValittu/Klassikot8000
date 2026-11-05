@@ -39,3 +39,23 @@ export function lue_tulos(teksti, suurin) {
   const pisteet = Number(osat[1]);
   return pisteet <= suurin ? { pisteet, nimi: osat[2] } : null;
 }
+
+const HEKSAT = /^[0-9a-f]{64}$/;
+
+function tavuiksi(heksat) {
+  return Uint8Array.from(heksat.match(/../g), (pari) => parseInt(pari, 16));
+}
+
+// Peli allekirjoittaa pelin tunnuksen ja rungon julkaisijan avaimella (HMAC-SHA256). Vertailu
+// tehdään verify-kutsulla, joka ei paljasta ajoituksellaan, montako merkkiä täsmäsi.
+export async function allekirjoitus_kelpaa(avain, peli, runko, allekirjoitus) {
+  avain = avain.trim().toLowerCase();
+  allekirjoitus = (allekirjoitus ?? "").trim().toLowerCase();
+  if (!HEKSAT.test(avain) || !HEKSAT.test(allekirjoitus)) {
+    return false;
+  }
+  const hmac = { name: "HMAC", hash: "SHA-256" };
+  const avaimena = await crypto.subtle.importKey("raw", tavuiksi(avain), hmac, false, ["verify"]);
+  const viesti = new TextEncoder().encode(`${peli}\n${runko}`);
+  return crypto.subtle.verify("HMAC", avaimena, tavuiksi(allekirjoitus), viesti);
+}

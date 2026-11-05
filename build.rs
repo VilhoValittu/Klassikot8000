@@ -1,11 +1,17 @@
-//! Upottaa ikonin Windowsin exeen. Linkkeri ottaa .res-tiedoston suoraan, ja sen muoto on niin
-//! yksinkertainen, että se syntyy tässä ilman rc.exe:ä tai riippuvuuksia.
+//! Upottaa ikonin Windowsin exeen ja nettilistan allekirjoitusavaimen ohjelmaan. Linkkeri ottaa
+//! .res-tiedoston suoraan, ja sen muoto on niin yksinkertainen, että se syntyy tässä ilman
+//! rc.exe:ä tai riippuvuuksia.
 
+use std::collections::hash_map::RandomState;
 use std::env;
 use std::fs;
+use std::hash::{BuildHasher, Hasher};
 use std::path::Path;
 
 const IKONI: &str = "paketointi/ikoni.ico";
+/// Vain julkaisijan koneella oleva avain (64 heksamerkkiä). Ei ole Gitissä: ilman sitä
+/// ohjelma kääntyy, mutta ei lähetä tuloksia nettilistalle.
+const TULOSAVAIN: &str = "paketointi/tulosavain";
 const RT_ICON: u16 = 3;
 const RT_GROUP_ICON: u16 = 14;
 const MOVEABLE_PURE_DISCARDABLE: u16 = 0x1030;
@@ -13,6 +19,9 @@ const MOVEABLE_PURE_DISCARDABLE: u16 = 0x1030;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed={IKONI}");
+    // Kansio eikä tiedosto: puuttuvan tiedoston takia skripti ajettaisiin joka käännöksessä.
+    println!("cargo:rerun-if-changed=paketointi");
+    upota_tulosavain();
     let alusta = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let ymparisto = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     if alusta != "windows" || ymparisto != "msvc" {
@@ -23,6 +32,39 @@ fn main() {
     let polku = Path::new(&kansio).join("ikoni.res");
     fs::write(&polku, resurssit(&ico)).expect("ikoni.res ei kirjoitu");
     println!("cargo:rustc-link-arg-bins={}", polku.display());
+}
+
+/// Kirjoittaa avaimen peitettynä, jottei se näy exessä yhtenäisenä tavujonona. Peite ei estä
+/// päättäväistä kaivajaa, mutta avain ei löydy pelkällä merkkijonohaulla.
+fn upota_tulosavain() {
+    let avain = fs::read_to_string(TULOSAVAIN)
+        .ok()
+        .map(|teksti| tavuiksi(teksti.trim()).expect("tulosavaimessa on oltava 64 heksamerkkiä"));
+    let peite: Vec<u8> = (0..4)
+        .flat_map(|_| RandomState::new().build_hasher().finish().to_le_bytes())
+        .collect();
+    let koodi = match avain {
+        Some(avain) => {
+            let peitetty: Vec<u8> = avain.iter().zip(&peite).map(|(a, p)| a ^ p).collect();
+            format!(
+                "const TULOSAVAIN: Option<([u8; 32], [u8; 32])> = Some(({peitetty:?}, {peite:?}));\n"
+            )
+        }
+        None => "const TULOSAVAIN: Option<([u8; 32], [u8; 32])> = None;\n".to_string(),
+    };
+    let kansio = env::var("OUT_DIR").expect("cargo asettaa OUT_DIR:n");
+    fs::write(Path::new(&kansio).join("tulosavain.rs"), koodi).expect("tulosavain.rs ei kirjoitu");
+}
+
+fn tavuiksi(heksat: &str) -> Option<[u8; 32]> {
+    let mut avain = [0; 32];
+    if heksat.len() != 64 || !heksat.is_ascii() {
+        return None;
+    }
+    for (tavu, pari) in avain.iter_mut().zip(heksat.as_bytes().chunks_exact(2)) {
+        *tavu = u8::from_str_radix(std::str::from_utf8(pari).ok()?, 16).ok()?;
+    }
+    Some(avain)
 }
 
 /// Muuntaa .ico-tiedoston resursseiksi: yksi RT_ICON joka koolle ja RT_GROUP_ICON hakemistoksi.

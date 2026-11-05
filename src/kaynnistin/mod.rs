@@ -1,6 +1,7 @@
 //! Pelin valinta ja käynnissä olevan pelin hallinta. Uusi peli lisätään tänne rivinä
 //! `pelit!`-luetteloon; muun käynnistin hoitaa `Pelinakyma`-traitin kautta.
 
+mod allekirjoitus;
 pub mod netti;
 pub mod piirto;
 pub mod tallennus;
