@@ -34,6 +34,16 @@ Kolme peliä saman kortin alla, ja jokaisella on oma top-listansa. Pisteet tulev
 
 *Hiiri tai nuolet ja välilyönti.*
 
+### Mahjongg
+
+Laattapasianssi, se yksinpelattava. Laatat ovat pöydällä kerroksittain, ja pois saa ottaa kaksi samaa vapaata laattaa. Vapaan laatan päällä ei ole mitään, ja ainakin toinen sivu on auki. Kukat ja vuodenajat käyvät pariksi kenen tahansa oman sarjansa laatan kanssa. Jokainen jako on ratkaistavissa, mutta väärä järjestys vie silti umpikujaan. Silloin auttaa sekoitus, joka jakaa jäljellä olevat laatat uudelleen ratkeavaan järjestykseen. Peli päättyy, kun lauta on tyhjä tai pareja ei enää ole eikä sekoituksia ole jäljellä.
+
+Helpolla puretaan 72 laatan pyramidi, vapaat laatat erottuvat muista ja sekoituksia on kolme. Normaalilla puretaan 124 laatan linnoitus kahdella sekoituksella. Vaikealla vastassa on kaikkien 144 laatan vuori, sekoituksia on yksi eikä mitään voi perua.
+
+Pari antaa 10 pistettä ja kukka- tai vuodenaikapari 20. Kun seuraava pari löytyy neljän sekunnin sisällä, ketju kasvaa ja kertoo pisteet viiteen asti. Vihje maksaa 20 pistettä ja sekoitus 50, ja kumpikin katkaisee ketjun. Tyhjä lauta tuo 500 pisteen bonuksen ja lisäksi pisteen jokaisesta sekunnista, joka aikarajasta jäi (helpolla 5, normaalilla 10 ja vaikealla 15 minuuttia). Vaikeampi taso kertoo kaikki pisteet (normaali kahdella, vaikea kolmella).
+
+*Hiiri tai nuolet ja välilyönti. Hiiren oikea peruu valinnan, H näyttää vihjeen, S sekoittaa, U palauttaa edellisen parin ja K aloittaa uuden pelin.*
+
 ### Laatan murskain
 
 Pidä pallo kentällä ja riko tiilet. 50 kenttää, kolme palloa, ja nopeasta läpäisystä saa lisäpisteitä. Valkoinen tiili tuo toisen pallon ja kasvattaa mailaa, ja niin kauan kuin molemmat pallot ovat kentällä, tiilistä saa tuplapisteet. Musta tiili tekee pallosta 30 % nopeamman superpallon, joka menee kaikkien tiilien läpi ja antaa nelinkertaiset pisteet. Valkoinen tiili tuplaa myös superpallon. Kahden pallon vahtiminen on juuri niin vaikeaa kuin miltä se kuulostaa.

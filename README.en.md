@@ -31,6 +31,15 @@ Three games under one card, each with its own top list. Your score comes from ti
 
 *Mouse, or arrows and space.*
 
+### Mahjongg
+Tile solitaire, the one you play alone. The tiles lie on the table in layers, and you take away two matching free tiles at a time. A free tile has nothing on top of it and at least one side open. Flowers and seasons pair with any tile of their own set. Every deal can be solved, but the wrong order still leads to a dead end. That's what the shuffle is for: it deals the remaining tiles again in an order that can be solved. The game ends when the board is empty, or when no pairs are left and no shuffles remain.
+
+On Easy you take apart a 72-tile pyramid, free tiles stand out from the rest and you get three shuffles. On Normal it's a 124-tile fortress with two shuffles. On Hard you face a mountain of all 144 tiles, with one shuffle and no undo.
+
+A pair scores 10 points, and a flower or season pair 20. Find the next pair within four seconds and the chain grows, multiplying the points up to five. A hint costs 20 points and a shuffle 50, and both break the chain. An empty board gives a 500-point bonus plus a point for every second left of the time limit (5 minutes on Easy, 10 on Normal and 15 on Hard). A harder level multiplies all points (normal by two, hard by three).
+
+*Mouse, or arrows and space. Right mouse button deselects, H shows a hint, S shuffles, U puts the last pair back and K starts a new game.*
+
 ### Laatan murskain
 Keep the ball in play and break the bricks. 50 stages, three balls, and a fast clear earns bonus points. A white brick brings a second ball and grows the paddle, and as long as both balls stay in play, bricks score double. A black brick turns the ball into a super ball that moves 30% faster, goes through every brick and scores quadruple. A white brick doubles a super ball too. Watching two balls at once is exactly as hard as it sounds.
 
