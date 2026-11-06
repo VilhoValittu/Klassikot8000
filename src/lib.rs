@@ -17,6 +17,8 @@ pub mod laivanupotus;
 pub mod luvut;
 #[path = "pelit/mahjong/logiikka.rs"]
 pub mod mahjong;
+#[path = "pelit/majakka/logiikka.rs"]
+pub mod majakka;
 #[path = "pelit/miinaharava/logiikka.rs"]
 pub mod miinaharava;
 #[path = "pelit/palikka/logiikka.rs"]

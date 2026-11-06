@@ -6,6 +6,7 @@ pub mod holdem;
 pub mod laivanupotus;
 pub mod luvut;
 pub mod mahjong;
+pub mod majakka;
 pub mod miinaharava;
 pub mod palikka;
 pub mod pasianssi;

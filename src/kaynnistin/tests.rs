@@ -84,6 +84,8 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 10);
     k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 11);
+    k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 0);
     k.kasittele(Syote::Numero(1));
     assert_eq!(k.valittu, 0);
@@ -156,9 +158,16 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     assert_eq!(k.otsikko(), "Texas Hold'em");
     k.kasittele(Syote::Peru);
 
-    // Lista on vierinyt yhden alas, joten yhdeksäs näkyvä on kymmenes peli.
+    k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 11);
+    k.kasittele(Syote::Ammu);
+    assert!(matches!(k.peli, Some(Kaynnissa::Majakka(_))));
+    assert_eq!(k.otsikko(), "Majakka8000");
+    k.kasittele(Syote::Peru);
+
+    // Lista on vierinyt kaksi alas, joten yhdeksäs näkyvä on yhdestoista peli.
     k.kasittele(Syote::Numero(9));
-    assert_eq!(k.valittu, 9);
+    assert_eq!(k.valittu, 10);
 }
 
 #[test]
@@ -1446,6 +1455,7 @@ fn nakymat_piirtyvat_kaatumatta() {
         Laji::Miinaharava,
         Laji::Blackjack,
         Laji::Holdem,
+        Laji::Majakka,
     ] {
         k.kaynnista(laji);
         k.edista(100);

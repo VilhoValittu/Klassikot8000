@@ -18,6 +18,7 @@ peli.miinaharava = Miinaharava
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 peli.mahjong = Mahjongg
+peli.majakka = Majakka8000
 
 valikko.banneri = PELIKONE
 valikko.kielikytkin = English
@@ -34,6 +35,7 @@ valikko.miinaharava = Avaa ruudut, älä osu miinaan.
 valikko.blackjack = Lähelle 21:tä, leikkirahalla jakajaa vastaan.
 valikko.holdem = Pokeria neljää konetta vastaan, 1000 rahaa.
 valikko.mahjong = Etsi parit ja pura laattapino.
+valikko.majakka = Ohjaa laivat keilalla satamaan.
 valikko.oma_paras = OMA PARAS
 valikko.voitot = VOITOT
 valikko.tappiot = TAPPIOT
@@ -343,6 +345,34 @@ mahjong.erittely_jaljella = Laattoja jäi: {}
 mahjong.yhteensa = PISTEET: {}
 mahjong.loppu_ohje = K = Uusi peli, E = Valikko.
 
+majakka.banneri = **** MAJAKKA8000 ****
+majakka.tervetuloa = Tervetuloa majakanvartijaksi!
+majakka.ohje_1 = Laivat eivät näe karikoita pimeässä. Keilan valaisema laiva väistää ja ohjaa satamaan.
+majakka.ohje_2 = Keila kääntyy hitaasti. Kolme haaksirikkoa päättää pelin.
+majakka.nappain_keila = Hiiri, nuolet, A/D: käännä keilaa.
+majakka.nappain_torvi = Välilyönti, klikkaus: sumutorvi.
+majakka.kuvaus_1 = Leveä keila, karikot näkyvät.
+majakka.kuvaus_2 = Kapeampi keila, vain vaahto näkyy.
+majakka.kuvaus_3 = Kapea keila, sumu, tuuli ja virta.
+majakka.ohje = Nuolet/hiiri, välilyönti = torvi
+majakka.yo_otsikko = YÖ
+majakka.ketju = KETJU
+majakka.renkaat = RENKAAT
+majakka.torvi = TORVI
+majakka.vene = Vene
+majakka.kalastaja = Kalastaja
+majakka.rahtilaiva = Rahtilaiva
+majakka.salakuljettaja = Salakuljettaja
+majakka.satamassa = {} satamassa! +{}
+majakka.karille = {} ajoi karille! Renkaita: {}.
+majakka.eksyi = {} eksyi merelle.
+majakka.kiinni = Salakuljettaja kiinni! +{}
+majakka.karkasi = Salakuljettaja pääsi karkuun.
+majakka.puuska = Tuulenpuuska!
+majakka.aamu = Aamu! Satamaan pääsi {} laivaa.
+majakka.bonus = Ei haaksirikkoja: bonus +{}.
+majakka.uusi_yo = Yö {} alkaa.
+
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Tervetuloa pelaamaan blackjackia.
 blackjack.ohje_1 = Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Kuvakortit ovat 10, ässä 1 tai 11.
@@ -471,6 +501,7 @@ peli.miinaharava = Minesweeper
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 peli.mahjong = Mahjongg
+peli.majakka = Majakka8000
 
 valikko.banneri = GAME MACHINE
 valikko.kielikytkin = Suomi
@@ -487,6 +518,7 @@ valikko.miinaharava = Open every cell, avoid the mines.
 valikko.blackjack = Get near 21, play money against the dealer.
 valikko.holdem = Poker against four computers, 1000 to start.
 valikko.mahjong = Match free pairs, clear the stack.
+valikko.majakka = Guide the ships home with the beam.
 valikko.oma_paras = YOUR BEST
 valikko.voitot = WINS
 valikko.tappiot = LOSSES
@@ -795,6 +827,34 @@ mahjong.erittely_aika = Time bonus: {}
 mahjong.erittely_jaljella = Tiles left: {}
 mahjong.yhteensa = SCORE: {}
 mahjong.loppu_ohje = K = New game, E = Menu.
+
+majakka.banneri = **** MAJAKKA8000 ****
+majakka.tervetuloa = Welcome, lighthouse keeper!
+majakka.ohje_1 = Ships can't see rocks in the dark. A ship in your beam dodges them and heads for port.
+majakka.ohje_2 = The beam turns slowly. Three wrecks end the game.
+majakka.nappain_keila = Mouse, arrows, A/D: turn the beam.
+majakka.nappain_torvi = Space or click: foghorn.
+majakka.kuvaus_1 = Wide beam, rocks are visible.
+majakka.kuvaus_2 = Narrower beam, only foam shows.
+majakka.kuvaus_3 = Narrow beam, fog, wind, current.
+majakka.ohje = Arrows/mouse, space = foghorn
+majakka.yo_otsikko = NIGHT
+majakka.ketju = CHAIN
+majakka.renkaat = LIFEBUOYS
+majakka.torvi = FOGHORN
+majakka.vene = Rowboat
+majakka.kalastaja = Fishing boat
+majakka.rahtilaiva = Freighter
+majakka.salakuljettaja = Smuggler
+majakka.satamassa = {} in port! +{}
+majakka.karille = {} ran aground! Buoys: {}.
+majakka.eksyi = {} got lost at sea.
+majakka.kiinni = Smuggler caught! +{}
+majakka.karkasi = The smuggler got away.
+majakka.puuska = Gust of wind!
+majakka.aamu = Dawn! {} ships made it home.
+majakka.bonus = No wrecks: bonus +{}.
+majakka.uusi_yo = Night {} begins.
 
 blackjack.banneri = **** BLACKJACK ****
 blackjack.tervetuloa = Welcome to Blackjack.

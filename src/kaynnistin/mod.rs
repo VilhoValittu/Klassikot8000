@@ -20,6 +20,8 @@ use crate::pelit::luvut::peli::Luvut;
 use crate::pelit::luvut::piirto::lukupino;
 use crate::pelit::mahjong::peli::Mahjong;
 use crate::pelit::mahjong::piirto::laattamalli;
+use crate::pelit::majakka::peli::Majakka;
+use crate::pelit::majakka::piirto::majakkamalli;
 use crate::pelit::miinaharava::peli::Miinaharava;
 use crate::pelit::miinaharava::piirto::miinamalli;
 use crate::pelit::palikka::peli::Palikkapeli;
@@ -162,6 +164,7 @@ pelit! {
     Miinaharava(Miinaharava, "peli.miinaharava", "valikko.miinaharava", miinamalli, |_| Nettipeli::Miinaharava),
     Blackjack(Blackjack, "peli.blackjack", "valikko.blackjack", pelimerkkipinot, |_| Nettipeli::Blackjack),
     Holdem(Holdem, "peli.holdem", "valikko.holdem", poytamalli, |_| Nettipeli::Holdem),
+    Majakka(Majakka, "peli.majakka", "valikko.majakka", majakkamalli, |_| Nettipeli::Majakka),
 }
 
 /// Pelin valinta ja käynnissä oleva peli. Asetukset säilyvät, kun peli vaihtuu.

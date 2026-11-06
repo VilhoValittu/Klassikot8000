@@ -2,7 +2,7 @@
 
 [Suomeksi](README.md) | **English**
 
-Bored? Ten old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
+Bored? Twelve old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
 Runs even on a potato.
 
@@ -65,6 +65,14 @@ You against a computer dealer, with play money. You start with 300 and the lowes
 No-limit poker against four computers. Everyone starts with 1000, and the last one with money wins. Two cards of your own and five shared: the best five-card hand takes the pot. Blinds start at 10/20 and double every ten hands, so a game always ends. The rules are the familiar tournament ones, with side pots, minimum raises and a dead button. The computers don't peek: they only see their own cards and the shared ones. Your money doesn't carry over when you leave for the menu, but the profit you leave the table with is your score.
 
 *Mouse or keys: V checks or calls, K folds, R raises, arrows and 1-4 change the raise, space hurries the computers and deals the next hand.*
+
+### Majakka8000
+
+You keep the lighthouse on a stormy night. Ships come out of the dark towards the harbour and cannot see the rocks. In the dark a ship holds its course while the current pushes it aside. Turn your beam onto it and the captain sees the rocks, steers around them and heads for port, and remembers the way for a moment. The lamp is heavy and turns slowly, so the whole night is about who you light up next. On the dark sea only the foam gives a rock away, and ships show their running lights. The foghorn slows every ship for a moment and recharges slowly. From the second night, unlit smugglers cross the sea too: hold the beam on one and it is caught. A night lasts a minute and a half, and dawn brings the ships still at sea home. Each new night brings new rocks, more ships and a stronger current. Three wrecks end the game.
+
+A rowboat in port scores 10, a fishing boat 20, a freighter 50 and a smuggler 100. Ships that make it home in a row raise the multiplier up to five, and a wreck or a ship lost at sea resets it. A night without wrecks gives a bonus. The levels differ in the width and speed of the beam: on easy the rocks show faintly even in the dark, on hard fog shortens the beam and gusts of wind turn the ships. A harder level multiplies the points (normal by two, hard by three).
+
+*Mouse, arrows or A/D turn the beam, space or click sounds the foghorn.*
 
 ## Good to know
 

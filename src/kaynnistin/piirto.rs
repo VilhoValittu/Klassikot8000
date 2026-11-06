@@ -231,6 +231,12 @@ const LAATTA: [&str; 12] = [
     "..WWWWWWWW..", "..OOOOOOOO..", "..OOOOOOOO..", "............",
 ];
 #[rustfmt::skip]
+const MAJAKKA_KUVA: [&str; 12] = [
+    "...........Y", ".....K...YYY", "....KYKYYYY.", "....KKK.YY..",
+    ".....W......", ".....R......", ".....W......", "....RRR.....",
+    "....WWW.....", "...DDDDD....", "BBDDDDDDDBBB", "BBBBBBBBBBBB",
+];
+#[rustfmt::skip]
 const KAIUTIN: [&str; 5] = ["..W...", "WWW.C.", "WWW..C", "WWW.C.", "..W..."];
 // Kolmiot pikselikuvina: monikulmiona näin pieni kolmio pyöristyy ruudukkoon vinoksi.
 const YLOS_KUVA: [&str; 3] = ["..W..", ".WWW.", "WWWWW"];
@@ -252,6 +258,7 @@ fn kuvake(laji: Laji) -> (u32, &'static [&'static str; 12]) {
         Laji::Miinaharava => (LAVENTELI, &MIINA),
         Laji::Blackjack => (0x1E6A3A, &KAKSIYKSI),
         Laji::Holdem => (0x1E5A3A, &MERKKI_KUVA),
+        Laji::Majakka => (0x0C1450, &MAJAKKA_KUVA),
     }
 }
 

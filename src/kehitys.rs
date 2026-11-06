@@ -11,6 +11,7 @@ use klassikot8000::blackjack::{self, Vuoro};
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU, Suunta};
 use klassikot8000::mahjong;
+use klassikot8000::majakka::{Laiva, MAJAKKA, Meri, etaisyys, suunta_majakalta};
 use klassikot8000::miinaharava;
 use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
 use klassikot8000::silmukka::{self, Otus};
@@ -24,6 +25,8 @@ use crate::pelit::holdem::peli::{self as holdem_peli, Holdem};
 use crate::pelit::laivanupotus::peli::{Peli, Vaihe};
 use crate::pelit::luvut::peli::{self as luvut_peli, Luvut};
 use crate::pelit::mahjong::peli::Mahjong;
+use crate::pelit::majakka::peli::Majakka;
+use crate::pelit::majakka::piirto::Merikuva;
 use crate::pelit::miinaharava::peli::Miinaharava;
 use crate::pelit::palikka::peli::{self as palikka_peli, Palikkapeli};
 use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
@@ -81,6 +84,8 @@ pub struct Liput {
     pub aalto: Option<usize>,
     /// Silmukka: aloittaa valmiista renkaasta, jonka sisällä on näin monta itikkaa.
     pub rengas: Option<i32>,
+    /// Majakka: aloittaa tästä yöstä (nollasta alkaen), ja keila seuraa `aika_ms` ajan lähintä laivaa.
+    pub yo: Option<u32>,
     /// Palikka ja miinaharava: aloittaa pelin ja pelaa näin monta siirtoa valmiiksi.
     pub pelatut: Option<u32>,
     /// Miinaharava: aloittaa pelin ja astuu miinaan.
@@ -123,6 +128,8 @@ impl Liput {
             Some(Laji::Asteroidit)
         } else if self.rengas.is_some() {
             Some(Laji::Silmukka)
+        } else if self.yo.is_some() {
+            Some(Laji::Majakka)
         } else if self.napit.is_some() || self.kadet.is_some() || self.konkurssi || self.nimi {
             Some(Laji::Blackjack)
         } else {
@@ -161,6 +168,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         superpallo: false,
         aalto: None,
         rengas: None,
+        yo: None,
         pelatut: None,
         pamaus: false,
         napit: None,
@@ -198,6 +206,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "miinaharava" => Laji::Miinaharava,
                     "blackjack" => Laji::Blackjack,
                     "holdem" => Laji::Holdem,
+                    "majakka" => Laji::Majakka,
                     _ => return Err(format!("--game: {arvo}")),
                 });
             }
@@ -229,6 +238,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             "--super-ball" => liput.superpallo = arvo == "1",
             "--wave" => liput.aalto = Some(arvo.parse().map_err(|_| "--wave: ei luku")?),
             "--ring" => liput.rengas = Some(arvo.parse().map_err(|_| "--ring: ei luku")?),
+            "--night" => liput.yo = Some(arvo.parse().map_err(|_| "--night: ei luku")?),
             "--plays" => liput.pelatut = Some(arvo.parse().map_err(|_| "--plays: ei luku")?),
             "--boom" => liput.pamaus = arvo == "1",
             "--keys" => liput.napit = Some(arvo),
@@ -368,6 +378,7 @@ fn valmistele(peli: &mut Kaynnissa, liput: &Liput) {
         Kaynnissa::Mahjong(peli) => valmistele_mahjong(peli, liput),
         Kaynnissa::Blackjack(peli) => valmistele_blackjack(peli, liput),
         Kaynnissa::Holdem(peli) => valmistele_holdem(peli, liput),
+        Kaynnissa::Majakka(peli) => valmistele_majakka(peli, liput),
     }
 }
 
@@ -551,6 +562,29 @@ fn valmistele_silmukka(peli: &mut Silmukka, liput: &Liput) {
         for _ in 0..liput.aika_ms / 16 {
             peli.edista(16);
         }
+    }
+}
+
+fn valmistele_majakka(peli: &mut Majakka, liput: &Liput) {
+    let Some(yo) = liput.yo else {
+        return;
+    };
+    peli.kasittele(Syote::Ammu);
+    peli.meri = Meri::new(peli.vaikeus, yo, &mut Arpa::new(liput.siemen.unwrap_or(1)));
+    peli.kuva = Some(Merikuva::new(&peli.meri));
+    // Keila seuraa majakkaa lähintä laivaa, jotta kuvassa on valaistu laiva.
+    for _ in 0..liput.aika_ms / 16 {
+        let lahin = peli
+            .meri
+            .laivat
+            .iter()
+            .min_by(|a, b| {
+                let d = |l: &&Laiva| etaisyys(l.paikka, MAJAKKA);
+                d(a).total_cmp(&d(b))
+            })
+            .map(|laiva| suunta_majakalta(laiva.paikka));
+        peli.ohjaus.tahtain = lahin;
+        peli.edista(16);
     }
 }
 

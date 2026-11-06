@@ -2,7 +2,7 @@
 
 **Suomeksi** | [English](README.en.md)
 
-Tylsää? Kymmenen vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Tylsää? Kaksitoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
 Pyörii vaikka perunalla. AB:n OG ideasta.
 
@@ -75,6 +75,14 @@ Sinä vastaan tietokonejakaja, ja pelivälineenä leikkiraha. Alussa on 300 raha
 No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, ja viimeinen rahoissa voittaa. Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi vie potin. Blindit alkavat 10/20 ja tuplaantuvat kymmenen jaon välein, joten peli päättyy aina. Säännöt ovat turnauksista tutut sivupotteineen, pienimpine korotuksineen ja kuolleine nappeineen. Koneet eivät kurki: ne näkevät vain omat ja yhteiset kortit. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
 
 *Hiiri tai näppäimet: V tarkistaa tai maksaa, K skippaa, R korottaa, nuolet ja 1–4 muuttavat korotusta, välilyönti hoputtaa koneita ja jakaa seuraavan käden.*
+
+### Majakka8000
+
+Olet majakanvartija myrskyisenä yönä. Laivat tulevat pimeästä kohti satamaa eivätkä näe karikoita. Pimeässä laiva pitää suuntansa, ja virta vie sitä sivuun. Kun käännät keilan laivan päälle, kapteeni näkee karikot, kiertää ne ja kääntyy satamaan, ja muistaa reitin vielä hetken. Lamppu on raskas ja kääntyy hitaasti, joten koko yö on sitä, kenet valaiset seuraavaksi. Pimeällä merellä karikon paljastaa vain vaahto, ja laivasta näkyvät kulkuvalot. Sumutorvi hidastaa hetkeksi kaikkia laivoja ja latautuu hitaasti. Toisesta yöstä alkaen merellä liikkuu myös valottomia salakuljettajia: pidä keila niiden päällä, niin ne jäävät kiinni. Yö kestää puolitoista minuuttia, ja aamu tuo merellä olevat laivat kotiin. Uusi yö tuo uudet karikot, enemmän laivoja ja kovemman virran. Kolme haaksirikkoa päättää pelin.
+
+Satamaan päässyt vene antaa 10 pistettä, kalastaja 20 ja rahtilaiva 50, ja salakuljettaja 100. Peräkkäin perille päässeet laivat kasvattavat kerrointa viiteen asti, ja haaksirikko tai merelle eksynyt laiva nollaa sen. Yö ilman haaksirikkoja tuo bonuksen. Tasot eroavat keilan leveydessä ja nopeudessa: helpolla karikot näkyvät pimeässäkin himmeästi, vaikealla sumu lyhentää keilaa ja tuulenpuuskat kääntävät laivoja. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
+
+*Hiiri, nuolet tai A/D kääntävät keilaa, välilyönti tai klikkaus soittaa sumutorvea.*
 
 ## Hyvä tietää
 

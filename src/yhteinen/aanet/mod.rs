@@ -65,6 +65,14 @@ pub enum Aani {
     Helina4,
     Helina5,
     Helina6,
+    /// Majakka: matala kaksiääninen sumutorvi.
+    Sumutorvi,
+    /// Majakka: laivakello kilahtaa kahdesti, kun laiva pääsee satamaan.
+    Laivakello,
+    /// Majakka: runko rusahtaa karikkoon.
+    Karille,
+    /// Majakka: tuulenpuuska humahtaa.
+    Tuuli,
     /// Kuuluttaja: "Ei siirtoja jäljellä" / "No more moves left".
     EiSiirtoja,
     /// Kuuluttaja: "Peli ohi" / "Game over".
@@ -73,7 +81,7 @@ pub enum Aani {
     Voitit,
 }
 
-const TEHOSTEITA: usize = 26;
+const TEHOSTEITA: usize = 30;
 const PUHEITA: usize = 3;
 
 pub const KAIKKI: [Aani; TEHOSTEITA + PUHEITA] = [
@@ -103,6 +111,10 @@ pub const KAIKKI: [Aani; TEHOSTEITA + PUHEITA] = [
     Aani::Helina4,
     Aani::Helina5,
     Aani::Helina6,
+    Aani::Sumutorvi,
+    Aani::Laivakello,
+    Aani::Karille,
+    Aani::Tuuli,
     Aani::EiSiirtoja,
     Aani::PeliOhi,
     Aani::Voitit,
@@ -282,6 +294,10 @@ fn tehoste(aani: Aani, arpa: &mut Arpa) -> Vec<f32> {
         Aani::Helina4 => helina(783.99),
         Aani::Helina5 => helina(880.0),
         Aani::Helina6 => helina(1046.5),
+        Aani::Sumutorvi => sumutorvi(),
+        Aani::Laivakello => laivakello(),
+        Aani::Karille => karille(arpa),
+        Aani::Tuuli => tuuli(arpa),
         Aani::EiSiirtoja | Aani::PeliOhi | Aani::Voitit => Vec::new(),
     }
 }
@@ -767,6 +783,45 @@ fn surina() -> Vec<f32> {
 /// Pentatoninen asteikko kuulostaa hyvältä missä tahansa järjestyksessä.
 fn helina(taajuus: f32) -> Vec<f32> {
     kaiku(skaalaa(kello(taajuus, 0.35), 0.3), 0.08, 0.25, 0.25)
+}
+
+/// Kaksi matalaa torvea kvintin päässä toisistaan, kuten majakan diafoni.
+fn sumutorvi() -> Vec<f32> {
+    let kesto = 1.05;
+    let ala = torvi(73.4, kesto, 1.1);
+    let yla = skaalaa(torvi(110.0, kesto, 0.8), 0.6);
+    let yhdessa = sekoita(ala, &yla, 0.0);
+    skaalaa(kaiku(yhdessa, 0.12, 0.3, 0.2), 0.45)
+}
+
+fn laivakello() -> Vec<f32> {
+    let kulku = savelkulku(&[(0.0, 1318.5, 0.5), (0.2, 1318.5, 0.5)], kello);
+    skaalaa(kaiku(kulku, 0.09, 0.25, 0.2), 0.3)
+}
+
+/// Rouhiva rusahdus ja matala tömähdys.
+fn karille(arpa: &mut Arpa) -> Vec<f32> {
+    let kesto = 0.7;
+    let mut rouhe = Rouhe::default();
+    let mut suodin = 0.0;
+    let rusahdus = rakenna(kesto, |t| {
+        let taajuus = 900.0 * (-t * 5.0).exp() + 90.0;
+        suodin += (rouhe.askel(arpa, taajuus) - suodin) * 0.3;
+        suodin * verho(t, 0.002, 5.0) * 0.8
+    });
+    let tomahdys = skaalaa(basso(55.0, 0.5), 0.6);
+    sekoita(rusahdus, &tomahdys, 0.0)
+}
+
+/// Suodatettu kohina, jonka kaista nousee ja laskee puuskan mukana.
+fn tuuli(arpa: &mut Arpa) -> Vec<f32> {
+    let kesto = 1.4;
+    let mut suhina = Kaista::default();
+    rakenna(kesto, |t| {
+        let auki = (PI * t / kesto).sin();
+        suhina.aseta(300.0 + 700.0 * auki, 400.0);
+        suhina.kasittele(kohina(arpa)) * auki * auki * 0.9
+    })
 }
 
 #[cfg(test)]
