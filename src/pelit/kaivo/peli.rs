@@ -469,11 +469,23 @@ impl Pelinakyma for Kaivo {
         self.vaihe != Vaihe::Alku
     }
 
+    fn aseta_nuolet(&mut self, vaaka: i8, pysty: i8) {
+        let suunta = if vaaka != 0 {
+            Some((vaaka.signum(), 0))
+        } else if pysty != 0 {
+            Some((0, pysty.signum()))
+        } else {
+            None
+        };
+        self.kaivos.aseta_pito(suunta);
+    }
+
     fn keskeyta(&mut self) {
         Self::keskeyta(self);
     }
 
-    // Yksi painallus on yksi ruutu: näppäintoisto veisi pohjassa pidetyllä nuolella monta.
+    // Pito luetaan `aseta_nuolet`-kutsusta omalla viiveellään. Näppäintoisto jättäisi irti
+    // päästetyn nuolen jonoon ylimääräiseksi askeleeksi.
     fn nuolet_toistuvat(&self) -> bool {
         false
     }
@@ -581,6 +593,23 @@ mod tests {
         peli.kasittele(Syote::Nuoli(1, 0));
         aja(&mut peli, 1000);
         assert_eq!(peli.kaivos.kaivaja.paikka, (8, 7));
+    }
+
+    #[test]
+    fn pohjassa_pidetty_nuoli_jatkaa_vasta_viiveen_jalkeen() {
+        let mut peli = pelissa();
+        // Painallus ja pito alkavat samassa ruudussa, kuten oikeassa ikkunassa.
+        peli.kasittele(Syote::Nuoli(0, 1));
+        peli.aseta_nuolet(1, 0);
+        aja(&mut peli, 380);
+        assert_eq!(peli.kaivos.kaivaja.paikka, (ALKU.0 + 1, PINTA));
+        aja(&mut peli, 1000);
+        assert!(peli.kaivos.kaivaja.paikka.0 >= ALKU.0 + 5);
+        peli.aseta_nuolet(0, 0);
+        aja(&mut peli, 200);
+        let pysahtyi = peli.kaivos.kaivaja.paikka;
+        aja(&mut peli, 500);
+        assert_eq!(peli.kaivos.kaivaja.paikka, pysahtyi);
     }
 
     #[test]

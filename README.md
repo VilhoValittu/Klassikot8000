@@ -100,7 +100,7 @@ Olet ahne kullankaivaja. Kaivat maan alle hissin vierestä, ja pimeässä näet 
 
 Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä tai enemmän. Täysi kiintiö antaa tasobonuksen, ja jokainen käyttämättä jäänyt tuki kasvattaa sitä. Tasot eroavat tukien, öljyn ja valon määrässä, katon kestossa ja vaarojen määrässä. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
 
-*Nuolet, WASD tai klikkaus kaivavat ja kävelevät, välilyönti, oikea nappi tai klikkaus omaan ruutuun pystyttää tai purkaa tuen, ja R heittää hätäköyden, joka nostaa pinnalle kypärän hinnalla.*
+*Nuolet, WASD tai klikkaus kaivavat ja kävelevät ruudun kerrallaan (pohjassa pidetty nuoli jatkaa liikettä hetken kuluttua), välilyönti, oikea nappi tai klikkaus omaan ruutuun pystyttää tai purkaa tuen, ja R heittää hätäköyden, joka nostaa pinnalle kypärän hinnalla.*
 
 ## Hyvä tietää
 

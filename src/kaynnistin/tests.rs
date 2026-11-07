@@ -857,7 +857,7 @@ fn asteroidien_tulos_tallentuu_jonottaa_ja_palautuu() {
 fn nuolet_ohjaavat_asteroideja_pohjassa_ollessaan() {
     let mut k = Kaynnistin::new(1);
     k.kaynnista(Laji::Asteroidit);
-    k.aseta_ohjaus(true, false, true);
+    k.aseta_ohjaus(true, false, false, false, true);
     let Some(Kaynnissa::Asteroidit(peli)) = &k.peli else {
         panic!("asteroidit ei ole käynnissä");
     };
@@ -1032,12 +1032,12 @@ fn luvut_ja_tiilirikko_pitavat_nettilistansa_ja_jononsa_erillaan() {
 fn nuolet_ohjaavat_tiilirikkoa_pohjassa_ollessaan() {
     let mut k = Kaynnistin::new(1);
     k.kaynnista(Laji::Tiilirikko);
-    k.aseta_ohjaus(true, false, false);
+    k.aseta_ohjaus(true, false, false, false, false);
     let Some(Kaynnissa::Tiilirikko(peli)) = &k.peli else {
         panic!("tiilirikko ei ole käynnissä");
     };
     assert_eq!(peli.ohjaus, -1);
-    k.aseta_ohjaus(true, true, false);
+    k.aseta_ohjaus(true, true, false, false, false);
     let Some(Kaynnissa::Tiilirikko(peli)) = &k.peli else {
         panic!("tiilirikko ei ole käynnissä");
     };
@@ -1473,4 +1473,22 @@ fn nakymat_piirtyvat_kaatumatta() {
         k.kasittele(Syote::Ammu);
         piirto::piirra(&k, &mut kehys);
     }
+}
+
+#[test]
+fn kaivo_saa_pohjassa_olevat_nuolet_ilman_hiiren_oikeaa_nappia() {
+    let mut k = Kaynnistin::new(1);
+    k.kaynnista(Laji::Kaivo);
+    k.kasittele(Syote::Ammu);
+    // Oikea nappi pystyttää tuen, joten se ei saa vetää kaivajaa ylös.
+    k.aseta_ohjaus(false, false, false, false, true);
+    k.edista(100);
+    for _ in 0..10 {
+        k.aseta_ohjaus(false, true, false, false, false);
+        k.edista(100);
+    }
+    let Some(Kaynnissa::Kaivo(peli)) = &k.peli else {
+        panic!("kaivo ei ole käynnissä");
+    };
+    assert!(peli.kaivos.kaivaja.paikka.0 > klassikot8000::kaivo::ALKU.0 + 1);
 }

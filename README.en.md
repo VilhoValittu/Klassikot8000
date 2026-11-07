@@ -89,7 +89,7 @@ You are a greedy gold digger. You dig down next to the lift, and in the dark you
 
 Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points or more. A full quota gives a level bonus, and every unused prop adds to it. The levels differ in props, oil and light, how long the roof holds and how many hazards there are. A harder level multiplies the points (normal by two, hard by three).
 
-*Arrows, WASD or clicks dig and walk, space, right click or a click on your own cell puts up or takes down a prop, and R throws the rescue rope, which pulls you up at the cost of a helmet.*
+*Arrows, WASD or clicks dig and walk one cell at a time (a held arrow keeps going after a moment), space, right click or a click on your own cell puts up or takes down a prop, and R throws the rescue rope, which pulls you up at the cost of a helmet.*
 
 ## Good to know
 

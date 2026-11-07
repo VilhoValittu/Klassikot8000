@@ -37,6 +37,9 @@ const KANNUN_OSUUS: f32 = 0.4;
 pub const PUITA_NIPUSSA: u32 = 4;
 /// Valon säde ruutuina, kun öljy on lopussa.
 pub const PIENIN_VALO: f32 = 1.3;
+/// Pohjassa pidetty suunta jatkaa liikettä vasta näin pitkän pidon jälkeen, jotta tavallinen
+/// painallus vie aina yhden ruudun.
+pub const TOISTON_VIIVE_MS: u32 = 400;
 
 pub type Ruutu = (i32, i32);
 
@@ -392,6 +395,9 @@ pub struct Kaivos {
     pub ohi: bool,
     /// Viimeisin painallus odottaa, kunnes kaivaja on vapaa.
     painallus: Option<(i8, i8)>,
+    /// Pohjassa oleva suunta ja kuinka kauan se on ollut pohjassa.
+    pito: Option<(i8, i8)>,
+    pito_ms: u32,
     tuenta_vanha: bool,
     kiintio_ilmoitettu: bool,
 }
@@ -416,6 +422,8 @@ impl Kaivos {
             hissi_ms: None,
             ohi: false,
             painallus: None,
+            pito: None,
+            pito_ms: 0,
             tuenta_vanha: true,
             kiintio_ilmoitettu: false,
         };
@@ -434,6 +442,7 @@ impl Kaivos {
         self.tuet = self.vaikeus.tukia();
         self.oljy_ms = self.vaikeus.oljya_ms();
         self.painallus = None;
+        self.pito_ms = 0;
         self.tuenta_vanha = true;
         self.kiintio_ilmoitettu = false;
         let kultaa: u32 = (0..RIVEJA as i32)
@@ -492,6 +501,15 @@ impl Kaivos {
         }
     }
 
+    /// Pohjassa oleva suunta. Uusi suunta aloittaa viiveen alusta.
+    pub fn aseta_pito(&mut self, suunta: Option<(i8, i8)>) {
+        let suunta = suunta.filter(|&s| s != (0, 0));
+        if suunta != self.pito {
+            self.pito = suunta;
+            self.pito_ms = 0;
+        }
+    }
+
     /// Asettaa tuen kaivajan ruutuun tai purkaa siinä olevan. Tosi, jos jotain tapahtui.
     pub fn vaihda_tuki(&mut self) -> bool {
         let k = self.kaivaja;
@@ -530,6 +548,7 @@ impl Kaivos {
         let menetetty = std::mem::take(&mut self.saalis);
         self.kaivaja = Kaivaja::new(ALKU);
         self.painallus = None;
+        self.pito_ms = 0;
         self.kiintio_ilmoitettu = self.kiintio_taynna();
         menetetty
     }
@@ -545,6 +564,9 @@ impl Kaivos {
         let mut tapahtumat = Vec::new();
         if self.ohi {
             return tapahtumat;
+        }
+        if self.pito.is_some() {
+            self.pito_ms = self.pito_ms.saturating_add(ASKEL_MS);
         }
         if let Some(jaljella) = self.hissi_ms {
             let jaljella = jaljella.saturating_sub(ASKEL_MS);
@@ -691,8 +713,9 @@ impl Kaivos {
         if paikka == HISSI && self.nosta(tapahtumat) {
             return;
         }
-        // Yksi painallus on yksi toimi: pohjassa pidetty näppäin ei jatka liikettä.
-        if let Some(suunta) = self.painallus.take() {
+        // Painallus on yksi toimi. Pohjassa pidetty suunta jatkaa vasta viiveen jälkeen.
+        let pitaa = self.pito.filter(|_| self.pito_ms >= TOISTON_VIIVE_MS);
+        if let Some(suunta) = self.painallus.take().or(pitaa) {
             self.yrita(suunta);
         }
     }
@@ -713,6 +736,7 @@ impl Kaivos {
         tapahtumat.push(Tapahtuma::TasoValmis { bonus });
         self.hissi_ms = Some(HISSIN_MATKA_MS);
         self.painallus = None;
+        self.pito_ms = 0;
         true
     }
 

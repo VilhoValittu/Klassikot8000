@@ -55,6 +55,9 @@ pub trait Pelinakyma {
     /// Pohjassa olevat suunnat: -1 vasen, 1 oikea, ja ylös.
     fn aseta_ohjaus(&mut self, _suunta: i8, _ylos: bool) {}
 
+    /// Pohjassa olevat nuolet tai WASD ilman hiirtä: vaaka -1 vasen, pysty -1 ylös.
+    fn aseta_nuolet(&mut self, _vaaka: i8, _pysty: i8) {}
+
     /// Ikkuna ei ole aktiivinen.
     fn keskeyta(&mut self) {}
 

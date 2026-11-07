@@ -369,10 +369,13 @@ impl Kaynnistin {
     }
 
     /// Pohjassa olevat suunnat. Näppäintoisto olisi mailan ohjaukseen liian nykivä.
-    pub fn aseta_ohjaus(&mut self, vasen: bool, oikea: bool, ylos: bool) {
+    /// Hiiren oikea nappi käy ylöspäin vain `aseta_ohjaus`-kutsussa.
+    pub fn aseta_ohjaus(&mut self, vasen: bool, oikea: bool, ylos: bool, alas: bool, hiiri: bool) {
         if let Some(peli) = &mut self.peli {
-            peli.nakyma_mut()
-                .aseta_ohjaus(oikea as i8 - vasen as i8, ylos);
+            let vaaka = oikea as i8 - vasen as i8;
+            let nakyma = peli.nakyma_mut();
+            nakyma.aseta_ohjaus(vaaka, ylos || hiiri);
+            nakyma.aseta_nuolet(vaaka, alas as i8 - ylos as i8);
         }
     }
 

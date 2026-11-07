@@ -1,8 +1,8 @@
 use klassikot8000::Arpa;
 use klassikot8000::kaivo::{
-    ALKU, ASKEL_MS, HISSI, HISSIN_MATKA_MS, KYPARIA, Kaivos, Loyto, MAA_ALKAA, PIENIN_VALO, PINTA,
-    RIVEJA, Ruutu, SARAKKEITA, SUURIN_PISTEMAARA, Solu, Tapahtuma, Toimi, Vaikeus, kullan_arvo,
-    luo_kentta, tuenta,
+    ALKU, ASKEL_MS, HISSI, HISSIN_MATKA_MS, KAVELY_MS, KYPARIA, Kaivos, Loyto, MAA_ALKAA,
+    PIENIN_VALO, PINTA, RIVEJA, Ruutu, SARAKKEITA, SUURIN_PISTEMAARA, Solu, TOISTON_VIIVE_MS,
+    Tapahtuma, Toimi, Vaikeus, kullan_arvo, luo_kentta, tuenta,
 };
 
 /// Tasainen maa ilman aarteita ja vaaroja, iso kiintiö.
@@ -441,6 +441,28 @@ fn painallus_vie_yhden_ruudun_ja_viimeisin_odottaa_vuoroaan() {
     k.paina((-1, 0));
     aja(&mut k, 300);
     assert_eq!(k.kaivaja.paikka, (ALKU.0 - 1, PINTA));
+}
+
+#[test]
+fn pohjassa_pidetty_suunta_jatkaa_vasta_viiveen_jalkeen() {
+    let mut k = kaivos();
+    k.paina((1, 0));
+    k.aseta_pito(Some((1, 0)));
+    aja(&mut k, TOISTON_VIIVE_MS - 20);
+    assert_eq!(k.kaivaja.paikka, (ALKU.0 + 1, PINTA));
+    aja(&mut k, 1000);
+    assert!(k.kaivaja.paikka.0 >= ALKU.0 + 6);
+
+    // Suunnan vaihto aloittaa viiveen alusta, ja irrotus pysäyttää.
+    k.aseta_pito(Some((-1, 0)));
+    // Kesken ollut askel oikealle valmistuu ensin.
+    aja(&mut k, KAVELY_MS);
+    let paikka = k.kaivaja.paikka;
+    aja(&mut k, TOISTON_VIIVE_MS - KAVELY_MS - 50);
+    assert_eq!(k.kaivaja.paikka, paikka);
+    k.aseta_pito(None);
+    aja(&mut k, 1000);
+    assert_eq!(k.kaivaja.paikka, paikka);
 }
 
 #[test]
