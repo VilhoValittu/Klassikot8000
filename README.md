@@ -1,6 +1,6 @@
 # Klassikot8000
 
-[Suomeksi](README.fin.md.md) | **English**
+[Suomeksi](README.fin.md) | **English**
 
 Bored? Thirteen old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
