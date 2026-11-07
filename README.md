@@ -112,7 +112,7 @@ Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä
 
 ## Pelaamaan
 
-Hae Windows-paketti (`windows-x64`) [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest), pura se ja käynnistä `klassikot8000-<versio>.exe`. Lataus on alle megan.
+Hae Windows-paketti (`windows-x64`) [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest), pura se ja käynnistä `klassikot8000-<versio>.exe`.
 
 Lähdekoodista käännetty peli toimii samoin, mutta ei lähetä tuloksia nettilistalle: lista hyväksyy vain julkaisupakettien tulokset.
 

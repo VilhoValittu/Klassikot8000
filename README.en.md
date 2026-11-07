@@ -101,7 +101,7 @@ Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points 
 
 ## Get playing
 
-Grab the Windows package (`windows-x64`) from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest), unpack it and run `klassikot8000-<version>.exe`. The download is under 1 MB.
+Grab the Windows package (`windows-x64`) from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest), unpack it and run `klassikot8000-<version>.exe`.
 
 A game built from source plays the same, but doesn't send scores to the online list: the list only accepts scores from the release packages.
 
