@@ -181,6 +181,10 @@ impl Kaivo {
                 self.aani(Aani::Laivakello);
                 self.viesti(kaanna("kaivo.kiintio_taynna").to_string());
             }
+            Tapahtuma::EiTikkaita => {
+                self.aani(Aani::Virhe);
+                self.viesti(kaanna("kaivo.ei_tikkaita").to_string());
+            }
             Tapahtuma::Ritisee(_) => self.aani(Aani::Ritina),
             Tapahtuma::Sortui { solu, paikka } => {
                 self.aani(if solu == Solu::Hiekka {
@@ -357,8 +361,8 @@ impl Kaivo {
             return;
         }
         let k = self.kaivos.kaivaja;
-        let tyhja = self.kaivos.solu(k.paikka) == Solu::Tyhja;
-        if self.kaivos.tuet == 0 && tyhja && k.paikka.1 >= MAA_ALKAA && k.toimi == Toimi::Seisoo {
+        let vapaa = matches!(self.kaivos.solu(k.paikka), Solu::Tyhja | Solu::Tikkaat);
+        if self.kaivos.tuet == 0 && vapaa && k.paikka.1 >= MAA_ALKAA && k.toimi == Toimi::Seisoo {
             self.aani(Aani::Virhe);
             self.viesti(kaanna("kaivo.ei_tukia").to_string());
         }

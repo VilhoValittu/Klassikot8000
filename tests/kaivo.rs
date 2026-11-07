@@ -84,6 +84,7 @@ fn arvottu_kentta_on_ehja_ja_kantaa_itsensa() {
                     .sum();
                 assert!(k.kiintio > 0 && k.kiintio <= kultaa, "{siemen} {taso}");
                 assert_eq!(k.tuet, vaikeus.tukia());
+                assert_eq!(k.tikkaat, 3 * vaikeus.tukia());
                 assert_eq!(k.kyparat, KYPARIA);
             }
         }
@@ -234,8 +235,9 @@ fn kaivaja_kaivaa_alas_ja_sivulle_mutta_ei_kalliota_eika_kivea() {
 }
 
 #[test]
-fn ylos_paasee_vain_tukea_pitkin() {
+fn ilman_tikkaita_ylos_paasee_vain_tukea_pitkin() {
     let mut k = kaivos();
+    k.tikkaat = 0;
     paina(&mut k, (0, 1));
     assert_eq!(k.kaivaja.paikka.1, MAA_ALKAA);
     paina(&mut k, (0, -1));
@@ -256,6 +258,65 @@ fn ylos_paasee_vain_tukea_pitkin() {
     assert!(k.vaihda_tuki());
     assert_eq!(k.solu(k.kaivaja.paikka), Solu::Tyhja);
     assert_eq!(k.tuet, Vaikeus::Normaali.tukia());
+}
+
+#[test]
+fn ylos_nuoli_pystyttaa_tikkaat_ja_niita_pitkin_kulkee_kumpaankin_suuntaan() {
+    let mut k = kaivos();
+    let tikkaita = Vaikeus::Normaali.tikkaita();
+    paina(&mut k, (0, 1));
+    paina(&mut k, (0, 1));
+    assert_eq!(k.kaivaja.paikka, (ALKU.0, MAA_ALKAA + 1));
+    paina(&mut k, (0, -1));
+    assert_eq!(k.kaivaja.paikka, (ALKU.0, MAA_ALKAA));
+    assert_eq!(k.solu((ALKU.0, MAA_ALKAA + 1)), Solu::Tikkaat);
+    paina(&mut k, (0, -1));
+    assert_eq!(k.kaivaja.paikka, ALKU);
+    assert_eq!(k.tikkaat, tikkaita - 2);
+    assert_eq!(k.tuet, Vaikeus::Normaali.tukia());
+    // Tikkaiden yläpäällä seisoo, ja tikkaat jäävät paikoilleen.
+    assert!(aja(&mut k, 1000).is_empty());
+    assert_eq!(k.kaivaja.paikka, ALKU);
+
+    // Alas tikkaita pitkin ilman uusia tikkaita, ja tikkaissa seisoja kaivaa jalkojensa alta.
+    paina(&mut k, (0, 1));
+    paina(&mut k, (0, 1));
+    assert_eq!(k.kaivaja.paikka, (ALKU.0, MAA_ALKAA + 1));
+    assert_eq!(k.tikkaat, tikkaita - 2);
+    let tapahtumat = paina(&mut k, (0, 1));
+    assert!(tapahtumat.contains(&Tapahtuma::Kaivoi(Solu::Maa)));
+    assert_eq!(k.kaivaja.paikka, (ALKU.0, MAA_ALKAA + 1));
+
+    // Tuen nappi vaihtaa tikkaat tueksi.
+    assert!(k.vaihda_tuki());
+    assert_eq!(k.solu(k.kaivaja.paikka), Solu::Tuki);
+    assert_eq!(k.tikkaat, tikkaita - 1);
+    assert_eq!(k.tuet, Vaikeus::Normaali.tukia() - 1);
+}
+
+#[test]
+fn tikkaiden_loppuminen_ilmoitetaan_kerran_painallusta_kohden() {
+    let mut k = kaivos();
+    paina(&mut k, (0, 1));
+    k.tikkaat = 0;
+    k.paina((0, -1));
+    k.aseta_pito(Some((0, -1)));
+    let tapahtumat = aja(&mut k, 2000);
+    assert_eq!(tapahtumat, [Tapahtuma::EiTikkaita]);
+    assert_eq!(k.kaivaja.paikka, (ALKU.0, MAA_ALKAA));
+}
+
+#[test]
+fn tikkaat_eivat_kanna_kattoa_ja_putoava_maa_murskaa_ne() {
+    let mut k = kaivos();
+    tunneli(&mut k, 6, 5..10);
+    k.aseta((7, 6), Solu::Tikkaat);
+    let tapahtumat = aja(&mut k, 4000);
+    assert!(tapahtumat.contains(&Tapahtuma::Sortui {
+        solu: Solu::Maa,
+        paikka: (7, 6)
+    }));
+    assert_eq!(k.solu((7, 6)), Solu::Maa);
 }
 
 #[test]
@@ -410,6 +471,24 @@ fn hatakoysi_maksaa_kyparan_ja_viimeinen_paattaa_pelin() {
     k.paina((1, 0));
     assert!(aja(&mut k, 500).is_empty());
     assert_eq!(k.kaivaja.paikka, ALKU);
+}
+
+#[test]
+fn koysi_vie_sakin_taydellakin_kiintiolla() {
+    // Täysi säkki on vietävä hissille itse: köysi ei pelasta kiintiötä.
+    let mut k = kaivos();
+    k.kiintio = 40;
+    k.nostettu = 10;
+    k.saalis = 30;
+    tunneli(&mut k, 12, 10..11);
+    k.kaivaja.paikka = (10, 12);
+    let mut tapahtumat = Vec::new();
+    assert!(k.heita_koysi(&mut tapahtumat));
+    assert_eq!(tapahtumat, [Tapahtuma::Koysi { menetetty: 30 }]);
+    assert_eq!(k.kyparat, KYPARIA - 1);
+    assert_eq!(k.kaivaja.paikka, ALKU);
+    assert!(!k.kiintio_taynna());
+    assert_eq!(k.hissi_ms, None);
 }
 
 #[test]

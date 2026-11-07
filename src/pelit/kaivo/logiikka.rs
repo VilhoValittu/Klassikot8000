@@ -5,7 +5,8 @@
 //! Maa kantaa itseään: kiinteä ruutu on tuettu, kun sen alla on tuettu ruutu (pilari), tai kun
 //! samalla rivillä on pilari enintään materiaalin kantavuuden päässä yhtenäistä kiinteää pitkin.
 //! Tukematon ruutu ritisee hetken ja putoaa sitten. Pelaajan tuki on pilari, jota pitkin voi
-//! myös kiivetä.
+//! myös kiivetä. Tikkaat eivät kanna mitään, mutta niitä on tukia enemmän, ja ylös kiivetään
+//! niillä.
 
 use crate::Arpa;
 
@@ -69,6 +70,12 @@ impl Vaikeus {
         }
     }
 
+    /// Tikkaita on kolme kertaa tukien verran, jotta tuet riittävät kattoon ja tikkaat tielle
+    /// takaisin ylös.
+    pub fn tikkaita(self) -> u32 {
+        3 * self.tukia()
+    }
+
     /// Täysi lamppu palaa maan alla näin kauan.
     pub fn oljya_ms(self) -> u32 {
         match self {
@@ -120,6 +127,9 @@ pub enum Solu {
     Kallio,
     /// Pelaajan tuki: pilari, joka kantaa kattoa ja jota pitkin kiivetään.
     Tuki,
+    /// Pelaajan tikkaat: niitä pitkin kiivetään, mutta ne eivät kanna kattoa eivätkä putoa.
+    /// Putoava maa murskaa tikkaat, joiden kohdalle se jää.
+    Tikkaat,
     Kulta,
     Timantti,
     /// Haudattu öljykannu täyttää lamppua.
@@ -129,13 +139,19 @@ pub enum Solu {
 }
 
 impl Solu {
+    /// Tikkaat ovat tuennalle ja putoavalle maalle kuin tyhjää.
     pub fn kiintea(self) -> bool {
-        self != Solu::Tyhja
+        !matches!(self, Solu::Tyhja | Solu::Tikkaat)
     }
 
     /// Kaivaja voi olla tässä ruudussa.
     pub fn lapaistava(self) -> bool {
-        matches!(self, Solu::Tyhja | Solu::Tuki)
+        matches!(self, Solu::Tyhja | Solu::Tuki | Solu::Tikkaat)
+    }
+
+    /// Tästä ruudusta pääsee kiipeämään ylös, ja siinä voi seistä.
+    pub fn kiivettava(self) -> bool {
+        matches!(self, Solu::Tuki | Solu::Tikkaat)
     }
 
     pub fn kaivettava(self) -> bool {
@@ -168,7 +184,7 @@ impl Solu {
             Solu::Kallio => u32::MAX,
             Solu::Savi => 3,
             Solu::Maa | Solu::Kulta | Solu::Timantti | Solu::Oljy | Solu::Puut => 2,
-            Solu::Tyhja | Solu::Hiekka | Solu::Kivi | Solu::Tuki => 0,
+            Solu::Tyhja | Solu::Hiekka | Solu::Kivi | Solu::Tuki | Solu::Tikkaat => 0,
         }
     }
 
@@ -268,6 +284,8 @@ pub enum Tapahtuma {
     },
     /// Säkissä on nyt tarpeeksi tason kiintiöön.
     KiintioTaynna,
+    /// Painettiin ylös tyhjässä ruudussa, mutta tikkaat ovat lopussa.
+    EiTikkaita,
     /// Uusi ruutu alkoi ritistä.
     Ritisee(Ruutu),
     /// Putoava ruutu osui pohjaan.
@@ -386,6 +404,7 @@ pub struct Kaivos {
     pub nostettu: u32,
     pub kiintio: u32,
     pub tuet: u32,
+    pub tikkaat: u32,
     pub kyparat: u32,
     pub oljy_ms: u32,
     /// Kasvaa aina, kun jokin ruutu muuttuu: näkymä laskee kaivoksen kuvan silloin uudelleen.
@@ -416,6 +435,7 @@ impl Kaivos {
             nostettu: 0,
             kiintio: 0,
             tuet: vaikeus.tukia(),
+            tikkaat: vaikeus.tikkaita(),
             kyparat: KYPARIA,
             oljy_ms: vaikeus.oljya_ms(),
             versio: 0,
@@ -440,6 +460,7 @@ impl Kaivos {
         self.saalis = 0;
         self.nostettu = 0;
         self.tuet = self.vaikeus.tukia();
+        self.tikkaat = self.vaikeus.tikkaita();
         self.oljy_ms = self.vaikeus.oljya_ms();
         self.painallus = None;
         self.pito_ms = 0;
@@ -510,7 +531,9 @@ impl Kaivos {
         }
     }
 
-    /// Asettaa tuen kaivajan ruutuun tai purkaa siinä olevan. Tosi, jos jotain tapahtui.
+    /// Asettaa tuen kaivajan ruutuun tai purkaa siinä olevan. Tikkaat vaihtuvat tueksi, jotta
+    /// tikkailla seisova saa ritisevän katon kannatettua yhdellä painalluksella. Tosi, jos jotain
+    /// tapahtui.
     pub fn vaihda_tuki(&mut self) -> bool {
         let k = self.kaivaja;
         if self.ohi || self.hissi_ms.is_some() || k.toimi != Toimi::Seisoo {
@@ -527,11 +550,18 @@ impl Kaivos {
                 self.tuet -= 1;
                 true
             }
+            Solu::Tikkaat if self.tuet > 0 => {
+                self.aseta(k.paikka, Solu::Tuki);
+                self.tuet -= 1;
+                self.tikkaat += 1;
+                true
+            }
             _ => false,
         }
     }
 
-    /// Hätäköysi nostaa kaivajan pinnalle kypärän hinnalla. Tosi, jos köysi heitettiin.
+    /// Hätäköysi nostaa kaivajan pinnalle kypärän ja säkin hinnalla, täydelläkin kiintiöllä:
+    /// säkki on vietävä hissille itse. Tosi, jos köysi heitettiin.
     pub fn heita_koysi(&mut self, tapahtumat: &mut Vec<Tapahtuma>) -> bool {
         if self.ohi || self.hissi_ms.is_some() || self.kaivaja.paikka.1 < MAA_ALKAA {
             return false;
@@ -607,10 +637,13 @@ impl Kaivos {
         }
     }
 
-    /// Kaivaja seisoo tukevasti: omassa ruudussa on tuki tai alla on jotain kiinteää.
+    /// Kaivaja seisoo tukevasti: omassa ruudussa on tuki tai tikkaat, tai alla on jotain
+    /// kiinteää tai tikkaiden yläpää.
     fn seisoo_tukevasti(&self, (x, y): Ruutu) -> bool {
-        self.solu((x, y)) == Solu::Tuki
-            || self.solu((x, y + 1)).kiintea()
+        let alla = self.solu((x, y + 1));
+        self.solu((x, y)).kiivettava()
+            || alla.kiintea()
+            || alla == Solu::Tikkaat
             || self.putoava_kohdassa((x, y + 1))
     }
 
@@ -715,8 +748,9 @@ impl Kaivos {
         }
         // Painallus on yksi toimi. Pohjassa pidetty suunta jatkaa vasta viiveen jälkeen.
         let pitaa = self.pito.filter(|_| self.pito_ms >= TOISTON_VIIVE_MS);
-        if let Some(suunta) = self.painallus.take().or(pitaa) {
-            self.yrita(suunta);
+        let painettu = self.painallus.take();
+        if let Some(suunta) = painettu.or(pitaa) {
+            self.yrita(suunta, painettu.is_some(), tapahtumat);
         }
     }
 
@@ -740,7 +774,8 @@ impl Kaivos {
         true
     }
 
-    fn yrita(&mut self, (dx, dy): (i8, i8)) {
+    /// Aloittaa toimen suuntaan. Pohjassa pidetty suunta ei toista ilmoitusta joka askeleella.
+    fn yrita(&mut self, (dx, dy): (i8, i8), painettu: bool, tapahtumat: &mut Vec<Tapahtuma>) {
         let k = self.kaivaja;
         if dx != 0 {
             self.kaivaja.katse = dx;
@@ -755,10 +790,24 @@ impl Kaivos {
             (_, 0) if toinen.lapaistava() => Toimi::Liikkuu(dx, 0),
             (_, 0) if toinen.kaivettava() => Toimi::Kaivaa(dx, 0),
             (0, -1) if toinen.kaivettava() => Toimi::Kaivaa(0, -1),
-            (0, -1) if toinen.lapaistava() && oma == Solu::Tuki => Toimi::Liikkuu(0, -1),
-            // Tuessa seisova ei kaiva jalkojensa alta: tuki putoaisi hänen kanssaan.
+            (0, -1) if toinen.lapaistava() && oma.kiivettava() => Toimi::Liikkuu(0, -1),
+            // Tyhjästä ruudusta ylös: tikkaat omaan ruutuun ja kiipeämään. Ylin rivi, jolle
+            // kohde voi osua, on pinta, joten tikkaat jäävät aina maan alle.
+            (0, -1) if toinen.lapaistava() && oma == Solu::Tyhja => {
+                if self.tikkaat == 0 {
+                    if painettu {
+                        tapahtumat.push(Tapahtuma::EiTikkaita);
+                    }
+                    return;
+                }
+                self.tikkaat -= 1;
+                self.aseta(k.paikka, Solu::Tikkaat);
+                Toimi::Liikkuu(0, -1)
+            }
+            // Tuessa seisova ei kaiva jalkojensa alta: tuki putoaisi hänen kanssaan. Tikkaat
+            // eivät putoa.
             (0, 1) if toinen.kaivettava() && oma != Solu::Tuki => Toimi::Kaivaa(0, 1),
-            (0, 1) if toinen == Solu::Tuki || (oma == Solu::Tuki && toinen == Solu::Tyhja) => {
+            (0, 1) if toinen.kiivettava() || (oma.kiivettava() && toinen == Solu::Tyhja) => {
                 Toimi::Liikkuu(0, 1)
             }
             _ => return,

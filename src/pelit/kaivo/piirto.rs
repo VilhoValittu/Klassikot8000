@@ -378,12 +378,21 @@ fn materiaali(solu: Solu, rivi: i32, (px, py): (i32, i32), (gx, gy): (i32, i32))
             (3..=6, 6) => 0x5A3418,
             _ => return None,
         },
+        // Vaaleat johteet ja puolat ilman tuen ylintä palkkia, jotta ne erottuvat tuesta.
+        // Puolat jatkuvat ruudusta toiseen samassa tahdissa.
+        Solu::Tikkaat => match (px, py) {
+            (2 | 7, _) => 0xE8C888,
+            (3 | 8, _) => 0x8A6A3C,
+            (4..=6, 2 | 7) => 0xD0A868,
+            (4..=6, 3 | 8) => 0x4A3420,
+            _ => return None,
+        },
     })
 }
 
 /// Kaivaja näkee tämän läpi: tunnelin seinä näkyy.
 fn avoin(solu: Solu) -> bool {
-    matches!(solu, Solu::Tyhja | Solu::Tuki)
+    matches!(solu, Solu::Tyhja | Solu::Tuki | Solu::Tikkaat)
 }
 
 /// Läpinäkymättömän maan reunat: valo ylhäältä, varjo alas, ruoho pinnalla.
@@ -394,7 +403,7 @@ fn reunat(
     (gx, gy): (i32, i32),
     naapuri: impl Fn(i32, i32) -> Solu,
 ) -> u32 {
-    if matches!(solu, Solu::Kivi | Solu::Tuki) {
+    if matches!(solu, Solu::Kivi | Solu::Tuki | Solu::Tikkaat) {
         return vari;
     }
     let rivi = gy / SOLU_P;
@@ -824,7 +833,7 @@ impl Piirtaja<'_> {
             }
             Toimi::Kaivaa(..) => (&KAIVAA, &KUOKKA_ISKUSSA),
             Toimi::Putoaa => (&PUTOAA, &[]),
-            Toimi::Seisoo if kaivos.solu(k.paikka) == Solu::Tuki => (&KIIPEAA, &[]),
+            Toimi::Seisoo if kaivos.solu(k.paikka).kiivettava() => (&KIIPEAA, &[]),
             Toimi::Seisoo => (&SEISOO, &[]),
         };
         // Kiivetessä kädet vaihtavat puolta.
@@ -927,12 +936,24 @@ impl Piirtaja<'_> {
             (1, "yhteinen.paras", peli.taulu.paras.to_string()),
             (2, "kaivo.taso_otsikko", (kaivos.taso + 1).to_string()),
             (4, "kaivo.sakki", kaivos.saalis.to_string()),
-            (5, "kaivo.tuet", kaivos.tuet.to_string()),
         ];
         for (i, otsikko, arvo) in arvot {
             let y = lohko(i);
             self.suurteksti(SARAKE_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
             self.suurteksti(SARAKE_X, y + ARVON_Y, &arvo, OTSIKKO, VALKOINEN, true);
+        }
+
+        // Tuet ja tikkaat jakavat lohkon: nimi vasemmalla ja määrä oikeassa reunassa.
+        let varasto = [
+            ("kaivo.tuet", kaivos.tuet),
+            ("kaivo.tikkaat", kaivos.tikkaat),
+        ];
+        for (rivi, (otsikko, maara)) in varasto.into_iter().enumerate() {
+            let y = lohko(5) + rivi as i32 * ARVON_Y;
+            self.suurteksti(SARAKE_X, y, kaanna(otsikko), OTSIKKO, KELTAINEN, false);
+            let arvo = maara.to_string();
+            let x = SARAKE_X + PARHAAT_L - arvo.chars().count() as i32 * OTSIKKO.2;
+            self.suurteksti(x, y, &arvo, OTSIKKO, VALKOINEN, true);
         }
 
         // Kiintiö: hissiin viety täytenä, säkissä oleva himmeämpänä perässä.

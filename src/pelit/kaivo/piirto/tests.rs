@@ -71,6 +71,7 @@ fn tekstit_mahtuvat_paikoilleen() {
             muotoile("kaivo.uusi_taso", &[&99]),
             kaanna("kaivo.oljy_loppui").to_string(),
             kaanna("kaivo.ei_tukia").to_string(),
+            kaanna("kaivo.ei_tikkaita").to_string(),
             muotoile("yhteinen.tulos", &[&999999]),
         ] {
             assert!(teksti.chars().count() <= RIVILLE_MERKKEJA, "{teksti}");
@@ -82,10 +83,18 @@ fn tekstit_mahtuvat_paikoilleen() {
             "kaivo.kiintio",
             "kaivo.sakki",
             "kaivo.tuet",
+            "kaivo.tikkaat",
             "kaivo.kyparat",
             "kaivo.lamppu",
         ] {
             let leveys = kaanna(avain).chars().count() as i32 * OTSIKKO.2;
+            assert!(leveys <= PARHAAT_L, "{avain}");
+        }
+        // Tukien ja tikkaiden nimen perään mahtuu välin kanssa kaksinumeroinen määrä: tikkaita on
+        // enintään 3 * 20 ja tukia 20 ja kolme nippua.
+        assert!(Vaikeus::Helppo.tikkaita() < 100);
+        for avain in ["kaivo.tuet", "kaivo.tikkaat"] {
+            let leveys = (kaanna(avain).chars().count() as i32 + 1 + 2) * OTSIKKO.2;
             assert!(leveys <= PARHAAT_L, "{avain}");
         }
         let otsikko = kaanna("kaivo.valmis_otsikko").chars().count() as i32 * OTSIKKO.2;
@@ -135,6 +144,7 @@ fn kuvan_pikselit_tuntevat_materiaalit() {
     k.aseta((5, 5), Solu::Tyhja);
     k.aseta((6, 5), Solu::Tuki);
     k.aseta((7, 5), Solu::Kivi);
+    k.aseta((8, 5), Solu::Tikkaat);
     let keski = |x: i32, y: i32| (x * SOLU_P + 5, y * SOLU_P + 5);
     let seina = pikselin_vari(k, keski(5, 5).0, keski(5, 5).1);
     assert_eq!(seina, {
@@ -144,6 +154,11 @@ fn kuvan_pikselit_tuntevat_materiaalit() {
     // Tuen pylväs ja kiven keskus ovat omaa väriään, tuen keskellä näkyy seinä.
     assert_eq!(pikselin_vari(k, 6 * SOLU_P + 1, 5 * SOLU_P + 4), 0xC8904C);
     let (gx, gy) = (6 * SOLU_P + 4, 5 * SOLU_P + 3);
+    assert_eq!(pikselin_vari(k, gx, gy), seinan_vari(5, gx, gy));
+    // Tikkaiden johde ja puola ovat omaa väriään, puolien välissä näkyy seinä.
+    assert_eq!(pikselin_vari(k, 8 * SOLU_P + 2, 5 * SOLU_P + 5), 0xE8C888);
+    assert_eq!(pikselin_vari(k, 8 * SOLU_P + 5, 5 * SOLU_P + 2), 0xD0A868);
+    let (gx, gy) = (8 * SOLU_P + 5, 5 * SOLU_P + 5);
     assert_eq!(pikselin_vari(k, gx, gy), seinan_vari(5, gx, gy));
     assert_ne!(
         pikselin_vari(k, keski(7, 5).0, keski(7, 5).1),
