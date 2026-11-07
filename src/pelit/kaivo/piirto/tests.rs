@@ -80,7 +80,7 @@ fn tekstit_mahtuvat_paikoilleen() {
             assert!(leveys <= PARHAAT_L, "{avain}");
         }
         // Tukien ja tikkaiden nimen perään mahtuu välin kanssa kaksinumeroinen määrä: tikkaita on
-        // enintään 3 * 20 ja tukia 20 ja kolme nippua.
+        // enintään 2 * 20 ja tukia 20 ja kolme nippua.
         assert!(Vaikeus::Helppo.tikkaita() < 100);
         for avain in ["kaivo.tuet", "kaivo.tikkaat"] {
             let leveys = (kaanna(avain).chars().count() as i32 + 1 + 2) * OTSIKKO.2;

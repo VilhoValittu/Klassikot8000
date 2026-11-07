@@ -1,8 +1,8 @@
 use klassikot8000::Arpa;
 use klassikot8000::tiilirikko::{
     ASKEL_MS, ELAMIA, KENTTIA, KORKEUS, LEVEA_MAILA_L, LEVEYS, MAILA_L, MAILA_Y, PALLOJA_ENINTAAN,
-    PALLON_SADE, Pallo, RIVEJA, SARAKKEITA, SUURIN_PISTEMAARA, TIILET_Y, TIILI_K, TIILI_L,
-    Tapahtuma, Tiilipeli, Tila,
+    PALLON_SADE, Pallo, RIVEJA, SARAKKEITA, SUPERVAUHTI, SUURIN_PISTEMAARA, TIILET_Y, TIILI_K,
+    TIILI_L, Tapahtuma, Tiilipeli, Tila,
 };
 
 fn uusi_peli(kentta: usize) -> Tiilipeli {
@@ -660,9 +660,10 @@ fn supertiili_tekee_rikkojasta_supervauhtisen_superpallon() {
     let pallo = peli.pallot[0];
     assert!(pallo.superpallo);
     assert_eq!(peli.pallot.len(), 1);
-    assert!((pallo.lentovauhti() - pallo.vauhti * 2.5).abs() < 0.01);
+    assert!((pallo.lentovauhti() - pallo.vauhti * SUPERVAUHTI).abs() < 0.01);
     assert!(
-        (vauhti(&pallo) - (100.0f32.hypot(300.0) * 2.5 * pallo.vauhti / (pallo.vauhti - 4.0)))
+        (vauhti(&pallo)
+            - (100.0f32.hypot(300.0) * SUPERVAUHTI * pallo.vauhti / (pallo.vauhti - 4.0)))
             .abs()
             < 0.1
     );
@@ -728,7 +729,7 @@ fn pallotiili_tuplaa_superpallon_ja_kahdesta_superpallosta_saa_kahdeksankertaise
         panic!("palloja pitää olla kaksi");
     };
     assert!(vanha.superpallo && uusi.superpallo);
-    assert!((vauhti(&uusi) - uusi.vauhti * 2.5).abs() < 0.01);
+    assert!((vauhti(&uusi) - uusi.vauhti * SUPERVAUHTI).abs() < 0.01);
 
     let ennen = peli.pisteet;
     peli.tiilet[5][2] = 1;
@@ -764,7 +765,7 @@ fn superpallo_kimpoaa_mailasta_nopeammin_ja_loppuu_putoamiseen_ja_kentan_vaihtoo
     peli.pallot[0].nopeus = (0.0, 300.0);
     assert_eq!(peli.askel(0, &mut Arpa::new(1)), [Tapahtuma::Maila]);
     let pallo = peli.pallot[0];
-    assert!((vauhti(&pallo) - pallo.vauhti * 2.5).abs() < 0.01);
+    assert!((vauhti(&pallo) - pallo.vauhti * SUPERVAUHTI).abs() < 0.01);
 
     assert_eq!(pudota(&mut peli, 0), [Tapahtuma::Menetys]);
     assert!(!peli.pallot[0].superpallo);

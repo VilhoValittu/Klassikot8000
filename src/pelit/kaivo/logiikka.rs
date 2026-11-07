@@ -70,7 +70,7 @@ impl Vaikeus {
         }
     }
 
-    /// Tikkaita on kolme kertaa tukien verran, jotta tuet riittävät kattoon ja tikkaat tielle
+    /// Tikkaita on kaksi kertaa tukien verran, jotta tuet riittävät kattoon ja tikkaat tielle
     /// takaisin ylös.
     pub fn tikkaita(self) -> u32 {
         2 * self.tukia()

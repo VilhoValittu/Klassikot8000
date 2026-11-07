@@ -84,7 +84,7 @@ fn arvottu_kentta_on_ehja_ja_kantaa_itsensa() {
                     .sum();
                 assert!(k.kiintio > 0 && k.kiintio <= kultaa, "{siemen} {taso}");
                 assert_eq!(k.tuet, vaikeus.tukia());
-                assert_eq!(k.tikkaat, 3 * vaikeus.tukia());
+                assert_eq!(k.tikkaat, 2 * vaikeus.tukia());
                 assert_eq!(k.kyparat, KYPARIA);
             }
         }
