@@ -14,6 +14,8 @@ use crate::pelit::blackjack::peli::Blackjack;
 use crate::pelit::blackjack::piirto::pelimerkkipinot;
 use crate::pelit::holdem::peli::Holdem;
 use crate::pelit::holdem::piirto::poytamalli;
+use crate::pelit::kaivo::peli::Kaivo;
+use crate::pelit::kaivo::piirto::kaivosmalli;
 use crate::pelit::laivanupotus::peli::{Peli, Tilasto};
 use crate::pelit::laivanupotus::piirto::alkumalli as laivamalli;
 use crate::pelit::luvut::peli::Luvut;
@@ -165,6 +167,7 @@ pelit! {
     Blackjack(Blackjack, "peli.blackjack", "valikko.blackjack", pelimerkkipinot, |_| Nettipeli::Blackjack),
     Holdem(Holdem, "peli.holdem", "valikko.holdem", poytamalli, |_| Nettipeli::Holdem),
     Majakka(Majakka, "peli.majakka", "valikko.majakka", majakkamalli, |_| Nettipeli::Majakka),
+    Kaivo(Kaivo, "peli.kaivo", "valikko.kaivo", kaivosmalli, |_| Nettipeli::Kaivo),
 }
 
 /// Pelin valinta ja käynnissä oleva peli. Asetukset säilyvät, kun peli vaihtuu.

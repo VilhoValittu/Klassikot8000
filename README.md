@@ -2,7 +2,7 @@
 
 **Suomeksi** | [English](README.en.md)
 
-Tylsää? Kaksitoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Tylsää? Kolmetoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
 Pyörii vaikka perunalla. AB:n OG ideasta.
 
@@ -93,6 +93,14 @@ Olet majakanvartija myrskyisenä yönä. Laivat tulevat pimeästä kohti satamaa
 Satamaan päässyt vene antaa 10 pistettä, kalastaja 20 ja rahtilaiva 50, ja salakuljettaja 100. Peräkkäin perille päässeet laivat kasvattavat kerrointa viiteen asti, ja haaksirikko tai merelle eksynyt laiva nollaa sen. Yö ilman haaksirikkoja tuo bonuksen. Tasot eroavat keilan leveydessä ja nopeudessa: helpolla karikot näkyvät pimeässäkin himmeästi, vaikealla sumu lyhentää keilaa ja tuulenpuuskat kääntävät laivoja. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
 
 *Hiiri, nuolet tai A/D kääntävät keilaa, välilyönti tai klikkaus soittaa sumutorvea.*
+
+### Kaivo8000
+
+Olet ahne kullankaivaja. Kaivat maan alle hissin vierestä, ja pimeässä näet vain sen, minkä lamppusi valaisee; kulta ja timantit välähtelevät kauempaa. Maa kantaa itsensä vain lyhyen matkan: liian leveä tunneli alkaa ritistä, varisee pölyä ja sortuu, savi kestää vähän leveämmän katon, hiekka valuu heti alta kaivettuna ja irtokivi putoaa, kun sen alta kaivetaan. Ritisevän katon voi vielä pelastaa pystyttämällä sen alle tuen. Tuet ovat myös ainoat tikkaat ylös, joten jokainen tuki on valinta. Löydöt kulkevat säkissä, ja ne kirjautuvat pisteiksi vasta hissillä: sortuma tai liian korkea pudotus vie kypärän ja koko säkin. Kun hissiin on viety tason kiintiön verran kultaa, hissi vie syvemmälle uuteen kaivokseen, jossa on enemmän hiekkaa, kiviä ja luolia. Lampun öljy palaa maan alla ja täyttyy pinnalla tai löydetystä kannusta, ja valo kutistuu öljyn mukana. Haudatuista puunipuista saa lisää tukia. Kolme kypärää menetettynä peli päättyy.
+
+Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä tai enemmän. Täysi kiintiö antaa tasobonuksen, ja jokainen käyttämättä jäänyt tuki kasvattaa sitä. Tasot eroavat tukien, öljyn ja valon määrässä, katon kestossa ja vaarojen määrässä. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
+
+*Nuolet, WASD tai klikkaus kaivavat ja kävelevät, välilyönti, oikea nappi tai klikkaus omaan ruutuun pystyttää tai purkaa tuen, ja R heittää hätäköyden, joka nostaa pinnalle kypärän hinnalla.*
 
 ## Hyvä tietää
 

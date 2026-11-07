@@ -8,6 +8,7 @@ use std::process::ExitCode;
 use klassikot8000::Arpa;
 use klassikot8000::asteroidit::Avaruus;
 use klassikot8000::blackjack::{self, Vuoro};
+use klassikot8000::kaivo::Kaivos;
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU, Suunta};
 use klassikot8000::mahjong;
@@ -22,6 +23,7 @@ use crate::kaynnistin::{Kaynnissa, Kaynnistin, Laji, PELIT, piirto, tallennus};
 use crate::pelit::asteroidit::peli::Asteroidit;
 use crate::pelit::blackjack::peli::Blackjack;
 use crate::pelit::holdem::peli::{self as holdem_peli, Holdem};
+use crate::pelit::kaivo::peli::Kaivo;
 use crate::pelit::laivanupotus::peli::{Peli, Vaihe};
 use crate::pelit::luvut::peli::{self as luvut_peli, Luvut};
 use crate::pelit::mahjong::peli::Mahjong;
@@ -86,6 +88,9 @@ pub struct Liput {
     pub rengas: Option<i32>,
     /// Majakka: aloittaa tästä yöstä (nollasta alkaen), ja keila seuraa `aika_ms` ajan lähintä laivaa.
     pub yo: Option<u32>,
+    /// Kaivo: aloittaa tältä tasolta (nollasta alkaen) ja painaa `--keys`-näppäimet: `^v<>`
+    /// kaivavat ja kulkevat, välilyönti pystyttää tuen ja R heittää köyden.
+    pub kaivos: Option<u32>,
     /// Palikka ja miinaharava: aloittaa pelin ja pelaa näin monta siirtoa valmiiksi.
     pub pelatut: Option<u32>,
     /// Miinaharava: aloittaa pelin ja astuu miinaan.
@@ -130,6 +135,8 @@ impl Liput {
             Some(Laji::Silmukka)
         } else if self.yo.is_some() {
             Some(Laji::Majakka)
+        } else if self.kaivos.is_some() {
+            Some(Laji::Kaivo)
         } else if self.napit.is_some() || self.kadet.is_some() || self.konkurssi || self.nimi {
             Some(Laji::Blackjack)
         } else {
@@ -169,6 +176,7 @@ pub fn lue_liput() -> Result<Liput, String> {
         aalto: None,
         rengas: None,
         yo: None,
+        kaivos: None,
         pelatut: None,
         pamaus: false,
         napit: None,
@@ -207,6 +215,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "blackjack" => Laji::Blackjack,
                     "holdem" => Laji::Holdem,
                     "majakka" => Laji::Majakka,
+                    "kaivo" => Laji::Kaivo,
                     _ => return Err(format!("--game: {arvo}")),
                 });
             }
@@ -239,6 +248,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             "--wave" => liput.aalto = Some(arvo.parse().map_err(|_| "--wave: ei luku")?),
             "--ring" => liput.rengas = Some(arvo.parse().map_err(|_| "--ring: ei luku")?),
             "--night" => liput.yo = Some(arvo.parse().map_err(|_| "--night: ei luku")?),
+            "--mine" => liput.kaivos = Some(arvo.parse().map_err(|_| "--mine: ei luku")?),
             "--plays" => liput.pelatut = Some(arvo.parse().map_err(|_| "--plays: ei luku")?),
             "--boom" => liput.pamaus = arvo == "1",
             "--keys" => liput.napit = Some(arvo),
@@ -379,6 +389,7 @@ fn valmistele(peli: &mut Kaynnissa, liput: &Liput) {
         Kaynnissa::Blackjack(peli) => valmistele_blackjack(peli, liput),
         Kaynnissa::Holdem(peli) => valmistele_holdem(peli, liput),
         Kaynnissa::Majakka(peli) => valmistele_majakka(peli, liput),
+        Kaynnissa::Kaivo(peli) => valmistele_kaivo(peli, liput),
     }
 }
 
@@ -585,6 +596,33 @@ fn valmistele_majakka(peli: &mut Majakka, liput: &Liput) {
             .map(|laiva| suunta_majakalta(laiva.paikka));
         peli.ohjaus.tahtain = lahin;
         peli.edista(16);
+    }
+}
+
+fn valmistele_kaivo(peli: &mut Kaivo, liput: &Liput) {
+    let Some(taso) = liput.kaivos else {
+        return;
+    };
+    peli.kasittele(Syote::Ammu);
+    peli.kaivos = Kaivos::new(
+        peli.vaikeus,
+        taso,
+        &mut Arpa::new(liput.siemen.unwrap_or(1)),
+    );
+    peli.paivita_kuva();
+    // Joka näppäimelle aikaa valmistua: kaivu, kävely tai putoaminen.
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '^' => Syote::Nuoli(-1, 0),
+            'v' => Syote::Nuoli(1, 0),
+            '<' => Syote::Nuoli(0, -1),
+            '>' => Syote::Nuoli(0, 1),
+            _ => Syote::Kirjain(merkki.to_ascii_uppercase()),
+        });
+        for _ in 0..40 {
+            peli.edista(16);
+        }
     }
 }
 

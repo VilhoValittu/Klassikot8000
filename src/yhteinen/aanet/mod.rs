@@ -73,6 +73,12 @@ pub enum Aani {
     Karille,
     /// Majakka: tuulenpuuska humahtaa.
     Tuuli,
+    /// Kaivo: kuokka iskee maahan.
+    Kuokka,
+    /// Kaivo: tukematon katto narisee ja rapisee.
+    Ritina,
+    /// Kaivo: maa sortuu jyristen.
+    Sortuma,
     /// Kuuluttaja: "Ei siirtoja jäljellä" / "No more moves left".
     EiSiirtoja,
     /// Kuuluttaja: "Peli ohi" / "Game over".
@@ -81,7 +87,7 @@ pub enum Aani {
     Voitit,
 }
 
-const TEHOSTEITA: usize = 30;
+const TEHOSTEITA: usize = 33;
 const PUHEITA: usize = 3;
 
 pub const KAIKKI: [Aani; TEHOSTEITA + PUHEITA] = [
@@ -115,6 +121,9 @@ pub const KAIKKI: [Aani; TEHOSTEITA + PUHEITA] = [
     Aani::Laivakello,
     Aani::Karille,
     Aani::Tuuli,
+    Aani::Kuokka,
+    Aani::Ritina,
+    Aani::Sortuma,
     Aani::EiSiirtoja,
     Aani::PeliOhi,
     Aani::Voitit,
@@ -298,6 +307,9 @@ fn tehoste(aani: Aani, arpa: &mut Arpa) -> Vec<f32> {
         Aani::Laivakello => laivakello(),
         Aani::Karille => karille(arpa),
         Aani::Tuuli => tuuli(arpa),
+        Aani::Kuokka => kuokka(arpa),
+        Aani::Ritina => ritina(arpa),
+        Aani::Sortuma => sortuma(arpa),
         Aani::EiSiirtoja | Aani::PeliOhi | Aani::Voitit => Vec::new(),
     }
 }
@@ -822,6 +834,46 @@ fn tuuli(arpa: &mut Arpa) -> Vec<f32> {
         suhina.aseta(300.0 + 700.0 * auki, 400.0);
         suhina.kasittele(kohina(arpa)) * auki * auki * 0.9
     })
+}
+
+/// Metallinen kilahdus ja soran rapina.
+fn kuokka(arpa: &mut Arpa) -> Vec<f32> {
+    let (mut kantaja, mut moduloija) = (Vaihe::default(), Vaihe::default());
+    let mut rouhe = Rouhe::default();
+    rakenna(0.1, |t| {
+        let kilahdus =
+            fm(kantaja.askel(1850.0), moduloija.askel(2590.0), 1.6) * verho(t, 0.0005, 45.0);
+        let rapina = rouhe.askel(arpa, 6000.0) * verho(t, 0.0005, 60.0);
+        (kilahdus * 0.5 + rapina * 0.35) * 0.55
+    })
+}
+
+/// Huojuva puun narina ja sen päällä satunnaisia naksahduksia.
+fn ritina(arpa: &mut Arpa) -> Vec<f32> {
+    let kesto = 0.5;
+    let mut runko = Vaihe::default();
+    let mut naksu = 0.0f32;
+    rakenna(kesto, |t| {
+        let taajuus = 120.0 + 35.0 * (TAU * 6.0 * t).sin();
+        let narina = (runko.askel(taajuus) * 2.0 - 1.0) * (PI * t / kesto).sin() * 0.22;
+        if arpa.alle(700) == 0 {
+            naksu = 1.0;
+        }
+        naksu *= 0.993;
+        (narina + naksu * kohina(arpa) * 0.5) * 0.5
+    })
+}
+
+/// Matala jyrinä ja perään valuvaa soraa.
+fn sortuma(arpa: &mut Arpa) -> Vec<f32> {
+    let jyly = pamaus(arpa, 0.5, 5.0);
+    let mut rouhe = Rouhe::default();
+    let mut suodin = 0.0;
+    let sora = rakenna(0.7, |t| {
+        suodin += (rouhe.askel(arpa, 900.0 * (-t * 3.0).exp() + 150.0) - suodin) * 0.2;
+        suodin * verho(t, 0.02, 4.0) * 0.7
+    });
+    skaalaa(sekoita(jyly, &sora, 0.05), 0.7)
 }
 
 #[cfg(test)]

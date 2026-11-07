@@ -2,7 +2,7 @@
 
 [Suomeksi](README.md) | **English**
 
-Bored? Twelve old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
+Bored? Thirteen old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
 Runs even on a potato.
 
@@ -82,6 +82,14 @@ You keep the lighthouse on a stormy night. Ships come out of the dark towards th
 A rowboat in port scores 10, a fishing boat 20, a freighter 50 and a smuggler 100. Ships that make it home in a row raise the multiplier up to five, and a wreck or a ship lost at sea resets it. A night without wrecks gives a bonus. The levels differ in the width and speed of the beam: on easy the rocks show faintly even in the dark, on hard fog shortens the beam and gusts of wind turn the ships. A harder level multiplies the points (normal by two, hard by three).
 
 *Mouse, arrows or A/D turn the beam, space or click sounds the foghorn.*
+
+### Kaivo8000
+
+You are a greedy gold digger. You dig down next to the lift, and in the dark you only see what your lamp lights up; gold and diamonds glint from further away. The ground only carries itself a short way: a tunnel that is too wide starts to creak, sheds dust and caves in, clay holds a slightly wider roof, sand pours as soon as you dig under it and a loose boulder drops when its support is gone. A creaking roof can still be saved by putting up a prop under it. Props are also the only ladders up, so every prop is a choice. Your finds travel in a sack and only count as points at the lift: a cave-in or a fall from too high costs a helmet and the whole sack. Once you have sent the level's quota of gold up, the lift takes you deeper to a new mine with more sand, boulders and caves. Lamp oil burns underground and refills on the surface or from a buried can, and the light shrinks with the oil. Buried bundles of timber give more props. Lose three helmets and the game is over.
+
+Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points or more. A full quota gives a level bonus, and every unused prop adds to it. The levels differ in props, oil and light, how long the roof holds and how many hazards there are. A harder level multiplies the points (normal by two, hard by three).
+
+*Arrows, WASD or clicks dig and walk, space, right click or a click on your own cell puts up or takes down a prop, and R throws the rescue rope, which pulls you up at the cost of a helmet.*
 
 ## Good to know
 

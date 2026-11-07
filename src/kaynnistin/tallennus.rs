@@ -9,6 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use klassikot8000::haasteet::HAASTEITA;
+use klassikot8000::kaivo;
 use klassikot8000::laivanupotus;
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU};
 use klassikot8000::mahjong;
@@ -49,6 +50,7 @@ pub struct Asetukset {
     pub miinaharava: miinaharava::Vaikeus,
     pub mahjong: mahjong::Vaikeus,
     pub majakka: majakka::Vaikeus,
+    pub kaivo: kaivo::Vaikeus,
 }
 
 impl Default for Asetukset {
@@ -61,6 +63,7 @@ impl Default for Asetukset {
             miinaharava: miinaharava::Vaikeus::Helppo,
             mahjong: mahjong::Vaikeus::Helppo,
             majakka: majakka::Vaikeus::Normaali,
+            kaivo: kaivo::Vaikeus::Normaali,
         }
     }
 }
@@ -106,6 +109,7 @@ fn avaimet(peli: Nettipeli) -> (Option<&'static str>, &'static str, &'static str
         Nettipeli::Laivanupotus => (None, "laivatop", "laivajono"),
         Nettipeli::Mahjong => (Some("mahjongparas"), "mahjongtop", "mahjongjono"),
         Nettipeli::Majakka => (Some("majakka"), "majakkatop", "majakkajono"),
+        Nettipeli::Kaivo => (Some("kaivo"), "kaivotop", "kaivojono"),
     }
 }
 
@@ -187,7 +191,7 @@ impl Tallennus {
         let a = &self.asetukset;
         let mut teksti = format!(
             "{OTSAKE}\nhiljaa {}\nkieli {}\nvalittu {}\nlaivataso {}\npasianssitaso {}\n\
-             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\n",
+             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\n",
             self.hiljaa as u8,
             self.kieli.koodi(),
             a.valittu,
@@ -200,6 +204,7 @@ impl Tallennus {
             self.miinaajat[2],
             numero(&mahjong::Vaikeus::KAIKKI, &a.mahjong),
             numero(&majakka::Vaikeus::KAIKKI, &a.majakka),
+            numero(&kaivo::Vaikeus::KAIKKI, &a.kaivo),
         );
         for peli in Nettipeli::KAIKKI {
             let (paras, top, jono) = avaimet(peli);
@@ -275,6 +280,9 @@ impl Tallennus {
                 }
                 "majakkataso" => {
                     a.majakka = valinta(&majakka::Vaikeus::KAIKKI, arvo).unwrap_or(a.majakka);
+                }
+                "kaivotaso" => {
+                    a.kaivo = valinta(&kaivo::Vaikeus::KAIKKI, arvo).unwrap_or(a.kaivo);
                 }
                 "miinaajat" => t.miinaajat = luvut(arvo).unwrap_or_default(),
                 "laivatilasto" => {
@@ -407,6 +415,7 @@ mod tests {
                 miinaharava: miinaharava::Vaikeus::Normaali,
                 mahjong: mahjong::Vaikeus::Vaikea,
                 majakka: majakka::Vaikeus::Helppo,
+                kaivo: kaivo::Vaikeus::Vaikea,
             },
             kesken: Some(KESKEN),
             haastenimi: "HAASTAJA".to_string(),

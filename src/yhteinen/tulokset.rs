@@ -33,13 +33,14 @@ pub enum Nettipeli {
     Laivanupotus,
     Mahjong,
     Majakka,
+    Kaivo,
 }
 
 pub const NETTIPELEJA: usize = Nettipeli::KAIKKI.len();
 
 impl Nettipeli {
     /// Järjestys on sama kuin luvuilla, joten `peli as usize` osoittaa listaan.
-    pub const KAIKKI: [Nettipeli; 15] = [
+    pub const KAIKKI: [Nettipeli; 16] = [
         Nettipeli::Luvut,
         Nettipeli::Tiilirikko,
         Nettipeli::Asteroidit,
@@ -55,6 +56,7 @@ impl Nettipeli {
         Nettipeli::Laivanupotus,
         Nettipeli::Mahjong,
         Nettipeli::Majakka,
+        Nettipeli::Kaivo,
     ];
 
     /// Pelin tunnus palvelimella.
@@ -75,6 +77,7 @@ impl Nettipeli {
             Nettipeli::Laivanupotus => "laivanupotus",
             Nettipeli::Mahjong => "mahjong",
             Nettipeli::Majakka => "majakka",
+            Nettipeli::Kaivo => "kaivo",
         }
     }
 

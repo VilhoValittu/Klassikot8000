@@ -1,5 +1,5 @@
 // Pelin suurin tulos. 2048:n teoreettinen huippu on 3 932 100 pistettä. Tiilirikko, Asteroidit,
-// Silmukka, Palikka, Blackjack ja Majakka rajaavat tuloksen itse lukuun 999 999. Pasianssien huippu on heti
+// Silmukka, Palikka, Blackjack, Majakka ja Kaivo rajaavat tuloksen itse lukuun 999 999. Pasianssien huippu on heti
 // voitettu vaikea peli, ja Hold'emissa voi voittaa vain neljän koneen rahat. Haasteissa tulos on
 // 60 haasteen summa, joten sama pelaaja nostaa omaa tulostaan: `YKSI_PER_NIMI` pitää listan
 // tasapuolisena. Miinaharavan huippu on sekunnissa voitettu vaikea kenttä (999 * 3).
@@ -21,6 +21,7 @@ export const PELIT = {
   laivanupotus: 252,
   mahjong: 30000,
   majakka: 1000000,
+  kaivo: 1000000,
 };
 
 export const YKSI_PER_NIMI = new Set(["haasteet"]);
