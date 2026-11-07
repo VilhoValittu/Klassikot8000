@@ -25,7 +25,7 @@ pub const ELAMIA: u32 = 3;
 pub const PALLOJA_ENINTAAN: usize = 2;
 pub const SUURIN_PISTEMAARA: u32 = 999_999;
 /// Superpallon vauhti pallon omaan vauhtiin verrattuna.
-pub const SUPERVAUHTI: f32 = 2.5;
+pub const SUPERVAUHTI: f32 = 1.9;
 /// Superpallon osuman pistekerroin.
 pub const SUPERKERROIN: u32 = 4;
 
