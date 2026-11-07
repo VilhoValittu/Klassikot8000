@@ -4,29 +4,18 @@ use crate::yhteinen::syote::Syote;
 use klassikot8000::Arpa;
 use klassikot8000::majakka::{Ohjaus, RENKAITA, Vuorokausi};
 
-pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
-    (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
-}
-
 pub fn vaikeuden_keskipiste(vaikeus: Vaikeus) -> (i32, i32) {
     let (_, teksti, x) = TASOT.iter().find(|t| t.0 == vaikeus).copied().unwrap();
     (x + napin_leveys(teksti) / 2, TASO_Y + NAPPI_K / 2)
 }
 
 #[test]
-fn napit_ja_tasot_loytyvat_eivatka_mene_paallekkain() {
-    for (nappi, ..) in NAPIT {
-        let (x, y) = napin_keskipiste(nappi);
-        assert_eq!(nappi_pisteesta(x, y), Some(nappi));
-    }
-    assert_eq!(nappi_pisteesta(0, 0), None);
+fn tasot_loytyvat_eivatka_mene_paallekkain() {
     for taso in Vaikeus::KAIKKI {
         let (x, y) = vaikeuden_keskipiste(taso);
         assert_eq!(vaikeus_pisteesta(x, y), Some(taso));
     }
     kaikilla_kielilla(|| {
-        assert!(NAPIT[0].2 + napin_leveys(NAPIT[0].1) < NAPIT[1].2);
         for pari in TASOT.windows(2) {
             assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
         }

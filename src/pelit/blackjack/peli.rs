@@ -7,7 +7,7 @@ use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 const ALKUPANOS: u32 = 10 * YKSI;
 const LISAYKSET: [u32; 4] = [YKSI, 5 * YKSI, 25 * YKSI, 100 * YKSI];
@@ -126,15 +126,6 @@ impl Blackjack {
         self.lopeta = true;
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     pub fn edista(&mut self, ms: u32) {
         self.kello_ms = self.kello_ms.saturating_add(ms);
         while self.vaihe == Vaihe::Pelissa
@@ -144,7 +135,7 @@ impl Blackjack {
             self.poyta.jakajan_siirto();
             self.siirtoja = self.siirtoja.wrapping_add(1);
             self.seuraava_siirto_ms = self.seuraava_siirto_ms.saturating_add(JAKAJAN_SIIRTO_MS);
-            self.aanet.jono.push((Aani::Liuku, 0));
+            self.aanet.soita(Aani::Liuku);
             if self.poyta.vuoro == Vuoro::Panostus {
                 self.kierros_paattyi();
             }
@@ -156,7 +147,7 @@ impl Blackjack {
         self.panos = ALKUPANOS;
         self.vaihe = Vaihe::Pelissa;
         self.viesti = kaanna("blackjack.aseta_panos").to_string();
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -169,7 +160,12 @@ impl Blackjack {
             kytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             Yleinen::Peru => return self.poistu(),
             Yleinen::Aanet | Yleinen::Ohita => return,
         }
@@ -265,7 +261,7 @@ impl Blackjack {
             return;
         }
         self.viesti.clear();
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         if self.poyta.vuoro == Vuoro::Panostus {
             self.kierros_paattyi();
         } else if self.poyta.vuoro == Vuoro::Vakuutus {
@@ -281,7 +277,7 @@ impl Blackjack {
     fn vakuutuspaatos(&mut self, ottaa: bool) {
         self.poyta.vakuuta(ottaa);
         self.viesti.clear();
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         if self.poyta.vuoro == Vuoro::Panostus {
             self.kierros_paattyi();
         } else if ottaa {
@@ -291,12 +287,12 @@ impl Blackjack {
 
     fn virhe(&mut self, avain: &str) {
         self.viesti = kaanna(avain).to_string();
-        self.aanet.jono.push((Aani::Virhe, 0));
+        self.aanet.soita(Aani::Virhe);
     }
 
     fn pelaaja_siirsi(&mut self) {
         self.viesti.clear();
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         if self.poyta.vuoro == Vuoro::Jakaja {
             self.seuraava_siirto_ms = self.kello_ms.saturating_add(JAKAJAN_SIIRTO_MS);
         }
@@ -311,26 +307,25 @@ impl Blackjack {
         if self.poyta.rahat < PIENIN_PANOS {
             self.vaihe = Vaihe::Loppu;
             self.viesti = muotoile("blackjack.konkurssi", &[&raha(ALKURAHA)]);
-            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
         } else if self.poyta.vakuutus_voitti() {
             let maksu = raha(2 * self.poyta.vakuutus);
             self.viesti = muotoile("blackjack.viesti_vakuutus", &[&maksu, &maara]);
-            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Yhdistys, LOPPU_VIIVE_MS);
         } else if blackjack {
             self.viesti = muotoile("blackjack.viesti_blackjack", &[&maara]);
-            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
         } else if voitto > 0 {
             self.viesti = muotoile("blackjack.viesti_voitto", &[&maara]);
-            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Yhdistys, LOPPU_VIIVE_MS);
         } else if voitto < 0 {
             self.viesti = muotoile("blackjack.viesti_tappio", &[&maara]);
-            self.aanet.jono.push((Aani::Virhe, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Virhe, LOPPU_VIIVE_MS);
         } else {
             self.viesti = kaanna("blackjack.viesti_tasan").to_string();
-            self.aanet.jono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Pomppu, LOPPU_VIIVE_MS);
         }
     }
 }

@@ -198,12 +198,12 @@ fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
 fn lopun_napit_toimivat() {
     let mut peli = Majakka::new(1);
     peli.vaihe = Vaihe::Tappio;
-    let (x, y) = piirto::napin_keskipiste(Nappi::Uudestaan);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Uudestaan);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert_eq!(peli.vaihe, Vaihe::Pelissa);
 
     peli.vaihe = Vaihe::Tappio;
-    let (x, y) = piirto::napin_keskipiste(Nappi::Valikko);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Valikko);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert!(peli.lopeta);
 }

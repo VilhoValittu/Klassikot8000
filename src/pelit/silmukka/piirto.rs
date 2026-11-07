@@ -9,7 +9,7 @@ use klassikot8000::silmukka::{
 };
 
 use super::peli::{
-    KEHU_MS, LEIJUNTA_MS, Nappi, PAMAUS_MS, Silmukka, TARINA_MS, VALAHDYS_MS, Vaihe, Valahdys,
+    KEHU_MS, LEIJUNTA_MS, PAMAUS_MS, Silmukka, TARINA_MS, VALAHDYS_MS, Vaihe, Valahdys,
 };
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
@@ -102,15 +102,6 @@ const LEIMAHDUKSEN_VIIVE_MS: i32 = 12;
 const OHJE: &str = "silmukka.ohje";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
 
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
-
 const ALKU_OSAT: [&str; 4] = [
     "silmukka.tervetuloa",
     "yhteinen.ohjeet",
@@ -122,16 +113,6 @@ const ALKU_RIVIT: [&str; 3] = [
     "yhteinen.tauko_aanet",
     "yhteinen.takaisin",
 ];
-
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
-}
 
 /// Hiiren paikka kentän ruuduksi. Kentän ulkopuolella lähin reunaruutu.
 pub fn ruutu_pisteesta(x: i32, y: i32) -> Ruutu {
@@ -673,9 +654,7 @@ impl Piirtaja<'_> {
             Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
-                for (_, teksti, x) in NAPIT {
-                    self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-                }
+                self.loppunapit();
             }
             Vaihe::Nimi => self.nimikysely(peli.lauta.pisteet, &peli.nimi),
             Vaihe::Alku => {}
@@ -700,4 +679,4 @@ const _: () = {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub use tests::{napin_keskipiste, ruudun_keskipiste};
+pub use tests::ruudun_keskipiste;

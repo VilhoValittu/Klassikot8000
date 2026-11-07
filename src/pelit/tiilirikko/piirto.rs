@@ -7,7 +7,7 @@ use klassikot8000::tiilirikko::{
     Tila,
 };
 
-use super::peli::{KIPINA_MS, Nappi, Tiilirikko, Vaihe};
+use super::peli::{KIPINA_MS, Tiilirikko, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::{Rasteri, liukuvari};
@@ -32,15 +32,6 @@ const OHJE: &str = "tiilirikko.ohje";
 const LAUKAISU: &str = "tiilirikko.laukaisu";
 const VOITTO: &str = "tiilirikko.voitto";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
-
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
 
 const SUPERTIILI: u32 = 0x302850;
 
@@ -80,16 +71,6 @@ const ALKU_RIVIT: [&str; 4] = [
     "yhteinen.tauko_aanet",
     "yhteinen.takaisin",
 ];
-
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
-}
 
 fn tiilen_paikka(rivi: usize, sarake: usize) -> (i32, i32) {
     (
@@ -297,9 +278,7 @@ impl Piirtaja<'_> {
                     TAPPIO
                 };
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
-                for (_, teksti, x) in NAPIT {
-                    self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-                }
+                self.loppunapit();
             }
             Vaihe::Nimi => self.nimikysely(peli.lauta.pisteet, &peli.nimi),
             Vaihe::Alku => {}
@@ -309,5 +288,3 @@ impl Piirtaja<'_> {
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-pub use tests::napin_keskipiste;

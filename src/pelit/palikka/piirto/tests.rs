@@ -7,11 +7,6 @@ pub fn ruudun_keskipiste(ruutu: Paikka) -> (i32, i32) {
     keskipiste(ruutu)
 }
 
-pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
-    (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
-}
-
 #[test]
 fn lauta_ja_sarake_mahtuvat_kuvaan() {
     const { assert!(RUUDUT_Y + LAUDAN_SIVU < PANEELI_Y) };
@@ -37,9 +32,6 @@ fn ruudut_loytyvat_ja_ulkopuoli_ei() {
 #[test]
 fn tekstit_mahtuvat_paikoilleen() {
     kaikilla_kielilla(|| {
-        for pari in NAPIT.windows(2) {
-            assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
-        }
         let viestit = [
             kaanna(OHJE).to_string(),
             kaanna("palikka.huono").to_string(),

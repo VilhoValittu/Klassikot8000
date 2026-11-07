@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use klassikot8000::asteroidit::{self, Alus, Kivi, Lautanen, Piste};
 
-use super::peli::{Asteroidit, Nappi, RAJAHDYS_MS, Vaihe};
+use super::peli::{Asteroidit, RAJAHDYS_MS, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari};
@@ -71,15 +71,6 @@ const LAUTASEN_MUOTO: [Piste; 8] = [
 const OHJE: &str = "asteroidit.ohje";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
 
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
-
 const ALKU_OSAT: [&str; 4] = [
     "asteroidit.tervetuloa",
     "yhteinen.ohjeet",
@@ -93,16 +84,6 @@ const ALKU_RIVIT: [&str; 5] = [
     "asteroidit.nappain_muut",
     "yhteinen.takaisin",
 ];
-
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
-}
 
 /// Kenttä jatkuu reunojen yli: laidan yli ulottuva kappale piirretään myös toiselle puolelle.
 fn kopiot((x, y): Piste, sade: f32) -> impl Iterator<Item = (i32, i32)> {
@@ -358,9 +339,7 @@ impl Piirtaja<'_> {
             Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
-                for (_, teksti, x) in NAPIT {
-                    self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-                }
+                self.loppunapit();
             }
             Vaihe::Nimi => self.nimikysely(peli.lauta.pisteet, &peli.nimi),
             Vaihe::Alku => {}
@@ -370,5 +349,3 @@ impl Piirtaja<'_> {
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-pub use tests::napin_keskipiste;

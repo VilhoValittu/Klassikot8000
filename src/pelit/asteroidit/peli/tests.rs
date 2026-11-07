@@ -237,12 +237,12 @@ fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
 fn lopun_napit_ja_esc_toimivat() {
     let mut peli = Asteroidit::new(1);
     peli.vaihe = Vaihe::Tappio;
-    let (x, y) = piirto::napin_keskipiste(Nappi::Uudestaan);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Uudestaan);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert_eq!(peli.vaihe, Vaihe::Pelissa);
 
     peli.vaihe = Vaihe::Tappio;
-    let (x, y) = piirto::napin_keskipiste(Nappi::Valikko);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Valikko);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert!(peli.lopeta);
 

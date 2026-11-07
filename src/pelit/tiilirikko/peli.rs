@@ -4,10 +4,11 @@ use klassikot8000::tiilirikko::{ASKEL_MS, Tapahtuma, Tiilipeli, Tila};
 use super::piirto;
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const KIPINA_MS: u32 = 350;
 // Ikkunan raahaus voi pysäyttää silmukan: pallo ei saa sen jälkeen hypätä kerralla pitkälle.
@@ -23,12 +24,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 pub struct Tiilirikko {
@@ -98,50 +93,48 @@ impl Tiilirikko {
     fn kasittele_tapahtuma(&mut self, tapahtuma: Tapahtuma) {
         self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         match tapahtuma {
-            Tapahtuma::Seina | Tapahtuma::Maila => self.aanet.jono.push((Aani::Pomppu, 0)),
+            Tapahtuma::Seina | Tapahtuma::Maila => self.aanet.soita(Aani::Pomppu),
             Tapahtuma::Tiili {
                 rivi,
                 sarake,
                 rikki,
             } => {
-                self.aanet.jono.push((Aani::Tiili, 0));
+                self.aanet.soita(Aani::Tiili);
                 if rikki {
                     self.kipinat.push((rivi, sarake, self.kello_ms));
                 }
             }
             Tapahtuma::UusiPallo => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.viesti = kaanna("tiilirikko.uusi_pallo").to_string();
             }
             Tapahtuma::Superpallo => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.viesti = kaanna("tiilirikko.superpallo").to_string();
             }
             Tapahtuma::ToinenMeni => {
-                self.aanet.jono.push((Aani::Puhkus, 0));
+                self.aanet.soita(Aani::Puhkus);
                 self.viesti = kaanna("tiilirikko.toinen_meni").to_string();
             }
             Tapahtuma::Menetys => {
-                self.aanet.jono.push((Aani::Rajahdys, 0));
+                self.aanet.soita(Aani::Rajahdys);
                 self.viesti = muotoile("tiilirikko.pallo_meni", &[&self.lauta.elamat]);
             }
             Tapahtuma::KenttaLapi { bonus } => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.viesti = muotoile("tiilirikko.kentta_lapi", &[&bonus]);
             }
             Tapahtuma::Voitto { bonus } => {
-                self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+                self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.lopeta_peli(Vaihe::Voitto);
                 self.viesti = muotoile("tiilirikko.loppubonus", &[&bonus, &self.lauta.pisteet]);
             }
             Tapahtuma::Ohi => {
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.lopeta_peli(Vaihe::Tappio);
             }
         }
@@ -184,22 +177,13 @@ impl Tiilirikko {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Laukaisuun painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     fn aloita_alusta(&mut self) {
         self.lauta = Tiilipeli::new(0, &mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
         self.viesti.clear();
         self.kipinat.clear();
         self.kertyma_ms = 0;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     /// Ikkuna menetti kohdistuksen: lennossa oleva pallo ei saa kadota pelaajan poissa ollessa.
@@ -217,7 +201,12 @@ impl Tiilirikko {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -255,15 +244,9 @@ impl Tiilirikko {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

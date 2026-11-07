@@ -7,7 +7,7 @@ use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 /// Koneen teko, kortin käännös ja käden näyttö etenevät tässä tahdissa.
 const ASKEL_MS: u32 = 900;
@@ -137,15 +137,6 @@ impl Holdem {
         self.lopeta = self.poistuu;
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     pub fn napisto(&self) -> Napisto {
         if self.vaihe != Vaihe::Pelissa {
             Napisto::Loppu
@@ -173,21 +164,21 @@ impl Holdem {
     fn siirto(&mut self) {
         self.poyta.etene(&mut self.arpa);
         self.siirtoja = self.siirtoja.wrapping_add(1);
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         self.tila_muuttui();
     }
 
     fn aloita(&mut self) {
         self.poyta = Poyta::new(&mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
         self.uusi_jako();
     }
 
     fn uusi_jako(&mut self) {
         self.poyta.jaa(&mut self.arpa);
         self.seuraava_siirto_ms = self.kello_ms.saturating_add(ASKEL_MS);
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         self.tila_muuttui();
     }
 
@@ -215,27 +206,25 @@ impl Holdem {
             self.vaihe = Vaihe::Havio;
             let sija = self.poyta.rahoissa() + 1;
             self.viesti = muotoile("holdem.havio", &[&sija]);
-            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
         } else if self.poyta.rahoissa() == 1 {
             self.vaihe = Vaihe::Voitto;
             self.kirjaa_paras();
             let kaikki = ALKURAHA * PELAAJIA as u32;
             self.viesti = muotoile("holdem.voitto", &[&kaikki]);
-            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
             if self.taulu.mahtuu(self.poyta.pisteet()) {
                 self.nimi.clear();
                 self.vaihe = Vaihe::Nimi;
             }
         } else if voitti {
-            self.aanet.jono.push((Aani::Yhdistys, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Yhdistys, LOPPU_VIIVE_MS);
         } else {
-            self.aanet.jono.push((Aani::Pomppu, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Pomppu, LOPPU_VIIVE_MS);
         }
     }
 
@@ -288,7 +277,12 @@ impl Holdem {
             kytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             Yleinen::Peru => return self.poistu(),
             Yleinen::Aanet | Yleinen::Ohita => return,
         }
@@ -358,7 +352,7 @@ impl Holdem {
             self.tee(Toimi::Korota(self.korotus));
         } else {
             self.viesti = kaanna("holdem.ei_korotusta").to_string();
-            self.aanet.jono.push((Aani::Virhe, 0));
+            self.aanet.soita(Aani::Virhe);
         }
     }
 
@@ -366,7 +360,7 @@ impl Holdem {
         if self.poyta.toimi(toimi) {
             self.siirtoja = self.siirtoja.wrapping_add(1);
             self.seuraava_siirto_ms = self.kello_ms.saturating_add(ASKEL_MS);
-            self.aanet.jono.push((Aani::Liuku, 0));
+            self.aanet.soita(Aani::Liuku);
             self.tila_muuttui();
         }
     }

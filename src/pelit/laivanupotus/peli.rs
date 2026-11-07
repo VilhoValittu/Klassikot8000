@@ -295,7 +295,7 @@ impl Peli {
         if kelpaa && self.oma.siirra(laiva, ruudut) {
             self.nostettu = None;
         } else {
-            self.aanet.jono.push((Aani::Virhe, 0));
+            self.aanet.soita(Aani::Virhe);
         }
         true
     }
@@ -317,7 +317,7 @@ impl Peli {
             Some((i, ruudut, true)) => {
                 self.oma.siirra(i, ruudut);
             }
-            _ => self.aanet.jono.push((Aani::Virhe, 0)),
+            _ => self.aanet.soita(Aani::Virhe),
         }
         self.nostettu = None;
         true
@@ -334,7 +334,7 @@ impl Peli {
         self.nostettu = None;
         self.kursori = Ruutu { rivi: 0, sarake: 0 };
         self.vaihe = Vaihe::Ammunta;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
         true
     }
 
@@ -519,7 +519,7 @@ impl Peli {
     pub fn ammu(&mut self, ruutu: Ruutu) {
         let Some(tulos) = self.vastustaja.kasittele_laukaus(ruutu) else {
             self.ammuttu_jo = true;
-            self.aanet.jono.push((Aani::Virhe, 0));
+            self.aanet.soita(Aani::Virhe);
             return;
         };
         self.ammuttu_jo = false;
@@ -527,8 +527,9 @@ impl Peli {
             tulos_teksti("laivanupotus.sina_ammuit", ruutu, tulos),
             String::new(),
         ];
-        self.aanet.jono.push((Aani::Laukaus, 0));
-        self.aanet.jono.push((tuloksen_aani(tulos), TULOS_VIIVE_MS));
+        self.aanet.soita(Aani::Laukaus);
+        self.aanet
+            .soita_viiveella(tuloksen_aani(tulos), TULOS_VIIVE_MS);
         self.tehosteet.push(Tehoste {
             omalle: false,
             ruutu,
@@ -539,10 +540,9 @@ impl Peli {
             self.vaihe = Vaihe::Voitto;
             // Kirjaus voi vielä vaihtaa vaiheen nimen kysymiseen.
             self.kirjaa_tulos(true);
-            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
             return;
         }
 
@@ -550,10 +550,10 @@ impl Peli {
         let tulos = laukaus.and_then(|r| Some((r, self.oma.kasittele_laukaus(r)?)));
         if let Some((ruutu, tulos)) = tulos {
             self.viestit[1] = tulos_teksti("laivanupotus.vastustaja_ampui", ruutu, tulos);
-            self.aanet.jono.push((Aani::Vastalaukaus, VASTAUS_VIIVE_MS));
             self.aanet
-                .jono
-                .push((tuloksen_aani(tulos), VASTAUS_VIIVE_MS + TULOS_VIIVE_MS));
+                .soita_viiveella(Aani::Vastalaukaus, VASTAUS_VIIVE_MS);
+            self.aanet
+                .soita_viiveella(tuloksen_aani(tulos), VASTAUS_VIIVE_MS + TULOS_VIIVE_MS);
             self.tehosteet.push(Tehoste {
                 omalle: true,
                 ruutu,
@@ -565,12 +565,11 @@ impl Peli {
             self.vaihe = Vaihe::Tappio;
             self.kirjaa_tulos(false);
             self.aanet
-                .jono
-                .push((Aani::Tappio, VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS));
-            self.aanet.jono.push((
+                .soita_viiveella(Aani::Tappio, VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS);
+            self.aanet.soita_viiveella(
                 Aani::PeliOhi,
                 VASTAUS_VIIVE_MS + LOPPU_VIIVE_MS + PUHE_VIIVE_MS,
-            ));
+            );
         }
     }
 }

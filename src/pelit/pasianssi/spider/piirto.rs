@@ -35,7 +35,6 @@ const VIESTI_Y: i32 = YLARIVI_Y + 72;
 const VIESTIN_MERKKEJA: usize = 24;
 const NAPIT_X: i32 = TILASTO_X + TILASTOJA * TILASTO_ASKEL;
 const NAPIT_Y: i32 = YLARIVI_Y + 6;
-const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 
 const NAPIT: [(Nappi, &str); 5] = [
     (Nappi::Nosta, "spider.nappi_jaa"),
@@ -114,15 +113,7 @@ pub fn vedetyn_keskipiste(x: i32) -> i32 {
 }
 
 pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    let i = (y - NAPIT_Y).div_euclid(NAPPI_ASKEL);
-    let sisalla = (y - NAPIT_Y).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
-    if !sisalla || !(0..NAPIT.len() as i32).contains(&i) {
-        return None;
-    }
-    let (nappi, teksti) = NAPIT[i as usize];
-    (NAPIT_X..NAPIT_X + napin_leveys(teksti))
-        .contains(&x)
-        .then_some(nappi)
+    sarakkeen_nappi(&NAPIT, (NAPIT_X, NAPIT_Y), x, y)
 }
 
 impl Piirtaja<'_> {

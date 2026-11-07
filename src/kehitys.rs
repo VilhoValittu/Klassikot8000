@@ -39,6 +39,7 @@ use crate::yhteinen::kieli::{self, Kieli};
 use crate::yhteinen::piirto::{Kehys, RUUDUN_KORKEUS, RUUDUN_LEVEYS};
 use crate::yhteinen::syote::Syote;
 
+#[derive(Default)]
 pub struct Liput {
     pub siemen: Option<u64>,
     pub kuvakaappaus: Option<String>,
@@ -148,43 +149,15 @@ impl Liput {
 // Riittää siihen, että kaikki tehosteet ovat päättyneet.
 const OLETUSAIKA_MS: u32 = 3000;
 
+/// Lipun arvo lukuna.
+fn luku<T: std::str::FromStr>(lippu: &str, arvo: &str) -> Result<T, String> {
+    arvo.parse().map_err(|_| format!("{lippu}: ei luku"))
+}
+
 pub fn lue_liput() -> Result<Liput, String> {
     let mut liput = Liput {
-        siemen: None,
-        kuvakaappaus: None,
-        siirrot: Vec::new(),
-        vaikeus: None,
-        kieli: None,
-        peli: None,
-        valittu: None,
-        lauta: None,
-        liu_ut: Vec::new(),
-        tallennus: None,
-        netti: None,
-        julkaisut: None,
-        uusi_versio: None,
-        variantti: None,
-        haasteet: false,
-        haaste: None,
-        nostot: None,
-        voitto: false,
-        nimi: false,
-        jumissa: false,
-        kentta: None,
-        toinen_pallo: false,
-        superpallo: false,
-        aalto: None,
-        rengas: None,
-        yo: None,
-        kaivos: None,
-        pelatut: None,
-        pamaus: false,
-        napit: None,
-        kadet: None,
-        konkurssi: false,
-        tauko: false,
         aika_ms: OLETUSAIKA_MS,
-        aanet: None,
+        ..Liput::default()
     };
     let mut args = std::env::args().skip(1);
     while let Some(lippu) = args.next() {
@@ -193,14 +166,14 @@ pub fn lue_liput() -> Result<Liput, String> {
             "--lang" => {
                 liput.kieli = Some(Kieli::koodista(&arvo).ok_or(format!("--lang: {arvo}"))?);
             }
-            "--seed" => liput.siemen = Some(arvo.parse().map_err(|_| "--seed: ei luku")?),
+            "--seed" => liput.siemen = Some(luku(&lippu, &arvo)?),
             "--screenshot" => liput.kuvakaappaus = Some(arvo),
             "--sounds" => liput.aanet = Some(arvo),
             "--save" => liput.tallennus = Some(arvo),
             "--net" => liput.netti = Some(arvo),
             "--releases" => liput.julkaisut = Some(arvo),
             "--new-version" => liput.uusi_versio = Some(arvo),
-            "--time" => liput.aika_ms = arvo.parse().map_err(|_| "--time: ei luku")?,
+            "--time" => liput.aika_ms = luku(&lippu, &arvo)?,
             "--game" => {
                 liput.peli = Some(match arvo.as_str() {
                     "laivanupotus" => Laji::Laivanupotus,
@@ -220,7 +193,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                 });
             }
             "--select" => {
-                let i = arvo.parse().map_err(|_| "--select: ei luku")?;
+                let i = luku(&lippu, &arvo)?;
                 if i >= PELIT.len() {
                     return Err(format!("--select: {arvo}"));
                 }
@@ -236,23 +209,23 @@ pub fn lue_liput() -> Result<Liput, String> {
             }
             "--challenges" => liput.haasteet = arvo == "1",
             "--challenge" => {
-                liput.haaste = Some(arvo.parse().map_err(|_| "--challenge: ei luku")?);
+                liput.haaste = Some(luku(&lippu, &arvo)?);
             }
-            "--draws" => liput.nostot = Some(arvo.parse().map_err(|_| "--draws: ei luku")?),
+            "--draws" => liput.nostot = Some(luku(&lippu, &arvo)?),
             "--win" => liput.voitto = arvo == "1",
             "--name" => liput.nimi = arvo == "1",
             "--stuck" => liput.jumissa = arvo == "1",
-            "--stage" => liput.kentta = Some(arvo.parse().map_err(|_| "--stage: ei luku")?),
+            "--stage" => liput.kentta = Some(luku(&lippu, &arvo)?),
             "--second-ball" => liput.toinen_pallo = arvo == "1",
             "--super-ball" => liput.superpallo = arvo == "1",
-            "--wave" => liput.aalto = Some(arvo.parse().map_err(|_| "--wave: ei luku")?),
-            "--ring" => liput.rengas = Some(arvo.parse().map_err(|_| "--ring: ei luku")?),
-            "--night" => liput.yo = Some(arvo.parse().map_err(|_| "--night: ei luku")?),
-            "--mine" => liput.kaivos = Some(arvo.parse().map_err(|_| "--mine: ei luku")?),
-            "--plays" => liput.pelatut = Some(arvo.parse().map_err(|_| "--plays: ei luku")?),
+            "--wave" => liput.aalto = Some(luku(&lippu, &arvo)?),
+            "--ring" => liput.rengas = Some(luku(&lippu, &arvo)?),
+            "--night" => liput.yo = Some(luku(&lippu, &arvo)?),
+            "--mine" => liput.kaivos = Some(luku(&lippu, &arvo)?),
+            "--plays" => liput.pelatut = Some(luku(&lippu, &arvo)?),
             "--boom" => liput.pamaus = arvo == "1",
             "--keys" => liput.napit = Some(arvo),
-            "--hands" => liput.kadet = Some(arvo.parse().map_err(|_| "--hands: ei luku")?),
+            "--hands" => liput.kadet = Some(luku(&lippu, &arvo)?),
             "--broke" => liput.konkurssi = arvo == "1",
             "--pause" => liput.tauko = arvo == "1",
             "--board" => {

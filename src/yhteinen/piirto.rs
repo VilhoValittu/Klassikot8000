@@ -199,6 +199,8 @@ pub const TEKSTI_X: i32 = 24;
 pub const RIVILLE_MERKKEJA: usize = 38;
 pub const NAPPI_Y: i32 = PANEELI_RIVI_Y + 5 * RIVIN_KORKEUS - 6;
 pub const NAPPI_K: i32 = 30;
+/// Allekkaisten nappien yläreunojen väli.
+pub const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 pub const NAPPI_X: i32 = 30;
 const AANI_PAALLA: &str = "yhteinen.aani_paalla";
 const AANI_POIS: &str = "yhteinen.aani_pois";
@@ -252,6 +254,38 @@ pub fn aanikytkimella(x: i32, y: i32) -> bool {
 
 pub fn napin_leveys(avain: &str) -> i32 {
     kaanna(avain).chars().count() as i32 * MERKKI + 24
+}
+
+/// Vaakarivin nappi pisteessä `(x, y)`. Napit ovat muotoa (nappi, tekstiavain, vasen reuna),
+/// ja rivin yläreuna on `rivin_y`.
+pub fn rivin_nappi<T: Copy>(napit: &[(T, &str, i32)], rivin_y: i32, x: i32, y: i32) -> Option<T> {
+    if !(rivin_y..rivin_y + NAPPI_K).contains(&y) {
+        return None;
+    }
+    napit
+        .iter()
+        .find(|&&(_, teksti, vasen)| (vasen..vasen + napin_leveys(teksti)).contains(&x))
+        .map(|&(nappi, ..)| nappi)
+}
+
+/// Allekkaisten nappien sarake: ensimmäisen napin vasen yläkulma on `kulma`, ja napit
+/// ovat `NAPPI_ASKEL`in välein. Napit ovat muotoa (nappi, tekstiavain).
+pub fn sarakkeen_nappi<T: Copy>(
+    napit: &[(T, &str)],
+    kulma: (i32, i32),
+    x: i32,
+    y: i32,
+) -> Option<T> {
+    let (vasen, yla) = kulma;
+    let i = (y - yla).div_euclid(NAPPI_ASKEL);
+    let sisalla = (y - yla).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
+    if !sisalla || !(0..napit.len() as i32).contains(&i) {
+        return None;
+    }
+    let (nappi, teksti) = napit[i as usize];
+    (vasen..vasen + napin_leveys(teksti))
+        .contains(&x)
+        .then_some(nappi)
 }
 
 /// Ruudun piirtopuskurit. Klassinen kuva verrataan edelliseen ennen venytystä, koska pieni

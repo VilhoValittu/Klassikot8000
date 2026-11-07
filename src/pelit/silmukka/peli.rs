@@ -4,10 +4,11 @@ use klassikot8000::silmukka::{ASKEL_MS, Niitty, Ruutu, Saalis, Suunta, Tapahtuma
 use super::piirto;
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const VALAHDYS_MS: u32 = 900;
 pub const PAMAUS_MS: u32 = 450;
@@ -35,12 +36,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 /// Suljetun silmukan tehoste: reitti purkautuu ruutu kerrallaan ja sisus leimahtaa.
@@ -180,23 +175,23 @@ impl Silmukka {
         self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         match tapahtuma {
             Tapahtuma::Omena { paikka, pisteet } => {
-                self.aanet.jono.push((Aani::Omena, 0));
+                self.aanet.soita(Aani::Omena);
                 self.leiju(paikka, pisteet, piirto::OMENAN_VARI);
             }
             Tapahtuma::Kulta { paikka, pisteet } => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.leiju(paikka, pisteet, piirto::KULLAN_VARI);
                 self.pamahda(paikka, 40.0);
                 self.viesti = kaanna("silmukka.kultaomena").to_string();
             }
             Tapahtuma::Muna { paikka, pisteet } => {
-                self.aanet.jono.push((Aani::Liuku, 0));
+                self.aanet.soita(Aani::Liuku);
                 self.leiju(paikka, pisteet, piirto::MUNAN_VARI);
                 self.viesti = kaanna("silmukka.muna_litistyi").to_string();
             }
             Tapahtuma::Silmukka(saalis) => self.pyydysta(saalis),
             Tapahtuma::TyhjaSilmukka { reitti } => {
-                self.aanet.jono.push((Aani::Puhkus, 0));
+                self.aanet.soita(Aani::Puhkus);
                 self.valahdykset.push(Valahdys {
                     reitti,
                     sisus: Vec::new(),
@@ -205,24 +200,23 @@ impl Silmukka {
                 });
                 self.viesti = kaanna("silmukka.tyhja").to_string();
             }
-            Tapahtuma::Kuoriutui { .. } => self.aanet.jono.push((Aani::Surina, 0)),
+            Tapahtuma::Kuoriutui { .. } => self.aanet.soita(Aani::Surina),
             Tapahtuma::KultaIlmestyi { .. } => {
-                self.aanet.jono.push((Aani::Helina5, 0));
-                self.aanet.jono.push((Aani::Helina6, HELINAN_VALI_MS));
+                self.aanet.soita(Aani::Helina5);
+                self.aanet.soita_viiveella(Aani::Helina6, HELINAN_VALI_MS);
                 self.viesti = kaanna("silmukka.kulta_ilmestyi").to_string();
             }
             Tapahtuma::KultaKatosi { paikka } => self.pamahda(paikka, 20.0),
             Tapahtuma::UusiTaso => {
-                self.aanet.jono.push((Aani::Alku, 0));
+                self.aanet.soita(Aani::Alku);
                 self.viesti = muotoile("silmukka.uusi_taso", &[&self.lauta.taso]);
             }
-            Tapahtuma::Seina => self.aanet.jono.push((Aani::Pomppu, 0)),
+            Tapahtuma::Seina => self.aanet.soita(Aani::Pomppu),
             Tapahtuma::Kuolema { paikka } => {
-                self.aanet.jono.push((Aani::Rajahdys, 0));
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita(Aani::Rajahdys);
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.pamahda(paikka, 70.0);
                 self.tarina = Some((8.0, self.kello_ms));
                 self.lopeta_peli();
@@ -235,10 +229,10 @@ impl Silmukka {
         for (i, &(paikka, _)) in saalis.kohteet.iter().enumerate() {
             self.pamahda(paikka, 45.0);
             if let Some(&aani) = HELINAT.get(i) {
-                self.aanet.jono.push((aani, i as u32 * HELINAN_VALI_MS));
+                self.aanet.soita_viiveella(aani, i as u32 * HELINAN_VALI_MS);
             }
         }
-        self.aanet.jono.push((Aani::Kivi, 0));
+        self.aanet.soita(Aani::Kivi);
         // Pisteet nousevat saaliin keskeltä, jotta ne näkyvät siellä, minne katse on suunnattu.
         let keski = saalis.kohteet[maara / 2].0;
         self.leiju(keski, saalis.pisteet, piirto::KULLAN_VARI);
@@ -291,15 +285,6 @@ impl Silmukka {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     fn aloita_alusta(&mut self) {
         self.lauta = Niitty::new(&mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
@@ -310,7 +295,7 @@ impl Silmukka {
         self.kehu = None;
         self.tarina = None;
         self.kertyma_ms = 0;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     /// Ikkuna menetti kohdistuksen: mato ei saa ajaa seinään pelaajan poissa ollessa.
@@ -328,7 +313,12 @@ impl Silmukka {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -370,15 +360,9 @@ impl Silmukka {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

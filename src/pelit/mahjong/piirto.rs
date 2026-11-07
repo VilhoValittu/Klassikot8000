@@ -27,7 +27,6 @@ const VIESTI_Y: i32 = TILASTO_Y + TILASTOJA as i32 * TILASTO_ASKEL + 12;
 const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
 const NAPIT_Y: i32 = SIVU_OHJE_Y + SIVU_OHJEET.len() as i32 * RIVIN_KORKEUS + 18;
-const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 const SIVU_PARHAAT_Y: i32 = NAPIT_Y + NAPIT.len() as i32 * NAPPI_ASKEL + 18;
 
 // Lauta keskitetään otsikkopalkin ja sivupaneelin väliin.
@@ -480,24 +479,11 @@ pub fn naapuri(lauta: &Lauta, nykyinen: usize, drivi: i8, dsarake: i8) -> Option
 }
 
 pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    let i = (y - NAPIT_Y).div_euclid(NAPPI_ASKEL);
-    let sisalla = (y - NAPIT_Y).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
-    if !sisalla || !(0..NAPIT.len() as i32).contains(&i) {
-        return None;
-    }
-    let (nappi, teksti) = NAPIT[i as usize];
-    (SIVU_TEKSTI_X..SIVU_TEKSTI_X + napin_leveys(teksti))
-        .contains(&x)
-        .then_some(nappi)
+    sarakkeen_nappi(&NAPIT, (SIVU_TEKSTI_X, NAPIT_Y), x, y)
 }
 
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
-    TASOT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(taso, ..)| taso)
+    rivin_nappi(&TASOT, TASO_Y, x, y)
 }
 
 /// Pelilaudan näkymässä äänikytkin on täyden ruudun oikeassa laidassa.

@@ -124,12 +124,7 @@ fn vaikeuden_nimi(vaikeus: Vaikeus) -> &'static str {
 }
 
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
-    TASOT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(vaikeus, ..)| vaikeus)
+    rivin_nappi(&TASOT, TASO_Y, x, y)
 }
 
 fn laudan_ruutu(x0: i32, x: i32, y: i32) -> Option<Ruutu> {
@@ -160,13 +155,7 @@ fn vaiheen_napit(vaihe: Vaihe) -> &'static [(Nappi, &'static str, i32)] {
 }
 
 pub fn nappi_pisteesta(vaihe: Vaihe, x: i32, y: i32) -> Option<Nappi> {
-    vaiheen_napit(vaihe)
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            let leveys = napin_leveys(teksti);
-            (nx..nx + leveys).contains(&x) && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
+    rivin_nappi(vaiheen_napit(vaihe), NAPPI_Y, x, y)
 }
 
 /// Vaakasuora, kun laivan kaksi ensimmäistä ruutua ovat samalla rivillä.

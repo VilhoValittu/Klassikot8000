@@ -4,10 +4,11 @@ use klassikot8000::asteroidit::{ASKEL_MS, Avaruus, Ohjaus, Piste, Tapahtuma, Til
 use super::piirto;
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const RAJAHDYS_MS: u32 = 450;
 // Ikkunan raahaus voi pysäyttää silmukan: kivet eivät saa sen jälkeen hypätä kerralla pitkälle.
@@ -25,12 +26,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 /// Räjähdystehoste: paikka kentällä, koko ja alkuhetki.
@@ -120,11 +115,11 @@ impl Asteroidit {
         self.lautanen_ms = self.lautanen_ms.saturating_sub(ms);
         if self.lauta.tyontaa && self.moottori_ms == 0 {
             self.moottori_ms = MOOTTORIN_VALI_MS;
-            self.aanet.jono.push((Aani::Moottori, 0));
+            self.aanet.soita(Aani::Moottori);
         }
         if self.lauta.lautanen.is_some() && self.lautanen_ms == 0 {
             self.lautanen_ms = LAUTASEN_VALI_MS;
-            self.aanet.jono.push((Aani::Lautanen, 0));
+            self.aanet.soita(Aani::Lautanen);
         }
     }
 
@@ -140,34 +135,33 @@ impl Asteroidit {
         self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
         match tapahtuma {
             Tapahtuma::Kivi { paikka, koko } => {
-                self.aanet.jono.push((Aani::Kivi, 0));
+                self.aanet.soita(Aani::Kivi);
                 self.rajahda(paikka, koko.sade() * 1.5);
             }
             Tapahtuma::LautanenTuhoutui { paikka } => {
-                self.aanet.jono.push((Aani::Rajahdys, 0));
+                self.aanet.soita(Aani::Rajahdys);
                 self.rajahda(paikka, 45.0);
             }
-            Tapahtuma::LautanenAmpui => self.aanet.jono.push((Aani::Ammus, 0)),
+            Tapahtuma::LautanenAmpui => self.aanet.soita(Aani::Ammus),
             Tapahtuma::Menetys { paikka } => {
-                self.aanet.jono.push((Aani::Rajahdys, 0));
+                self.aanet.soita(Aani::Rajahdys);
                 self.rajahda(paikka, 70.0);
                 self.viesti = muotoile("asteroidit.alus_tuhoutui", &[&self.lauta.elamat]);
             }
             Tapahtuma::Palasi => self.viesti.clear(),
             Tapahtuma::Lisaelama => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.viesti = kaanna("asteroidit.lisaalus").to_string();
             }
             Tapahtuma::UusiAalto => {
-                self.aanet.jono.push((Aani::Alku, 0));
+                self.aanet.soita(Aani::Alku);
                 self.viesti = muotoile("asteroidit.uusi_aalto", &[&(self.lauta.aalto + 1)]);
             }
             Tapahtuma::Ohi { paikka } => {
-                self.aanet.jono.push((Aani::Rajahdys, 0));
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita(Aani::Rajahdys);
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.rajahda(paikka, 70.0);
                 self.lopeta_peli();
             }
@@ -209,22 +203,13 @@ impl Asteroidit {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Ampumiseen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     fn aloita_alusta(&mut self) {
         self.lauta = Avaruus::new(0, &mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
         self.viesti.clear();
         self.rajahdykset.clear();
         self.kertyma_ms = 0;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     /// Ikkuna menetti kohdistuksen: alus ei saa tuhoutua pelaajan poissa ollessa.
@@ -242,7 +227,12 @@ impl Asteroidit {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -280,13 +270,13 @@ impl Asteroidit {
             Syote::Ammu | Syote::Klikkaus(..) => {
                 let lahti = self.lauta.ammu();
                 if lahti {
-                    self.aanet.jono.push((Aani::Ammus, 0));
+                    self.aanet.soita(Aani::Ammus);
                 }
             }
             Syote::Kirjain('H') => {
                 let hyppasi = self.lauta.hyppaa(&mut self.arpa);
                 if hyppasi {
-                    self.aanet.jono.push((Aani::Liuku, 0));
+                    self.aanet.soita(Aani::Liuku);
                 }
             }
             Syote::Kirjain('P') => self.vaihe = Vaihe::Tauko,
@@ -295,15 +285,9 @@ impl Asteroidit {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

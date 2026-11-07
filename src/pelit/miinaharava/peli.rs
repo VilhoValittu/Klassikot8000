@@ -5,10 +5,11 @@ use super::piirto;
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const RAJAHDYS_MS: u32 = 500;
 const LOPPU_VIIVE_MS: u32 = 250;
@@ -21,12 +22,6 @@ pub enum Vaihe {
     Nimi,
     Voitto,
     Tappio,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 pub struct Miinaharava {
@@ -124,15 +119,6 @@ impl Miinaharava {
         self.vaihe = Vaihe::Voitto;
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Avaukseen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     /// Nykyisen tason paras aika, jos taso on läpäisty.
     pub fn paras_aika(&self) -> Option<u32> {
         Some(self.ajat[tason_indeksi(self.vaikeus)]).filter(|&aika| aika > 0)
@@ -158,7 +144,7 @@ impl Miinaharava {
         self.aika_alku = None;
         self.loppuaika = None;
         self.viesti = kaanna("miinaharava.aloita").to_string();
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -169,7 +155,12 @@ impl Miinaharava {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             Yleinen::Peru => {
                 self.lopeta = true;
                 return;
@@ -264,19 +255,17 @@ impl Miinaharava {
                     self.aika_alku = Some(self.kello_ms);
                 }
                 self.aanet
-                    .jono
-                    .push((if maara > 1 { Aani::Liuku } else { Aani::Pomppu }, 0));
+                    .soita(if maara > 1 { Aani::Liuku } else { Aani::Pomppu });
                 self.viesti.clear();
             }
             Avaus::Miina => {
                 self.loppuaika = Some(self.aika());
                 self.vaihe = Vaihe::Tappio;
                 self.rajahdys = Some(self.kello_ms);
-                self.aanet.jono.push((Aani::Rajahdys, 0));
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita(Aani::Rajahdys);
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.viesti = kaanna("miinaharava.pamaus").to_string();
             }
             Avaus::Voitto => self.voita(),
@@ -288,10 +277,9 @@ impl Miinaharava {
         let aika = self.aika().max(1);
         self.loppuaika = Some(aika);
         self.vaihe = Vaihe::Voitto;
-        self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+        self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
         self.aanet
-            .jono
-            .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+            .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
         let pisteet = self.pisteet();
         let paras = &mut self.ajat[tason_indeksi(self.vaikeus)];
         if *paras == 0 || aika < *paras {
@@ -309,20 +297,14 @@ impl Miinaharava {
 
     pub fn liputa(&mut self, ruutu: Paikka) {
         if self.lauta.liputa(ruutu) {
-            self.aanet.jono.push((Aani::Tiili, 0));
+            self.aanet.soita(Aani::Tiili);
         }
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

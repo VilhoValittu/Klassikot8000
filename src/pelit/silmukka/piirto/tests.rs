@@ -3,23 +3,8 @@ use crate::yhteinen::kieli::{kaikilla_kielilla, muotoile};
 use crate::yhteinen::syote::Syote;
 use klassikot8000::silmukka::Suunta;
 
-pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
-    (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
-}
-
 pub fn ruudun_keskipiste(ruutu: Ruutu) -> (i32, i32) {
     keski((KENTTA_X, KENTTA_Y), liukuluvuksi(ruutu))
-}
-
-#[test]
-fn napit_loytyvat_eivatka_mene_paallekkain() {
-    for (nappi, ..) in NAPIT {
-        let (x, y) = napin_keskipiste(nappi);
-        assert_eq!(nappi_pisteesta(x, y), Some(nappi));
-    }
-    assert_eq!(nappi_pisteesta(0, 0), None);
-    kaikilla_kielilla(|| assert!(NAPIT[0].2 + napin_leveys(NAPIT[0].1) < NAPIT[1].2));
 }
 
 #[test]

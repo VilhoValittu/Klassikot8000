@@ -185,6 +185,116 @@ fn vaihda_netin_kanssa(kaynnistin: &mut Kaynnistin, netti: Option<&Netti>) {
     }
 }
 
+/// Painetut näppäimet syötteiksi. Pohjassa pidetty näppäin toistuu vain nuolissa, ettei
+/// pohjassa pidetty välilyönti ammu sarjaa.
+fn lue_nappaimet(ikkuna: &Window, kaynnistin: &mut Kaynnistin) {
+    for nappain in ikkuna.get_keys_pressed(KeyRepeat::Yes) {
+        if let Some(syote) = nappain_syotteeksi(nappain) {
+            let toistuva = matches!(syote, Syote::Nuoli(..)) && kaynnistin.nuolet_toistuvat();
+            if toistuva || ikkuna.is_key_pressed(nappain, KeyRepeat::No) {
+                kaynnistin.kasittele(syote);
+            }
+        }
+    }
+}
+
+/// Hiiren tila edelliseltä kierrokselta, jotta liike, painallus ja vapautus erottuvat.
+#[derive(Default)]
+struct Hiiri {
+    paikka: Option<(i32, i32)>,
+    vasen_alhaalla: bool,
+    oikea_alhaalla: bool,
+}
+
+impl Hiiri {
+    fn lue(&mut self, ikkuna: &Window, sovitus: Sovitus, kaynnistin: &mut Kaynnistin) {
+        // Kursori luetaan myös ikkunan ulkopuolelta: ruudun reunassa se on ikkunan
+        // koonmuutosreunan päällä, ja oikealla ikkunan vieressä on muita ohjelmia.
+        let kursori = ikkuna
+            .get_unscaled_mouse_pos(MouseMode::Pass)
+            .map(|(x, y)| (x as i32, y as i32));
+        let hiiren_paikka = kursori.and_then(|(x, y)| sovitus.ruudulle(x, y));
+        let liike = match (hiiren_paikka, kursori) {
+            (None, Some((x, y))) if ikkuna.is_active() && kaynnistin.hiiri_ulkonakin() => {
+                Some(sovitus.ruudulle_rajattu(x, y))
+            }
+            _ => hiiren_paikka,
+        };
+        if let Some(piste) = liike
+            && liike != self.paikka
+        {
+            self.paikka = liike;
+            let nakyma = kaynnistin.nakyman_piste(piste.0, piste.1);
+            kaynnistin.kasittele(Syote::Hiiri(nakyma.0, nakyma.1));
+        }
+
+        // Napit vain ikkunan sisältä: muualla klikkaus kuuluu toiselle ohjelmalle.
+        let Some(piste) = hiiren_paikka else {
+            self.vasen_alhaalla = false;
+            self.oikea_alhaalla = false;
+            return;
+        };
+        let (x, y) = kaynnistin.nakyman_piste(piste.0, piste.1);
+        let vasen = ikkuna.get_mouse_down(MouseButton::Left);
+        if vasen && !self.vasen_alhaalla {
+            kaynnistin.kasittele(Syote::Klikkaus(x, y));
+        } else if !vasen && self.vasen_alhaalla {
+            kaynnistin.kasittele(Syote::Vapautus(x, y));
+        }
+        self.vasen_alhaalla = vasen;
+        let oikea = ikkuna.get_mouse_down(MouseButton::Right);
+        if oikea && !self.oikea_alhaalla {
+            kaynnistin.kasittele(Syote::OikeaKlikkaus(x, y));
+        }
+        self.oikea_alhaalla = oikea;
+        // Rulla ylös vie listassa ylöspäin.
+        if let Some((_, rulla)) = ikkuna.get_scroll_wheel()
+            && rulla != 0.0
+        {
+            kaynnistin.kasittele(Syote::Rulla(if rulla > 0.0 { -1 } else { 1 }));
+        }
+    }
+}
+
+/// Pohjassa olevat suunnat toimintapeleille. WASD käy nuolten tavoin, kuten Silmukassa.
+fn lue_ohjaus(ikkuna: &Window, kaynnistin: &mut Kaynnistin) {
+    let pohjassa = |nappaimet: [Key; 2]| nappaimet.iter().any(|&n| ikkuna.is_key_down(n));
+    kaynnistin.aseta_ohjaus(
+        pohjassa([Key::Left, Key::A]),
+        pohjassa([Key::Right, Key::D]),
+        pohjassa([Key::Up, Key::W]),
+        pohjassa([Key::Down, Key::S]),
+        ikkuna.get_mouse_down(MouseButton::Right),
+    );
+    if !ikkuna.is_active() {
+        kaynnistin.keskeyta();
+    }
+}
+
+/// Vie äänikytkimen tilan ja soittojonon mikserille.
+fn soita_aanet(mikseri: &Mutex<Mikseri>, kaynnistin: &mut Kaynnistin) {
+    if let Ok(mut mikseri) = mikseri.lock() {
+        if take(&mut kaynnistin.hiljenna) {
+            mikseri.aseta_paalle(false);
+        }
+        mikseri.aseta_paalle(kaynnistin.aanet_paalla);
+        for (aani, viive_ms) in kaynnistin.ota_aanet() {
+            mikseri.soita(aani, viive_ms);
+        }
+    }
+}
+
+/// Hoitaa käynnistimen pyynnöt pelin ulkopuolelle: verkon, tallennuksen ja selaimen.
+fn hoida_pyynnot(kaynnistin: &mut Kaynnistin, polku: Option<&Path>, netti: Option<&Netti>) {
+    vaihda_netin_kanssa(kaynnistin, netti);
+    if take(&mut kaynnistin.tallenna) {
+        tallenna(polku, kaynnistin);
+    }
+    if take(&mut kaynnistin.avaa_julkaisut) {
+        avaa_selaimessa(JULKAISUSIVU);
+    }
+}
+
 fn pelisilmukka(
     mut kaynnistin: Kaynnistin,
     kehys: &mut Kehys,
@@ -211,103 +321,20 @@ fn pelisilmukka(
     let _aanilaite = ManuallyDrop::new(avaa_aanilaite(Arc::clone(&mikseri)));
 
     let mut edellinen = Instant::now();
-    let mut hiiri = (-1, -1);
-    let mut nappi_alhaalla = false;
-    let mut oikea_alhaalla = false;
+    let mut hiiri = Hiiri::default();
     let mut kuvan_tila = None;
 
     while ikkuna.is_open() && !kaynnistin.lopeta {
-        for nappain in ikkuna.get_keys_pressed(KeyRepeat::Yes) {
-            if let Some(syote) = nappain_syotteeksi(nappain) {
-                // toisto vain nuolille, ettei pohjassa pidetty välilyönti ammu sarjaa
-                let toistuva = matches!(syote, Syote::Nuoli(..)) && kaynnistin.nuolet_toistuvat();
-                if toistuva || ikkuna.is_key_pressed(nappain, KeyRepeat::No) {
-                    kaynnistin.kasittele(syote);
-                }
-            }
-        }
-
         // Pienennetyssä ikkunassa koko voi olla nolla.
         let (ikkuna_l, ikkuna_k) = ikkuna.get_size();
         let (ikkuna_l, ikkuna_k) = (ikkuna_l.max(1), ikkuna_k.max(1));
         let sovitus = Sovitus::new(ikkuna_l, ikkuna_k);
 
-        // Kursori luetaan myös ikkunan ulkopuolelta: ruudun reunassa se on ikkunan
-        // koonmuutosreunan päällä, ja oikealla ikkunan vieressä on muita ohjelmia.
-        let kursori = ikkuna
-            .get_unscaled_mouse_pos(MouseMode::Pass)
-            .map(|(x, y)| (x as i32, y as i32));
-        let hiiren_paikka = kursori.and_then(|(x, y)| sovitus.ruudulle(x, y));
-        let liike = match (hiiren_paikka, kursori) {
-            (None, Some((x, y))) if ikkuna.is_active() && kaynnistin.hiiri_ulkonakin() => {
-                Some(sovitus.ruudulle_rajattu(x, y))
-            }
-            _ => hiiren_paikka,
-        };
-        if let Some(piste) = liike
-            && piste != hiiri
-        {
-            hiiri = piste;
-            let nakyma = kaynnistin.nakyman_piste(piste.0, piste.1);
-            kaynnistin.kasittele(Syote::Hiiri(nakyma.0, nakyma.1));
-        }
-        // Napit vain ikkunan sisältä: muualla klikkaus kuuluu toiselle ohjelmalle.
-        if let Some(piste) = hiiren_paikka {
-            let nakyma = kaynnistin.nakyman_piste(piste.0, piste.1);
-            let alhaalla = ikkuna.get_mouse_down(MouseButton::Left);
-            if alhaalla && !nappi_alhaalla {
-                kaynnistin.kasittele(Syote::Klikkaus(nakyma.0, nakyma.1));
-            } else if !alhaalla && nappi_alhaalla {
-                kaynnistin.kasittele(Syote::Vapautus(nakyma.0, nakyma.1));
-            }
-            nappi_alhaalla = alhaalla;
-            let oikea = ikkuna.get_mouse_down(MouseButton::Right);
-            if oikea && !oikea_alhaalla {
-                kaynnistin.kasittele(Syote::OikeaKlikkaus(nakyma.0, nakyma.1));
-            }
-            oikea_alhaalla = oikea;
-            // Rulla ylös vie listassa ylöspäin.
-            if let Some((_, rulla)) = ikkuna.get_scroll_wheel()
-                && rulla != 0.0
-            {
-                kaynnistin.kasittele(Syote::Rulla(if rulla > 0.0 { -1 } else { 1 }));
-            }
-        } else {
-            nappi_alhaalla = false;
-            oikea_alhaalla = false;
-        }
-
-        // WASD käy nuolten tavoin, kuten Silmukassa.
-        let pohjassa = |nappaimet: [Key; 2]| nappaimet.iter().any(|&n| ikkuna.is_key_down(n));
-        kaynnistin.aseta_ohjaus(
-            pohjassa([Key::Left, Key::A]),
-            pohjassa([Key::Right, Key::D]),
-            pohjassa([Key::Up, Key::W]),
-            pohjassa([Key::Down, Key::S]),
-            ikkuna.get_mouse_down(MouseButton::Right),
-        );
-        if !ikkuna.is_active() {
-            kaynnistin.keskeyta();
-        }
-
-        if let Ok(mut mikseri) = mikseri.lock() {
-            if take(&mut kaynnistin.hiljenna) {
-                mikseri.aseta_paalle(false);
-            }
-            mikseri.aseta_paalle(kaynnistin.aanet_paalla);
-            for (aani, viive_ms) in kaynnistin.ota_aanet() {
-                mikseri.soita(aani, viive_ms);
-            }
-        }
-
-        vaihda_netin_kanssa(&mut kaynnistin, netti.as_ref());
-
-        if take(&mut kaynnistin.tallenna) {
-            tallenna(polku, &kaynnistin);
-        }
-        if take(&mut kaynnistin.avaa_julkaisut) {
-            avaa_selaimessa(JULKAISUSIVU);
-        }
+        lue_nappaimet(&ikkuna, &mut kaynnistin);
+        hiiri.lue(&ikkuna, sovitus, &mut kaynnistin);
+        lue_ohjaus(&ikkuna, &mut kaynnistin);
+        soita_aanet(&mikseri, &mut kaynnistin);
+        hoida_pyynnot(&mut kaynnistin, polku, netti.as_ref());
 
         if kaynnistin.otsikko() != otsikko {
             otsikko = kaynnistin.otsikko();

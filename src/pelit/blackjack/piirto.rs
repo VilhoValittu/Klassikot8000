@@ -38,7 +38,6 @@ const VIESTI_Y: i32 = RAHAT_Y + 2 * TILASTO_ASKEL + 6;
 const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
 const NAPIT_Y: i32 = SIVU_OHJE_Y + 3 * RIVIN_KORKEUS + 18;
-const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 
 const PANOSTUS_NAPIT: [(Nappi, &str); 8] = [
     (Nappi::Jako, "blackjack.nappi_jako"),
@@ -105,16 +104,7 @@ fn napit(vaihe: Vaihe, vuoro: Vuoro) -> &'static [(Nappi, &'static str)] {
 }
 
 pub fn nappi_pisteesta(vaihe: Vaihe, vuoro: Vuoro, x: i32, y: i32) -> Option<Nappi> {
-    let i = (y - NAPIT_Y).div_euclid(NAPPI_ASKEL);
-    let sisalla = (y - NAPIT_Y).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
-    let napit = napit(vaihe, vuoro);
-    if !sisalla || !(0..napit.len() as i32).contains(&i) {
-        return None;
-    }
-    let (nappi, teksti) = napit[i as usize];
-    (SIVU_TEKSTI_X..SIVU_TEKSTI_X + napin_leveys(teksti))
-        .contains(&x)
-        .then_some(nappi)
+    sarakkeen_nappi(napit(vaihe, vuoro), (SIVU_TEKSTI_X, NAPIT_Y), x, y)
 }
 
 /// Pöydän näkymässä äänikytkin on täyden ruudun oikeassa laidassa.

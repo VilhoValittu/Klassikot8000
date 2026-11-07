@@ -190,6 +190,18 @@ impl Default for Aanet {
     }
 }
 
+impl Aanet {
+    /// Ääni soi heti.
+    pub fn soita(&mut self, aani: Aani) {
+        self.jono.push((aani, 0));
+    }
+
+    /// Ääni soi, kun `viive_ms` on kulunut.
+    pub fn soita_viiveella(&mut self, aani: Aani, viive_ms: u32) {
+        self.jono.push((aani, viive_ms));
+    }
+}
+
 /// Soittaa päällekkäisiä ääniä. Ei tiedä äänilaitteesta mitään, joten sitä voi testata.
 pub struct Mikseri {
     naytteet: Vec<Vec<i16>>,

@@ -4,7 +4,7 @@ use std::f32::consts::TAU;
 
 use klassikot8000::miinaharava::{Paikka, Tila, Vaikeus};
 
-use super::peli::{Miinaharava, Nappi, RAJAHDYS_MS, Vaihe};
+use super::peli::{Miinaharava, RAJAHDYS_MS, Vaihe};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4, tummenna, vaalenna};
@@ -52,15 +52,6 @@ const NUMEROT: [u32; 8] = [
 const OHJE: &str = "miinaharava.ohje";
 const TILASTON_Y: i32 = PANEELI_RIVI_Y + 30;
 const TILASTON_ASKEL: i32 = 300;
-
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
 
 // Alkuruudun tasovalinta samoilla mitoilla kuin laivanupotuksessa.
 const TASO_Y: i32 = ALOITUS_Y - NAPPI_K - 6;
@@ -121,23 +112,8 @@ pub fn ruutu_pisteesta(vaikeus: Vaikeus, x: i32, y: i32) -> Option<Paikka> {
     (rivi < vaikeus.korkeus() && sarake < vaikeus.leveys()).then_some((rivi, sarake))
 }
 
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
-}
-
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
-    TASOT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(taso, ..)| taso)
+    rivin_nappi(&TASOT, TASO_Y, x, y)
 }
 
 /// Alkuruudun malli: piikikäs merimiina.
@@ -410,9 +386,7 @@ impl Piirtaja<'_> {
         };
         if let Some(otsikko) = otsikko {
             self.suurteksti(TEKSTI_X, otsikko_y, kaanna(otsikko), TULOS, KELTAINEN, true);
-            for (_, teksti, x) in NAPIT {
-                self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-            }
+            self.loppunapit();
         } else {
             self.teksti(TEKSTI_X, alarivi, kaanna(OHJE), HUTI);
         }
@@ -422,4 +396,4 @@ impl Piirtaja<'_> {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub use tests::{napin_keskipiste, ruudun_keskipiste, vaikeuden_keskipiste};
+pub use tests::{ruudun_keskipiste, vaikeuden_keskipiste};

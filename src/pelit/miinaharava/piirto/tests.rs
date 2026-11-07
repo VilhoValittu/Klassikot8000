@@ -12,11 +12,6 @@ pub fn ruudun_keskipiste(vaikeus: Vaikeus, (rivi, sarake): Paikka) -> (i32, i32)
     )
 }
 
-pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
-    (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
-}
-
 pub fn vaikeuden_keskipiste(vaikeus: Vaikeus) -> (i32, i32) {
     let (_, teksti, x) = TASOT.iter().find(|t| t.0 == vaikeus).copied().unwrap();
     (x + napin_leveys(teksti) / 2, TASO_Y + NAPPI_K / 2)
@@ -64,9 +59,6 @@ fn tekstit_mahtuvat_paikoilleen() {
         for (taso, teksti, x) in TASOT {
             assert!(x + napin_leveys(teksti) < LEVEYS as i32, "{taso:?}");
             assert_eq!(vaikeus_pisteesta(x, TASO_Y), Some(taso));
-        }
-        for pari in NAPIT.windows(2) {
-            assert!(pari[0].2 + napin_leveys(pari[0].1) < pari[1].2);
         }
         for viesti in [
             kaanna(OHJE).to_string(),

@@ -11,7 +11,7 @@ use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulos, Tulostaulu, muokkaa_nimea, ota_nimi};
+use crate::yhteinen::tulokset::{Nettipeli, Tulos, Tulostaulu, nimi_valmis, ota_nimi};
 
 const TUPLAKLIKKAUS_MS: u32 = 400;
 // Pienempi liike on klikkauksen tärinää eikä vetämistä.
@@ -345,7 +345,7 @@ impl Pasianssi {
             sarake: 0,
             syvyys: 0,
         };
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     /// Uusi peli vie sinne, mistä tähän peliin tultiin.
@@ -360,10 +360,9 @@ impl Pasianssi {
     fn siirrot_loppuivat(&mut self) {
         self.vaihe = Vaihe::Tappio;
         self.viesti = kaanna(SIIRROT_LOPPU).to_string();
-        self.aanet.jono.push((Aani::Tappio, VOITTO_VIIVE_MS));
+        self.aanet.soita_viiveella(Aani::Tappio, VOITTO_VIIVE_MS);
         self.aanet
-            .jono
-            .push((Aani::EiSiirtoja, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
+            .soita_viiveella(Aani::EiSiirtoja, VOITTO_VIIVE_MS + PUHE_VIIVE_MS);
     }
 
     fn unohda_poiminta(&mut self) {
@@ -467,15 +466,6 @@ impl Pasianssi {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     pub fn kasittele(&mut self, syote: Syote) {
         let vaihe = self.vaihe;
         let kytkimella = |x, y| piirto::aanikytkimella(vaihe, x, y);
@@ -486,7 +476,12 @@ impl Pasianssi {
             kytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             Yleinen::Peru if self.vaihe == Vaihe::Haasteet => {
                 self.vaihe = Vaihe::Alku;
                 return;
@@ -685,7 +680,7 @@ impl Pasianssi {
         } else if peruttu {
             self.viesti.clear();
             self.kursori.syvyys = 0;
-            self.aanet.jono.push((Aani::Liuku, 0));
+            self.aanet.soita(Aani::Liuku);
         } else {
             self.virhe(EI_PERUTTAVAA);
         }
@@ -707,7 +702,7 @@ impl Pasianssi {
 
     pub(super) fn virhe(&mut self, viesti: &str) {
         self.viesti = kaanna(viesti).to_string();
-        self.aanet.jono.push((Aani::Virhe, 0));
+        self.aanet.soita(Aani::Virhe);
     }
 
     /// Yhteinen loppu kaikille laudan muuttaneille siirroille.
@@ -722,14 +717,13 @@ impl Pasianssi {
         if self.variantti != Variantti::Pyramidi {
             self.kursori.syvyys = 0;
         }
-        self.aanet.jono.push((aani, 0));
+        self.aanet.soita(aani);
         if self.lauta_voitettu() {
             self.vaihe = Vaihe::Voitto;
             self.voitto_alku = self.kello_ms;
-            self.aanet.jono.push((Aani::Voitto, VOITTO_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Voitto, VOITTO_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::Voitit, VOITTO_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::Voitit, VOITTO_VIIVE_MS + PUHE_VIIVE_MS);
             if let Some(haaste) = self.haaste {
                 self.haaste_voitettu(haaste);
                 return;

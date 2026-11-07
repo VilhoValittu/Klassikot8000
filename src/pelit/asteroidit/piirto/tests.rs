@@ -2,21 +2,6 @@ use super::*;
 use crate::yhteinen::kieli::{kaikilla_kielilla, muotoile};
 use crate::yhteinen::syote::Syote;
 
-pub fn napin_keskipiste(nappi: Nappi) -> (i32, i32) {
-    let (_, teksti, x) = NAPIT.iter().find(|n| n.0 == nappi).copied().unwrap();
-    (x + napin_leveys(teksti) / 2, NAPPI_Y + NAPPI_K / 2)
-}
-
-#[test]
-fn napit_loytyvat_eivatka_mene_paallekkain() {
-    for (nappi, ..) in NAPIT {
-        let (x, y) = napin_keskipiste(nappi);
-        assert_eq!(nappi_pisteesta(x, y), Some(nappi));
-    }
-    assert_eq!(nappi_pisteesta(0, 0), None);
-    kaikilla_kielilla(|| assert!(NAPIT[0].2 + napin_leveys(NAPIT[0].1) < NAPIT[1].2));
-}
-
 #[test]
 fn tekstit_ja_kentta_mahtuvat_paikoilleen() {
     kaikilla_kielilla(|| {

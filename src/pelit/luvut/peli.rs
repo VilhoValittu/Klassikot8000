@@ -208,7 +208,7 @@ impl Luvut {
                     self.hylkaa_ja_aloita();
                 } else if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
                     self.vaihe = Vaihe::Pelissa;
-                    self.aanet.jono.push((Aani::Alku, 0));
+                    self.aanet.soita(Aani::Alku);
                     if self.jatkuu {
                         self.jatkuu = false;
                         self.viesti = kaanna("luvut.jatketaan_tallennettua").to_string();
@@ -272,7 +272,7 @@ impl Luvut {
     pub fn siirra(&mut self, suunta: Suunta) {
         let Some(siirto) = self.lauta.siirra(suunta, &mut self.arpa) else {
             self.ei_liiku = true;
-            self.aanet.jono.push((Aani::Virhe, 0));
+            self.aanet.soita(Aani::Virhe);
             return;
         };
         self.ei_liiku = false;
@@ -283,24 +283,23 @@ impl Luvut {
         } else {
             muotoile("luvut.siirto", &[&self.siirtoja])
         };
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         if siirto.pisteet > 0 {
-            self.aanet.jono.push((Aani::Yhdistys, YHDISTYS_VIIVE_MS));
+            self.aanet
+                .soita_viiveella(Aani::Yhdistys, YHDISTYS_VIIVE_MS);
         }
         self.viime_siirto = Some((siirto, self.kello_ms));
 
         if !self.jatkettu && self.lauta.suurin() >= TAVOITE {
             self.vaihe = Vaihe::Voitto;
-            self.aanet.jono.push((Aani::Voitto, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
         } else if !self.lauta.on_siirtoja() {
             self.paata_peli();
-            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
         }
     }
 }

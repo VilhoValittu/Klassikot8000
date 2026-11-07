@@ -7,10 +7,11 @@ use super::piirto::{self, Kaivoskuva};
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const TEHOSTE_MS: u32 = 1000;
 // Ikkunan raahaus voi pysäyttää silmukan: kaivos ei saa sen jälkeen sortua kerralla.
@@ -27,12 +28,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -150,7 +145,7 @@ impl Kaivo {
     }
 
     fn aani(&mut self, aani: Aani) {
-        self.aanet.jono.push((aani, 0));
+        self.aanet.soita(aani);
     }
 
     fn kasittele_tapahtuma(&mut self, tapahtuma: Tapahtuma) {
@@ -229,10 +224,9 @@ impl Kaivo {
                 self.viesti(kaanna("kaivo.oljy_loppui").to_string());
             }
             Tapahtuma::Ohi => {
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.lopeta_peli();
             }
         }
@@ -274,15 +268,6 @@ impl Kaivo {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Tukeen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     pub fn aloita_alusta(&mut self) {
         self.kaivos = Kaivos::new(self.vaikeus, 0, &mut self.arpa);
         self.paivita_kuva();
@@ -309,7 +294,12 @@ impl Kaivo {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -412,15 +402,9 @@ impl Kaivo {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

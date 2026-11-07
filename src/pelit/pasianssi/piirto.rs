@@ -31,7 +31,6 @@ const VIESTI_Y: i32 = YLARIVI_Y + 5 * TILASTO_ASKEL + 6;
 const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
 pub(super) const NAPIT_Y: i32 = SIVU_OHJE_Y + 7 * RIVIN_KORKEUS + 18;
-const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 
 const SIVU_OHJEET: [&str; 6] = [
     "pasianssi.sivu_hiiri",
@@ -240,34 +239,15 @@ pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
 
 /// Sivupaneelin nappi. Kullakin lajilla on oma listansa samoilla paikoilla.
 pub fn nappi_listasta(napit: &[(Nappi, &str)], x: i32, y: i32) -> Option<Nappi> {
-    let i = (y - NAPIT_Y).div_euclid(NAPPI_ASKEL);
-    let sisalla = (y - NAPIT_Y).rem_euclid(NAPPI_ASKEL) < NAPPI_K;
-    if !sisalla || !(0..napit.len() as i32).contains(&i) {
-        return None;
-    }
-    let (nappi, teksti) = napit[i as usize];
-    (SIVU_TEKSTI_X..SIVU_TEKSTI_X + napin_leveys(teksti))
-        .contains(&x)
-        .then_some(nappi)
+    sarakkeen_nappi(napit, (SIVU_TEKSTI_X, NAPIT_Y), x, y)
 }
 
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
-    TASOT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(vaikeus, ..)| vaikeus)
+    rivin_nappi(&TASOT, TASO_Y, x, y)
 }
 
 pub fn variantti_pisteesta(x: i32, y: i32) -> Option<Variantti> {
-    VARIANTIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (VARIANTTI_Y..VARIANTTI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(variantti, ..)| variantti)
+    rivin_nappi(&VARIANTIT, VARIANTTI_Y, x, y)
 }
 
 fn haastenapin_x() -> i32 {

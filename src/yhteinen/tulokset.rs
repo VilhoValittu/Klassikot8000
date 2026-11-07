@@ -212,5 +212,19 @@ pub fn muokkaa_nimea(nimi: &mut String, syote: Syote) {
     }
 }
 
+/// Muokkaa nimeä syötteen mukaan ja kertoo, kuitattiinko nimi välilyönnillä, Enterillä tai
+/// Escillä. Pelin viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on
+/// kirjoitettu.
+pub fn nimi_valmis(nimi: &mut String, syote: Syote) -> bool {
+    match syote {
+        Syote::Ammu if nimi.is_empty() => false,
+        Syote::Ammu | Syote::Peru => true,
+        _ => {
+            muokkaa_nimea(nimi, syote);
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

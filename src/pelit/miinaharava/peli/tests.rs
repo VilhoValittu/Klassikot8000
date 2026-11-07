@@ -217,7 +217,7 @@ fn taso_pitaa_oman_aikansa_ja_kellolla_on_kattonsa() {
 fn lopun_napit_ja_kirjaimet_toimivat() {
     let mut peli = pelissa(Vaikeus::Normaali, &[(0, 0)]);
     klikkaa(&mut peli, (0, 0));
-    let (x, y) = piirto::napin_keskipiste(Nappi::Uudestaan);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Uudestaan);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert_eq!(peli.vaihe, Vaihe::Pelissa);
     assert_eq!(peli.lauta.tila, Tila::Alussa);
@@ -225,7 +225,7 @@ fn lopun_napit_ja_kirjaimet_toimivat() {
     assert_eq!(peli.aika(), 0);
 
     peli.vaihe = Vaihe::Tappio;
-    let (x, y) = piirto::napin_keskipiste(Nappi::Valikko);
+    let (x, y) = loppunapit::napin_keskipiste(Loppunappi::Valikko);
     peli.kasittele(Syote::Klikkaus(x, y));
     assert!(peli.lopeta);
 

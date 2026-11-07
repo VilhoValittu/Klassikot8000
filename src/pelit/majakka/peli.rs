@@ -7,10 +7,11 @@ use super::piirto::{self, Merikuva};
 use crate::kaynnistin::tallennus::{Asetukset, Tallennus};
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const TEHOSTE_MS: u32 = 1000;
 // Ikkunan raahaus voi pysäyttää silmukan: laivat eivät saa sen jälkeen hypätä kerralla pitkälle.
@@ -27,12 +28,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -160,53 +155,52 @@ impl Majakka {
         self.taulu.paras = self.taulu.paras.max(self.meri.pisteet);
         match tapahtuma {
             Tapahtuma::Satamassa { laji, pisteet } => {
-                self.aanet.jono.push((Aani::Laivakello, 0));
+                self.aanet.soita(Aani::Laivakello);
                 let satama = klassikot8000::majakka::SATAMA;
                 self.tehoste(Tehostelaji::Pisteet(pisteet), satama);
                 let nimi = kaanna(lajin_nimi(laji));
                 self.viesti(muotoile("majakka.satamassa", &[&nimi, &pisteet]));
             }
             Tapahtuma::Karille { laji, paikka } => {
-                self.aanet.jono.push((Aani::Karille, 0));
+                self.aanet.soita(Aani::Karille);
                 self.tehoste(Tehostelaji::Haaksirikko, paikka);
                 let nimi = kaanna(lajin_nimi(laji));
                 self.viesti(muotoile("majakka.karille", &[&nimi, &self.meri.renkaat]));
             }
             Tapahtuma::Eksyi { laji } => {
-                self.aanet.jono.push((Aani::Virhe, 0));
+                self.aanet.soita(Aani::Virhe);
                 self.viesti(muotoile("majakka.eksyi", &[&kaanna(lajin_nimi(laji))]));
             }
             Tapahtuma::Kiinni { pisteet, paikka } => {
-                self.aanet.jono.push((Aani::Yhdistys, 0));
+                self.aanet.soita(Aani::Yhdistys);
                 self.tehoste(Tehostelaji::Kiinni, paikka);
                 self.tehoste(Tehostelaji::Pisteet(pisteet), paikka);
                 self.viesti(muotoile("majakka.kiinni", &[&pisteet]));
             }
             Tapahtuma::Karkasi => self.viesti(kaanna("majakka.karkasi").to_string()),
             Tapahtuma::Puuska => {
-                self.aanet.jono.push((Aani::Tuuli, 0));
+                self.aanet.soita(Aani::Tuuli);
                 self.viesti(kaanna("majakka.puuska").to_string());
             }
-            Tapahtuma::TorviLatautui => self.aanet.jono.push((Aani::Pomppu, 0)),
+            Tapahtuma::TorviLatautui => self.aanet.soita(Aani::Pomppu),
             Tapahtuma::Aamu { satamassa, bonus } => {
                 self.viesti(muotoile("majakka.aamu", &[&satamassa]));
                 if bonus > 0 {
-                    self.aanet.jono.push((Aani::Voitto, 0));
+                    self.aanet.soita(Aani::Voitto);
                     self.viesti(muotoile("majakka.bonus", &[&bonus]));
                 } else {
-                    self.aanet.jono.push((Aani::Yhdistys, 0));
+                    self.aanet.soita(Aani::Yhdistys);
                 }
             }
             Tapahtuma::UusiYo => {
-                self.aanet.jono.push((Aani::Alku, 0));
+                self.aanet.soita(Aani::Alku);
                 self.kuva = Some(Merikuva::new(&self.meri));
                 self.viesti(muotoile("majakka.uusi_yo", &[&(self.meri.yo + 1)]));
             }
             Tapahtuma::Ohi => {
-                self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+                self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
                 self.aanet
-                    .jono
-                    .push((Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                    .soita_viiveella(Aani::PeliOhi, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
                 self.lopeta_peli();
             }
         }
@@ -248,15 +242,6 @@ impl Majakka {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Torveen painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     pub fn aloita_alusta(&mut self) {
         self.meri = Meri::new(self.vaikeus, 0, &mut self.arpa);
         self.kuva = Some(Merikuva::new(&self.meri));
@@ -265,7 +250,7 @@ impl Majakka {
         self.viesti(muotoile("majakka.uusi_yo", &[&1]));
         self.tehosteet.clear();
         self.kertyma_ms = 0;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     /// Ikkuna menetti kohdistuksen: laivat eivät saa ajaa karille pelaajan poissa ollessa.
@@ -283,7 +268,12 @@ impl Majakka {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -337,7 +327,7 @@ impl Majakka {
             Syote::Ammu | Syote::Klikkaus(..) | Syote::OikeaKlikkaus(..)
                 if self.meri.soita_torvi() =>
             {
-                self.aanet.jono.push((Aani::Sumutorvi, 0));
+                self.aanet.soita(Aani::Sumutorvi);
             }
             Syote::Kirjain('P') => self.vaihe = Vaihe::Tauko,
             _ => {}
@@ -345,15 +335,9 @@ impl Majakka {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

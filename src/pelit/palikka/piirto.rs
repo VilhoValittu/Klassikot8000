@@ -2,7 +2,7 @@
 
 use klassikot8000::palikka::{Kierros, Paikka, Palikka, Ruudut, SIVU, tason_tavoite};
 
-use super::peli::{Animaatio, HUTI_MS, Kohta, Nappi, Palikkapeli, Vaihe, kohta};
+use super::peli::{Animaatio, HUTI_MS, Kohta, Palikkapeli, Vaihe, kohta};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::vektori::{Kangas, Tahko, tahko4};
@@ -26,15 +26,6 @@ const VARJO: i32 = 3;
 
 const OHJE: &str = "palikka.ohje";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
-
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
 
 const ALKU_OSAT: [&str; 4] = [
     "palikka.tervetuloa",
@@ -128,16 +119,6 @@ pub fn ruutu_pisteesta(x: i32, y: i32) -> Option<Paikka> {
             ((x - RUUDUT_X) / RUUTU) as usize,
         )
     })
-}
-
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
 }
 
 fn keskipiste((rivi, sarake): Paikka) -> (i32, i32) {
@@ -490,9 +471,7 @@ impl Piirtaja<'_> {
             Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
-                for (_, teksti, x) in NAPIT {
-                    self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-                }
+                self.loppunapit();
             }
             Vaihe::Nimi => self.nimikysely(peli.lauta.pisteet, &peli.nimi),
             Vaihe::Alku => {}
@@ -503,4 +482,4 @@ impl Piirtaja<'_> {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub use tests::{napin_keskipiste, ruudun_keskipiste};
+pub use tests::ruudun_keskipiste;

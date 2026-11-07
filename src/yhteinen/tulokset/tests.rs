@@ -85,3 +85,13 @@ fn tyhja_nimi_saa_oletuksen() {
     assert_eq!(ota_nimi(&mut nimi), "A");
     assert!(nimi.is_empty());
 }
+
+#[test]
+fn tyhjaa_nimea_ei_kuitata_valilyonnilla() {
+    let mut nimi = String::new();
+    assert!(!nimi_valmis(&mut nimi, Syote::Ammu));
+    assert!(!nimi_valmis(&mut nimi, Syote::Kirjain('A')));
+    assert_eq!(nimi, "A");
+    assert!(nimi_valmis(&mut nimi, Syote::Ammu));
+    assert!(nimi_valmis(&mut String::new(), Syote::Peru));
+}

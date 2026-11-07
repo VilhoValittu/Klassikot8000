@@ -4,10 +4,11 @@ use klassikot8000::palikka::{Paikka, Palikkalauta, SIVU, Vaihto, vierekkain};
 use super::piirto;
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
+use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
+use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 
 pub const VAIHTO_MS: u32 = 130;
 pub const POKSAHDUS_MS: u32 = 170;
@@ -33,12 +34,6 @@ pub enum Vaihe {
     Tappio,
     /// Tulos pääsi kolmen parhaan joukkoon ja odottaa nimimerkkiä.
     Nimi,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Nappi {
-    Uudestaan,
-    Valikko,
 }
 
 /// Toistettava liike. Logiikka on jo valmis, joten syöte odottaa toiston loppua.
@@ -187,10 +182,9 @@ impl Palikkapeli {
         }
         // Loppu odottaa toiston loppua, jotta viimeinen ketju näkyy kokonaan.
         if self.vaihe == Vaihe::Pelissa && self.animaatio.is_none() && self.lauta.ohi {
-            self.aanet.jono.push((Aani::Tappio, LOPPU_VIIVE_MS));
+            self.aanet.soita_viiveella(Aani::Tappio, LOPPU_VIIVE_MS);
             self.aanet
-                .jono
-                .push((Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS));
+                .soita_viiveella(Aani::EiSiirtoja, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
             self.lopeta_peli();
         }
     }
@@ -232,15 +226,6 @@ impl Palikkapeli {
         }
     }
 
-    fn kasittele_nimi(&mut self, syote: Syote) {
-        match syote {
-            // Viimeisenä painettu välilyönti ei saa kuitata nimeä ennen kuin sitä on kirjoitettu.
-            Syote::Ammu if self.nimi.is_empty() => {}
-            Syote::Ammu | Syote::Peru => self.vahvista_nimi(),
-            _ => muokkaa_nimea(&mut self.nimi, syote),
-        }
-    }
-
     fn aloita_alusta(&mut self) {
         self.lauta = Palikkalauta::new(&mut self.arpa);
         self.vaihe = Vaihe::Pelissa;
@@ -250,7 +235,7 @@ impl Palikkapeli {
         self.animaatio = None;
         self.raahaus = None;
         self.viime_toimi_ms = self.kello_ms;
-        self.aanet.jono.push((Aani::Alku, 0));
+        self.aanet.soita(Aani::Alku);
     }
 
     pub fn kasittele(&mut self, syote: Syote) {
@@ -261,7 +246,12 @@ impl Palikkapeli {
             aanikytkimella,
         ) {
             Yleinen::Peli => {}
-            Yleinen::Nimi => return self.kasittele_nimi(syote),
+            Yleinen::Nimi => {
+                if nimi_valmis(&mut self.nimi, syote) {
+                    self.vahvista_nimi();
+                }
+                return;
+            }
             // Kesken pelin Esc pysäyttää ensin, jottei vahinkopainallus hävitä peliä.
             Yleinen::Peru if self.vaihe == Vaihe::Pelissa => {
                 self.vaihe = Vaihe::Tauko;
@@ -360,29 +350,28 @@ impl Palikkapeli {
         self.valittu = None;
         let alku = self.kello_ms;
         let Some(vaihto) = self.lauta.vaihda(a, b, &mut self.arpa) else {
-            self.aanet.jono.push((Aani::Virhe, 0));
+            self.aanet.soita(Aani::Virhe);
             self.viesti = kaanna("palikka.huono").to_string();
             self.animaatio = Some(Animaatio::Huti { a, b, alku });
             return;
         };
         self.taulu.paras = self.taulu.paras.max(self.lauta.pisteet);
-        self.aanet.jono.push((Aani::Liuku, 0));
+        self.aanet.soita(Aani::Liuku);
         for (i, kierros) in vaihto.kierrokset.iter().enumerate() {
             let viive = VAIHTO_MS + i as u32 * (POKSAHDUS_MS + PUTOAMINEN_MS);
             self.aanet
-                .jono
-                .push((HELINAT[i.min(HELINAT.len() - 1)], viive));
+                .soita_viiveella(HELINAT[i.min(HELINAT.len() - 1)], viive);
             if !kierros.rajahdykset.is_empty() {
-                self.aanet.jono.push((Aani::Rajahdys, viive));
+                self.aanet.soita_viiveella(Aani::Rajahdys, viive);
             }
             if !kierros.luodut.is_empty() {
-                self.aanet.jono.push((Aani::Yhdistys, viive));
+                self.aanet.soita_viiveella(Aani::Yhdistys, viive);
             }
         }
         let ketju = vaihto.kierrokset.len();
         self.viesti = if vaihto.uusi_taso {
             let viive = vaihdon_kesto(ketju as u32);
-            self.aanet.jono.push((Aani::Alku, viive));
+            self.aanet.soita_viiveella(Aani::Alku, viive);
             muotoile("palikka.uusi_taso", &[&self.lauta.taso])
         } else if ketju > 1 {
             muotoile("palikka.ketju", &[&ketju, &vaihto.pisteet])
@@ -393,15 +382,9 @@ impl Palikkapeli {
     }
 
     fn kasittele_loppu(&mut self, syote: Syote) {
-        let nappi = match syote {
-            Syote::Kirjain('K') => Some(Nappi::Uudestaan),
-            Syote::Kirjain('E') => Some(Nappi::Valikko),
-            Syote::Klikkaus(x, y) => piirto::nappi_pisteesta(x, y),
-            _ => None,
-        };
-        match nappi {
-            Some(Nappi::Uudestaan) => self.aloita_alusta(),
-            Some(Nappi::Valikko) => self.lopeta = true,
+        match loppunapit::valinta(syote) {
+            Some(Loppunappi::Uudestaan) => self.aloita_alusta(),
+            Some(Loppunappi::Valikko) => self.lopeta = true,
             None => {}
         }
     }

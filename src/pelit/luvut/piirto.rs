@@ -80,13 +80,7 @@ pub fn suunta_pisteesta(x: i32, y: i32) -> Option<Suunta> {
 }
 
 pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
+    rivin_nappi(&NAPIT, NAPPI_Y, x, y)
 }
 
 /// Tallennetun pelin rinnalla oleva nappi on alkuruudun oikeassa laidassa.

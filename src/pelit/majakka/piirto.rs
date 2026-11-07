@@ -9,7 +9,7 @@ use klassikot8000::majakka::{
     ranta_y, suulla,
 };
 
-use super::peli::{Majakka, Nappi, TEHOSTE_MS, Tehoste, Tehostelaji, VIESTEJA, Vaihe};
+use super::peli::{Majakka, TEHOSTE_MS, Tehoste, Tehostelaji, VIESTEJA, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
@@ -35,15 +35,6 @@ const RENKAAN_SADE: i32 = 12;
 
 const OHJE: &str = "majakka.ohje";
 const TAPPIO: &str = "yhteinen.peli_paattyi";
-
-const NAPIT: [(Nappi, &str, i32); 2] = [
-    (Nappi::Uudestaan, "yhteinen.uudestaan", NAPPI_X),
-    (
-        Nappi::Valikko,
-        "yhteinen.valikkoon",
-        NAPPI_X + 13 * MERKKI + 48,
-    ),
-];
 
 // Alkuruudun tasovalinta samoilla mitoilla kuin miinaharavassa.
 const TASO_Y: i32 = ALOITUS_Y - NAPPI_K - 6;
@@ -94,23 +85,8 @@ const LAMPUN_VILKKU_MS: u32 = 250;
 const SATAMAVALON_VILKKU_MS: u32 = 700;
 const VANAN_VILKKU_MS: u32 = 160;
 
-pub fn nappi_pisteesta(x: i32, y: i32) -> Option<Nappi> {
-    NAPIT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x)
-                && (NAPPI_Y..NAPPI_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(nappi, ..)| nappi)
-}
-
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
-    TASOT
-        .iter()
-        .find(|&&(_, teksti, nx)| {
-            (nx..nx + napin_leveys(teksti)).contains(&x) && (TASO_Y..TASO_Y + NAPPI_K).contains(&y)
-        })
-        .map(|&(taso, ..)| taso)
+    rivin_nappi(&TASOT, TASO_Y, x, y)
 }
 
 fn tason_kuvaus(vaikeus: Vaikeus) -> &'static str {
@@ -862,9 +838,7 @@ impl Piirtaja<'_> {
             Vaihe::Tauko => self.tauko(),
             Vaihe::Tappio => {
                 self.suurteksti(TEKSTI_X, otsikko_y, kaanna(TAPPIO), TULOS, KELTAINEN, true);
-                for (_, teksti, x) in NAPIT {
-                    self.nappi(x, NAPPI_Y, teksti, VALKOINEN, WB_SININEN);
-                }
+                self.loppunapit();
             }
             Vaihe::Nimi => self.nimikysely(peli.meri.pisteet, &peli.nimi),
             Vaihe::Alku => {}
@@ -875,4 +849,4 @@ impl Piirtaja<'_> {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub use tests::{napin_keskipiste, vaikeuden_keskipiste};
+pub use tests::vaikeuden_keskipiste;

@@ -48,7 +48,6 @@ const VIESTI_Y: i32 = RAHAT_Y + 2 * TILASTO_ASKEL + 6;
 const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
 const NAPIT_Y: i32 = SIVU_OHJE_Y + 2 * RIVIN_KORKEUS + 18;
-const NAPPI_ASKEL: i32 = NAPPI_K + 12;
 // Maksun ja korotuksen teksti vaihtuu, joten kaikki napit ovat saman levyisiä.
 const NAPIN_L: i32 = SIVU_L - 36;
 
