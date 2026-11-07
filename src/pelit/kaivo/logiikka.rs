@@ -73,7 +73,7 @@ impl Vaikeus {
     /// Tikkaita on kolme kertaa tukien verran, jotta tuet riittävät kattoon ja tikkaat tielle
     /// takaisin ylös.
     pub fn tikkaita(self) -> u32 {
-        3 * self.tukia()
+        2 * self.tukia()
     }
 
     /// Täysi lamppu palaa maan alla näin kauan.
