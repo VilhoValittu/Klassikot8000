@@ -72,7 +72,7 @@ impl Default for Asetukset {
 pub struct Tallennus {
     /// Oletus on epätosi, joten vanhassa tallennuksessa äänet ovat päällä.
     pub hiljaa: bool,
-    /// Oletus on suomi, joten vanhassa tallennuksessa kieli säilyy entisenä.
+    /// Oletus on englanti. Tallennus kirjoittaa kielen aina, joten valittu kieli säilyy.
     pub kieli: Kieli,
     pub asetukset: Asetukset,
     /// Järjestys kuten `Nettipeli::KAIKKI`.

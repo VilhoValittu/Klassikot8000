@@ -14,8 +14,8 @@ const UPOTETUT: &str = include_str!("../../kielet.txt");
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Kieli {
-    #[default]
     Suomi,
+    #[default]
     Englanti,
 }
 
@@ -52,7 +52,10 @@ static TEKSTIT: OnceLock<[Taulu; 2]> = OnceLock::new();
 
 thread_local! {
     // Tekstejä käyttää vain ikkunan säie, ja näin testit voivat vaihtaa kieltä häiritsemättä toisiaan.
-    static NYKYINEN: Cell<Kieli> = const { Cell::new(Kieli::Suomi) };
+    // Pelin oletus on englanti, mutta testien odotetut tekstit ovat suomeksi.
+    static NYKYINEN: Cell<Kieli> = const {
+        Cell::new(if cfg!(test) { Kieli::Suomi } else { Kieli::Englanti })
+    };
 }
 
 /// Lisää tekstit tauluihin. Kelvottomat rivit ohitetaan, jottei muokattu tiedosto estä pelaamista.

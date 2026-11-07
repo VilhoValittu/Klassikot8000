@@ -128,3 +128,8 @@ fn kielen_vaihto_ja_arvojen_sijoitus() {
     );
     assert_eq!(Kieli::koodista("sv"), None);
 }
+
+#[test]
+fn oletuskieli_on_englanti() {
+    assert_eq!(Kieli::default(), Kieli::Englanti);
+}
