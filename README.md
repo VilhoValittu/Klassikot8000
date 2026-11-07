@@ -1,121 +1,110 @@
 # Klassikot8000
 
-**Suomeksi** | [English](README.en.md)
+[Suomeksi](README.fin.md.md) | **English**
 
-Tylsää? Kolmetoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Bored? Thirteen old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
-Pyörii vaikka perunalla. AB:n OG ideasta.
+Runs even on a potato.
 
-## Pelit
+## Games
 
-### Laivanupotus
+### Battleships
+You against the computer. Each side has five ships, and you take turns firing until one fleet lies on the bottom. Ships never touch, not even at corners, so the waters around a sunk ship get marked on the board. Before the battle you can move and turn your own ships or shuffle them again. The game keeps track of wins, losses and your fewest shots for each level. A win scores points for the Top 3: every shot you save is a point, and a harder level multiplies them (normal by two, hard by three). Who sails home to their family?
 
-Sinä vastaan tietokone. Kummallakin on viisi laivaa, ja ammutte vuorotellen, kunnes toisen laivasto makaa pohjassa. Laivat eivät kosketa toisiaan edes kulmittain, joten uponneen laivan ympärys merkitään laudalle. Ennen taistelua voit siirtää ja kääntää omia laivojasi tai arpoa ne uudelleen. Peli pitää kirjaa voitoista, tappioista ja vähimmistä laukauksista tasoittain. Voitto antaa top-listalle pisteitä: jokainen säästetty laukaus tuo pisteen, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella). Kumpi purjehtii kotiin perheensä luo?
-
-*Hiiri tai nuolet ja välilyönti. Sijoittaessa 1–5 nostaa laivan, R tai hiiren oikea kääntää ja A arpoo.*
+*Mouse, or arrows and space. While placing, 1-5 lifts a ship, R or the right mouse button turns it and A shuffles.*
 
 ### 2048
+Push the numbers around the board, merge equal ones and chase 2048. One more move and then you'll stop. Maybe. An unfinished game waits for next time.
 
-Työnnä lukuja laudalla, yhdistä samat ja tavoittele 2048:aa. Vielä yksi siirto, ja sitten lopetat. Ehkä. Kesken jäänyt peli odottaa seuraavaa kertaa.
+*Arrows or mouse.*
 
-*Nuolet tai hiiri.*
+### Solitaire
+Three games under one card, each with its own top list. Your score comes from time: the faster you win, the more you get, and harder levels multiply it (normal by two, hard by three).
 
-### Pasianssi
+**Klondike** is the familiar one that has eaten thousands of working days. On Easy you draw one card at a time and can undo, on Hard you draw three, get three passes through the stock and can't undo anything.
 
-Kolme peliä saman kortin alla, ja jokaisella on oma top-listansa. Pisteet tulevat ajasta: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
+**Spider** deals two decks into ten columns. Build same-suit runs from king to ace and they leave the table. Easy uses one suit, Normal two and Hard four. Undo is always allowed, because four suits are close to unwinnable without it.
 
-**Klondike** on se tuttu, jonka kanssa on kulutettu tuhansia työpäiviä. Helpolla nostat kortin kerrallaan ja saat perua, vaikealla nostat kolme, pakan saa käydä läpi kolmesti eikä mitään voi perua.
+**Challenges** open with H on the intro screen: you join a game in progress and try to win it. Each of the three games has 20 challenges that get harder in order. Every challenge can be won, because the tests play a stored solution through each one, and you can always undo back to the starting position. Challenges have their own top list, and your score there is the sum of your best score in each challenge.
 
-**Spider** jaetaan kahdesta pakasta kymmeneen sarakkeeseen. Kokoa saman maan sarjat kuninkaasta ässään, niin ne poistuvat pöydältä. Helpolla kortteja on yhtä maata, normaalilla kahta ja vaikealla neljää. Perua saa aina, koska neljää maata ei muuten juuri voita.
+**Pyramid** comes apart in pairs: two free cards must add up to 13, and a king leaves alone. The top two cards of the waste pile are in play. On Easy you can recycle the stock freely, on Normal you get three passes, and on Hard two with no undo.
 
-**Haasteet** avautuvat alkuruudulta H-näppäimellä: pelaaja liittyy kesken olevaan peliin ja koettaa voittaa sen. Jokaisessa kolmessa pelissä on 20 haastetta, jotka vaikeutuvat järjestyksessä. Jokainen haaste on varmasti voitettavissa, koska testit pelaavat tallennetun ratkaisun läpi, ja perua saa aina alkutilanteeseen asti. Haasteilla on oma top-listansa, jonka tulos on kaikkien haasteiden parhaiden pisteiden summa.
-
-**Pyramidi** puretaan pareittain: kahden vapaan kortin summan on oltava 13, ja kuningas lähtee yksin. Jätepinon kaksi päällimmäistä korttia ovat pelattavissa. Helpolla pakkaa saa kierrättää vapaasti, normaalilla käydä läpi kolmesti, ja vaikealla kahdesti ilman peruutusta.
-
-*Hiiri tai nuolet ja välilyönti.*
+*Mouse, or arrows and space.*
 
 ### Mahjongg
+Tile solitaire, the one you play alone. The tiles lie on the table in layers, and you take away two matching free tiles at a time. A free tile has nothing on top of it and at least one side open. Flowers and seasons pair with any tile of their own set. Every deal can be solved, but the wrong order still leads to a dead end. That's what the shuffle is for: it deals the remaining tiles again in an order that can be solved. The game ends when the board is empty, or when no pairs are left and no shuffles remain.
 
-Laattapasianssi, se yksinpelattava. Laatat ovat pöydällä kerroksittain, ja pois saa ottaa kaksi samaa vapaata laattaa. Vapaan laatan päällä ei ole mitään, ja ainakin toinen sivu on auki. Kukat ja vuodenajat käyvät pariksi kenen tahansa oman sarjansa laatan kanssa. Jokainen jako on ratkaistavissa, mutta väärä järjestys vie silti umpikujaan. Silloin auttaa sekoitus, joka jakaa jäljellä olevat laatat uudelleen ratkeavaan järjestykseen. Peli päättyy, kun lauta on tyhjä tai pareja ei enää ole eikä sekoituksia ole jäljellä.
+On Easy you take apart a 72-tile pyramid, free tiles stand out from the rest and you get three shuffles. On Normal it's a 124-tile fortress with two shuffles. On Hard you face a mountain of all 144 tiles, with one shuffle and no undo.
 
-Helpolla puretaan 72 laatan pyramidi, vapaat laatat erottuvat muista ja sekoituksia on kolme. Normaalilla puretaan 124 laatan linnoitus kahdella sekoituksella. Vaikealla vastassa on kaikkien 144 laatan vuori, sekoituksia on yksi eikä mitään voi perua.
+A pair scores 10 points, and a flower or season pair 20. Find the next pair within four seconds and the chain grows, multiplying the points up to five. A hint costs 20 points and a shuffle 50, and both break the chain. An empty board gives a 500-point bonus plus a point for every second left of the time limit (5 minutes on Easy, 10 on Normal and 15 on Hard). A harder level multiplies all points (normal by two, hard by three).
 
-Pari antaa 10 pistettä ja kukka- tai vuodenaikapari 20. Kun seuraava pari löytyy neljän sekunnin sisällä, ketju kasvaa ja kertoo pisteet viiteen asti. Vihje maksaa 20 pistettä ja sekoitus 50, ja kumpikin katkaisee ketjun. Tyhjä lauta tuo 500 pisteen bonuksen ja lisäksi pisteen jokaisesta sekunnista, joka aikarajasta jäi (helpolla 5, normaalilla 10 ja vaikealla 15 minuuttia). Vaikeampi taso kertoo kaikki pisteet (normaali kahdella, vaikea kolmella).
-
-*Hiiri tai nuolet ja välilyönti. Hiiren oikea peruu valinnan, H näyttää vihjeen, S sekoittaa, U palauttaa edellisen parin ja K aloittaa uuden pelin.*
+*Mouse, or arrows and space. Right mouse button deselects, H shows a hint, S shuffles, U puts the last pair back and K starts a new game.*
 
 ### Laatan murskain
+Keep the ball in play and break the bricks. 50 stages, three balls, and a fast clear earns bonus points. A white brick brings a second ball and grows the paddle, and as long as both balls stay in play, bricks score double. A black brick turns the ball into a super ball that moves 30% faster, goes through every brick and scores quadruple. A white brick doubles a super ball too. Watching two balls at once is exactly as hard as it sounds.
 
-Pidä pallo kentällä ja riko tiilet. 50 kenttää, kolme palloa, ja nopeasta läpäisystä saa lisäpisteitä. Valkoinen tiili tuo toisen pallon ja kasvattaa mailaa, ja niin kauan kuin molemmat pallot ovat kentällä, tiilistä saa tuplapisteet. Musta tiili tekee pallosta 30 % nopeamman superpallon, joka menee kaikkien tiilien läpi ja antaa nelinkertaiset pisteet. Valkoinen tiili tuplaa myös superpallon. Kahden pallon vahtiminen on juuri niin vaikeaa kuin miltä se kuulostaa.
+*Mouse, arrows or A/D, launch with space or a click.*
 
-*Hiiri, nuolet tai A/D, laukaisu välilyönnillä tai klikkauksella.*
+### Asteroids
+A lonely ship, endless rocks. Big rocks split into smaller ones, flying saucers shoot back, and when things get impossible you can always jump blindly somewhere else. You have three ships. 10,000 points gives you a new one, and each one after that costs more than the last.
 
-### Asteroidit
-
-Yksinäinen alus, loputtomasti kiviä. Iso kivi hajoaa pienemmiksi, lentävät lautaset ampuvat takaisin, ja kun tilanne käy mahdottomaksi, voit aina hypätä sokkona jonnekin muualle. Aluksia on kolme. 10 000 pistettä tuo uuden, ja jokainen seuraava maksaa edellistä enemmän.
-
-*Nuolet, WASD tai hiiri, hiiren oikea kiihdyttää, välilyönti ampuu, H hyppää.*
+*Arrows, WASD or mouse, right mouse button thrusts, space fires, H jumps.*
 
 ### Mato8000
+A worm game where hitting yourself is the whole idea. A hit closes a loop, and everything caught inside it is yours. The loop uses up the worm's length, though, so eat some apples now and then. The more you catch at once, the bigger the multiplier. Watch out for walls and mosquitoes.
 
-Matopeli, jossa itseensä törmääminen on koko idea. Osuma sulkee silmukan, ja kaikki sen sisään jäänyt on saalista. Silmukka kuluttaa kuitenkin madon pituutta, joten omenoita kannattaa syödä välillä. Mitä enemmän saat kerralla, sitä moninkertaisemmat pisteet. Varo seiniä ja itikoita.
-
-*Nuolet, WASD tai hiiri.*
+*Arrows, WASD or mouse.*
 
 ### Palikka8000
+Swap two neighbouring blocks, and three of a kind in a row disappear. The new ones falling from above may keep the chain going, and every link multiplies the score. Four make a bomb, and five in a row make a wild block that takes every block of its neighbour's colour with it. New colours arrive as the levels rise, and the game ends when no move is left.
 
-Vaihda kahta vierekkäistä palikkaa, ja kolme samaa suorassa katoaa. Yläpuolelta putoavat uudet saattavat jatkaa ketjua, ja jokainen ketjun lenkki kertoo pisteet. Neljästä syntyy pommi ja viiden suorasta kaikkipalikka, joka vie mukanaan kaikki naapurinsa väriset. Tasojen myötä värejä tulee lisää, ja peli päättyy, kun yhtään siirtoa ei enää ole.
+*Mouse, or arrows and space.*
 
-*Hiiri tai nuolet ja välilyönti.*
+### Minesweeper
+The other office classic. A number tells how many mines touch the cell, and the rest is up to you. The first open is always safe, so you can't blame your first explosion on bad luck. Three levels, each with its own best time. A win scores points for the Top 3: the faster you win, the more you get, and a harder level multiplies them (normal by two, hard by three).
 
-### Miinaharava
-
-Se toinen tuttu toimistoklassikko. Numero kertoo, montako miinaa ruudun ympärillä on, ja loput pitää päätellä. Ensimmäinen avaus on aina turvallinen, joten ensimmäistä räjähdystä ei voi laittaa huonon tuurin piikkiin. Kolme tasoa, ja jokaisella oma ennätysaikansa. Voitto antaa top-listalle pisteitä: mitä nopeammin voitat, sitä enemmän saat, ja vaikeampi taso kertoo ne (normaali kahdella, vaikea kolmella).
-
-*Hiiren vasen avaa ja oikea liputtaa, tai nuolet, välilyönti ja F.*
+*Left mouse opens and right flags, or arrows, space and F.*
 
 ### Blackjack
+You against a computer dealer, with play money. You start with 300 and the lowest bet is 1. Get closer to 21 than the dealer without going over. You can hit, stand, double or split a pair, and take insurance when the dealer shows an ace. Blackjack pays 3:2 and insurance 2:1, and the dealer always stands on 17. The shoe holds six decks. When the money runs out, the game starts over. Your money doesn't carry over when you leave for the menu, but the profit you leave the table with is your score.
 
-Sinä vastaan tietokonejakaja, ja pelivälineenä leikkiraha. Alussa on 300 rahaa ja pienin panos on 1. Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Voit ottaa kortin, jäädä, tuplata tai halkaista parin, ja kun jakajalla on ässä esillä, voit ottaa vakuutuksen. Blackjack maksaa 3:2 ja vakuutus 2:1, ja jakaja jää aina 17:ään. Kengässä on kuusi pakkaa. Kun rahat loppuvat, peli alkaa alusta. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
-
-*Hiiri tai näppäimet: nuolet ja 1–4 panokselle, välilyönti jakaa, O ottaa, J jää, T tuplaa, H halkaisee, V vakuuttaa, N ei vakuuta.*
+*Mouse or keys: arrows and 1-4 for the bet, space deals, O hits, J stands, T doubles, H splits, V insures, N declines.*
 
 ### Texas Hold'em
+No-limit poker against four computers. Everyone starts with 1000, and the last one with money wins. Two cards of your own and five shared: the best five-card hand takes the pot. Blinds start at 10/20 and double every ten hands, so a game always ends. The rules are the familiar tournament ones, with side pots, minimum raises and a dead button. The computers don't peek: they only see their own cards and the shared ones. Your money doesn't carry over when you leave for the menu, but the profit you leave the table with is your score.
 
-No limit -pokeria neljää tietokonetta vastaan. Kaikilla on alussa 1000 rahaa, ja viimeinen rahoissa voittaa. Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi vie potin. Blindit alkavat 10/20 ja tuplaantuvat kymmenen jaon välein, joten peli päättyy aina. Säännöt ovat turnauksista tutut sivupotteineen, pienimpine korotuksineen ja kuolleine nappeineen. Koneet eivät kurki: ne näkevät vain omat ja yhteiset kortit. Rahat eivät säily, kun poistut valikkoon, mutta voitto, jonka viet pöydästä, on tuloksesi.
-
-*Hiiri tai näppäimet: V tarkistaa tai maksaa, K skippaa, R korottaa, nuolet ja 1–4 muuttavat korotusta, välilyönti hoputtaa koneita ja jakaa seuraavan käden.*
+*Mouse or keys: V checks or calls, K folds, R raises, arrows and 1-4 change the raise, space hurries the computers and deals the next hand.*
 
 ### Majakka8000
 
-Olet majakanvartija myrskyisenä yönä. Laivat tulevat pimeästä kohti satamaa eivätkä näe karikoita. Pimeässä laiva pitää suuntansa, ja virta vie sitä sivuun. Kun käännät keilan laivan päälle, kapteeni näkee karikot, kiertää ne ja kääntyy satamaan, ja muistaa reitin vielä hetken. Lamppu on raskas ja kääntyy hitaasti, joten koko yö on sitä, kenet valaiset seuraavaksi. Pimeällä merellä karikon paljastaa vain vaahto, ja laivasta näkyvät kulkuvalot. Sumutorvi hidastaa hetkeksi kaikkia laivoja ja latautuu hitaasti. Toisesta yöstä alkaen merellä liikkuu myös valottomia salakuljettajia: pidä keila niiden päällä, niin ne jäävät kiinni. Yö kestää puolitoista minuuttia, ja aamu tuo merellä olevat laivat kotiin. Uusi yö tuo uudet karikot, enemmän laivoja ja kovemman virran. Kolme haaksirikkoa päättää pelin.
+You keep the lighthouse on a stormy night. Ships come out of the dark towards the harbour and cannot see the rocks. In the dark a ship holds its course while the current pushes it aside. Turn your beam onto it and the captain sees the rocks, steers around them and heads for port, and remembers the way for a moment. The lamp is heavy and turns slowly, so the whole night is about who you light up next. On the dark sea only the foam gives a rock away, and ships show their running lights. The foghorn slows every ship for a moment and recharges slowly. From the second night, unlit smugglers cross the sea too: hold the beam on one and it is caught. A night lasts a minute and a half, and dawn brings the ships still at sea home. Each new night brings new rocks, more ships and a stronger current. Three wrecks end the game.
 
-Satamaan päässyt vene antaa 10 pistettä, kalastaja 20 ja rahtilaiva 50, ja salakuljettaja 100. Peräkkäin perille päässeet laivat kasvattavat kerrointa viiteen asti, ja haaksirikko tai merelle eksynyt laiva nollaa sen. Yö ilman haaksirikkoja tuo bonuksen. Tasot eroavat keilan leveydessä ja nopeudessa: helpolla karikot näkyvät pimeässäkin himmeästi, vaikealla sumu lyhentää keilaa ja tuulenpuuskat kääntävät laivoja. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
+A rowboat in port scores 10, a fishing boat 20, a freighter 50 and a smuggler 100. Ships that make it home in a row raise the multiplier up to five, and a wreck or a ship lost at sea resets it. A night without wrecks gives a bonus. The levels differ in the width and speed of the beam: on easy the rocks show faintly even in the dark, on hard fog shortens the beam and gusts of wind turn the ships. A harder level multiplies the points (normal by two, hard by three).
 
-*Hiiri, nuolet tai A/D kääntävät keilaa, välilyönti tai klikkaus soittaa sumutorvea.*
+*Mouse, arrows or A/D turn the beam, space or click sounds the foghorn.*
 
 ### Kaivo8000
 
-Olet ahne kullankaivaja. Kaivat maan alle hissin vierestä, ja pimeässä näet vain sen, minkä lamppusi valaisee; kulta ja timantit välähtelevät kauempaa. Maa kantaa itsensä vain lyhyen matkan: liian leveä tunneli alkaa ritistä, varisee pölyä ja sortuu, savi kestää vähän leveämmän katon, hiekka valuu heti alta kaivettuna ja irtokivi putoaa, kun sen alta kaivetaan. Ritisevän katon voi vielä pelastaa pystyttämällä sen alle tuen. Tuet ovat myös ainoat tikkaat ylös, joten jokainen tuki on valinta. Löydöt kulkevat säkissä, ja ne kirjautuvat pisteiksi vasta hissillä: sortuma tai liian korkea pudotus vie kypärän ja koko säkin. Kun hissiin on viety tason kiintiön verran kultaa, hissi vie syvemmälle uuteen kaivokseen, jossa on enemmän hiekkaa, kiviä ja luolia. Lampun öljy palaa maan alla ja täyttyy pinnalla tai löydetystä kannusta, ja valo kutistuu öljyn mukana. Haudatuista puunipuista saa lisää tukia. Kolme kypärää menetettynä peli päättyy.
+You are a greedy gold digger. You dig down next to the lift, and in the dark you only see what your lamp lights up; gold and diamonds glint from further away. The ground only carries itself a short way: a tunnel that is too wide starts to creak, sheds dust and caves in, clay holds a slightly wider roof, sand pours as soon as you dig under it and a loose boulder drops when its support is gone. A creaking roof can still be saved by putting up a prop under it. Props are also the only ladders up, so every prop is a choice. Your finds travel in a sack and only count as points at the lift: a cave-in or a fall from too high costs a helmet and the whole sack. Once you have sent the level's quota of gold up, the lift takes you deeper to a new mine with more sand, boulders and caves. Lamp oil burns underground and refills on the surface or from a buried can, and the light shrinks with the oil. Buried bundles of timber give more props. Lose three helmets and the game is over.
 
-Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä tai enemmän. Täysi kiintiö antaa tasobonuksen, ja jokainen käyttämättä jäänyt tuki kasvattaa sitä. Tasot eroavat tukien, öljyn ja valon määrässä, katon kestossa ja vaarojen määrässä. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
+Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points or more. A full quota gives a level bonus, and every unused prop adds to it. The levels differ in props, oil and light, how long the roof holds and how many hazards there are. A harder level multiplies the points (normal by two, hard by three).
 
-*Nuolet, WASD tai klikkaus kaivavat ja kävelevät ruudun kerrallaan (pohjassa pidetty nuoli jatkaa liikettä hetken kuluttua), välilyönti, oikea nappi tai klikkaus omaan ruutuun pystyttää tai purkaa tuen, ja R heittää hätäköyden, joka nostaa pinnalle kypärän hinnalla.*
+*Arrows, WASD or clicks dig and walk one cell at a time (a held arrow keeps going after a moment), space, right click or a click on your own cell puts up or takes down a prop, and R throws the rescue rope, which pulls you up at the cost of a helmet.*
 
-## Hyvä tietää
+## Good to know
 
-- Valikossa peli valitaan nuolilla, numeroilla 1–0, hiiren rullalla tai osoittamalla, ja välilyönti tai klikkaus aloittaa sen.
-- `Esc` palaa pelistä valikkoon. Toimintapeleissä ja Palikka8000:ssa se pysäyttää ensin pelin, jottei vahinkopainallus vie peliä, ja toinen painallus palaa valikkoon. Kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
-- Valittu taso, pasianssin laji ja viimeksi valittu peli säilyvät seuraavaan kertaan.
-- Jokaisella pelillä on Top 3 -lista myös netissä, ja valikko näyttää sen valitun pelin kohdalla yhdessä oman ennätyksesi kanssa. Laivanupotuksen kohdalla valikko näyttää myös voitot ja tappiot tasoittain. Ilman nettiä pelaat ihan yhtä hyvin.
-- Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään, ja ilmoitusta klikkaamalla julkaisusivu aukeaa selaimeen.
+- In the menu, pick a game with the arrows, the keys 1-0, the mouse wheel or by pointing, and start it with space or a click.
+- `Esc` returns from a game to the menu. In the action games and Palikka8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
+- Your chosen levels, solitaire game and last picked game are kept for next time.
+- Every game has an online Top 3, and the menu shows it for the selected game together with your own best. For Battleships the menu also shows wins and losses for each level. Without a connection the games play just as well.
+- The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts, and clicking the notice opens the release page in your browser.
 
-## Pelaamaan
+## Get playing
 
-Hae Windows-paketti (`windows-x64`) [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest), pura se ja käynnistä `klassikot8000-<versio>.exe`.
+Grab the Windows package (`windows-x64`) from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest), unpack it and run `klassikot8000-<version>.exe`.
 
-Lähdekoodista käännetty peli toimii samoin, mutta ei lähetä tuloksia nettilistalle: lista hyväksyy vain julkaisupakettien tulokset.
+A game built from source plays the same, but doesn't send scores to the online list: the list only accepts scores from the release packages.
 
-## Lisenssi
+## License
 
-Klassikot8000 on julkaistu [MIT-lisenssillä](LICENSE). Julkaisupaketeissa on sen lisäksi käytettyjen kirjastojen lisenssit tiedostossa `THIRD-PARTY-LICENSES.txt`.
+Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`.
