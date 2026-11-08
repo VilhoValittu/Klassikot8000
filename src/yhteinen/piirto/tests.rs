@@ -54,13 +54,44 @@ fn skaalaus_tayttaa_ruudun_ja_hiiri_osuu_samaan_pikseliin() {
     let (kuva, ruutu) = (&kehys.kuva, &kehys.ruutu);
     assert_eq!(ruutu[0], PALKKI);
     assert_eq!(ruutu[RUUDUN_LEVEYS * RUUDUN_KORKEUS - 1], PALKKI);
-    for (x, y) in [(285, 0), (700, 300), (1634, 1079), (1000, 1079)] {
+    // Ylä- ja alapalkki ovat koko leveydeltään tummia.
+    assert_eq!(ruutu[27 * RUUDUN_LEVEYS + 960], PALKKI);
+    assert_eq!(ruutu[1052 * RUUDUN_LEVEYS + 960], PALKKI);
+    for (x, y) in [(320, 28), (700, 300), (1599, 1051), (1000, 1051)] {
         let (kx, ky) = ruudulta_kuvaan(x, y);
         let pikseli = ruutu[y as usize * RUUDUN_LEVEYS + x as usize];
         assert_eq!(pikseli, kuva[ky as usize * LEVEYS + kx as usize], "{x},{y}");
     }
     assert!(ruudulta_kuvaan(0, 0).0 < 0);
     assert!(ruudulta_kuvaan(1700, 0).0 >= LEVEYS as i32);
+    // Palkeilla y pysyy kuvan sisällä.
+    assert_eq!(ruudulta_kuvaan(700, 0).1, 0);
+    assert_eq!(ruudulta_kuvaan(700, 1079).1, KORKEUS as i32 - 1);
+}
+
+#[test]
+fn konepikseli_on_tasan_nelja_ruudun_pikselia() {
+    let mut kehys = Kehys::default();
+    for (i, pikseli) in kehys.kuva.iter_mut().enumerate() {
+        let (x, y) = (i % LEVEYS, i / LEVEYS);
+        *pikseli = (x / 3 + y / 3 * 1000) as u32;
+    }
+    kehys.venyta();
+    let pikseli = |x: usize, y: usize| kehys.ruutu[y * RUUDUN_LEVEYS + x];
+    // Vaakasuunnassa neljän pikselin palat, joista jokainen on eri konepikseli.
+    for alku in (320..1600).step_by(4) {
+        assert!((alku..alku + 4).all(|x| pikseli(x, 500) == pikseli(alku, 500)));
+        if alku + 4 < 1600 {
+            assert_ne!(pikseli(alku, 500), pikseli(alku + 4, 500));
+        }
+    }
+    // Pystysuunnassa samoin.
+    for alku in (28..1052).step_by(4) {
+        assert!((alku..alku + 4).all(|y| pikseli(700, y) == pikseli(700, alku)));
+        if alku + 4 < 1052 {
+            assert_ne!(pikseli(700, alku), pikseli(700, alku + 4));
+        }
+    }
 }
 
 #[test]
@@ -79,8 +110,8 @@ fn muuttuneiden_rivien_venytys_vastaa_kokonaan_laskettua() {
     uusi.kuva.copy_from_slice(&kehys.kuva);
     uusi.venyta();
     assert!(kehys.ruutu == uusi.ruutu);
-    // Kuvan rivi 300 venyy ruudun riveille 422 ja 423 eikä muualle.
-    assert!(kehys.muuttuneet[422] && kehys.muuttuneet[423]);
+    // Kuvan rivi 300 venyy ruudun riveille 428 ja 429 eikä muualle.
+    assert!(kehys.muuttuneet[428] && kehys.muuttuneet[429]);
     assert_eq!(kehys.muuttuneet.iter().filter(|&&m| m).count(), 2);
 
     // Suora piirto sotkee ruudun, joten seuraava venytys laskee kaiken.

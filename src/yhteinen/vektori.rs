@@ -2,6 +2,7 @@
 
 use std::f32::consts::TAU;
 
+use super::paletti::varjoon;
 use super::piirto::{KORKEUS, LEVEYS};
 
 const SUURIN_LEIKKAUS: usize = 16;
@@ -46,6 +47,23 @@ impl Kangas<'_> {
         for yy in y.max(0)..(y + k).min(self.korkeus as i32) {
             let rivi = yy as usize * self.leveys;
             self.kuva[rivi + a..rivi + b].fill(vari);
+        }
+    }
+
+    /// Läpikuultava varjo: alla oleva kuva tummuu, `osuus` 0..=256.
+    pub fn himmenna(&mut self, x: i32, y: i32, l: i32, k: i32, osuus: u32) {
+        let (a, b) = (
+            x.max(0) as usize,
+            (x + l).clamp(0, self.leveys as i32) as usize,
+        );
+        if a >= b {
+            return;
+        }
+        for yy in y.max(0)..(y + k).min(self.korkeus as i32) {
+            let rivi = yy as usize * self.leveys;
+            for pikseli in &mut self.kuva[rivi + a..rivi + b] {
+                *pikseli = varjoon(*pikseli, osuus);
+            }
         }
     }
 

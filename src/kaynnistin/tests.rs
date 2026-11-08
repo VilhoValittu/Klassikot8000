@@ -375,7 +375,7 @@ fn blackjackin_kuva_vaihtuu_vain_syotteesta_ja_jakajan_siirroista() {
     k.kaynnista(Laji::Blackjack);
     // alkuruudun malli pyörii
     assert_eq!(k.kuvan_avain(true), None);
-    assert_eq!(k.nakyman_piste(285, 0), (0, 0));
+    assert_eq!(k.nakyman_piste(320, 28), (0, 0));
     k.kasittele(Syote::Ammu);
     assert_eq!(k.nakyman_piste(285, 7), (285, 7));
     assert!(!k.toimintapeli());
@@ -413,7 +413,7 @@ fn holdemin_kuva_vaihtuu_vain_syotteesta_ja_siirroista() {
     k.kaynnista(Laji::Holdem);
     // alkuruudun malli pyörii
     assert_eq!(k.kuvan_avain(true), None);
-    assert_eq!(k.nakyman_piste(285, 0), (0, 0));
+    assert_eq!(k.nakyman_piste(320, 28), (0, 0));
     k.kasittele(Syote::Ammu);
     assert_eq!(k.nakyman_piste(285, 7), (285, 7));
     assert!(!k.toimintapeli());
@@ -1049,7 +1049,7 @@ fn pasianssin_taso_sailyy_ja_hiiri_muuntuu_nakyman_mukaan() {
     let mut k = Kaynnistin::new(1);
     assert_eq!(k.nakyman_piste(285, 7), (285, 7));
     k.kaynnista(Laji::Pasianssi);
-    assert_eq!(k.nakyman_piste(285, 0), (0, 0));
+    assert_eq!(k.nakyman_piste(320, 28), (0, 0));
     k.kasittele(Syote::Numero(3));
     k.kasittele(Syote::Ammu);
     assert_eq!(k.nakyman_piste(285, 7), (285, 7));

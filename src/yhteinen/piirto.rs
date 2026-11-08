@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use super::fontti;
 use super::kieli::kaanna;
+use super::paletti::ramppi;
 use super::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
 use super::tulokset::{PARHAITA, Tulos};
 use super::vektori::{self, Kangas, kehapiste, sekoita_liuku, tummenna, vaalenna};
@@ -153,14 +154,18 @@ pub const LEVEYS: usize = 960;
 pub const KORKEUS: usize = 768;
 
 /// Ikkunan todellinen koko. `LEVEYS` ja `KORKEUS` ovat klassisten näkymien kuva, joka
-/// skaalataan ruudun korkuiseksi keskelle; laidoille jää tumma palkki kuten television reunoille.
+/// skaalataan keskelle ruutua; ympärille jää tumma palkki kuten television reunoille.
 pub const RUUDUN_LEVEYS: usize = 1920;
 pub const RUUDUN_KORKEUS: usize = 1080;
-// Suhde 1080 / 768 = 45 / 32.
-const SKAALA_OSOITTAJA: usize = 45;
-const SKAALA_NIMITTAJA: usize = 32;
+// Suhde 4 / 3: kolmen pikselin konepikselistä tulee tasan neljä ruudun pikseliä, joten
+// jokainen konepikseli on yhtä leveä. Suhde 45 / 32 täyttäisi korkeuden, mutta silloin
+// konepikselit olisivat vuorotellen neljän ja viiden pikselin levyisiä.
+const SKAALA_OSOITTAJA: usize = 4;
+const SKAALA_NIMITTAJA: usize = 3;
 const SKAALATTU_LEVEYS: usize = LEVEYS * SKAALA_OSOITTAJA / SKAALA_NIMITTAJA;
+const SKAALATTU_KORKEUS: usize = KORKEUS * SKAALA_OSOITTAJA / SKAALA_NIMITTAJA;
 const SKAALATTU_X: usize = (RUUDUN_LEVEYS - SKAALATTU_LEVEYS) / 2;
+const SKAALATTU_Y: usize = (RUUDUN_KORKEUS - SKAALATTU_KORKEUS) / 2;
 
 // Paletti: SNES- ja Mega Drive -pelien tyydyttyneet siniset, kulta ja violettiin taittuvat varjot.
 pub const PALKKI: u32 = 0x07041A;
@@ -332,14 +337,23 @@ impl Kehys {
         let lahde_x: [u16; SKAALATTU_LEVEYS] =
             std::array::from_fn(|x| (x * SKAALA_NIMITTAJA / SKAALA_OSOITTAJA) as u16);
         let mut edellinen = None;
+        let kuvan_alue = SKAALATTU_Y..SKAALATTU_Y + SKAALATTU_KORKEUS;
         for y in 0..RUUDUN_KORKEUS {
-            let lahde_y = y * SKAALA_NIMITTAJA / SKAALA_OSOITTAJA;
+            let rivi = y * RUUDUN_LEVEYS;
+            if !kuvan_alue.contains(&y) {
+                // Ylä- ja alapalkki muuttuvat vain, kun ruudulle on piirretty suoraan.
+                self.muuttuneet[y] = kaikki;
+                if kaikki {
+                    self.ruutu[rivi..rivi + RUUDUN_LEVEYS].fill(PALKKI);
+                }
+                continue;
+            }
+            let lahde_y = (y - SKAALATTU_Y) * SKAALA_NIMITTAJA / SKAALA_OSOITTAJA;
             let muuttui = kaikki || kuvan_rivit[lahde_y];
             self.muuttuneet[y] = muuttui;
             if !muuttui {
                 continue;
             }
-            let rivi = y * RUUDUN_LEVEYS;
             if edellinen == Some(lahde_y) {
                 self.ruutu.copy_within(rivi - RUUDUN_LEVEYS..rivi, rivi);
                 continue;
@@ -361,12 +375,15 @@ impl Kehys {
     }
 }
 
-/// Ruudun pikseli klassisen kuvan koordinaateiksi. Laidoilla x jää kuvan ulkopuolelle.
+/// Ruudun pikseli klassisen kuvan koordinaateiksi. Sivupalkeilla x jää kuvan ulkopuolelle,
+/// mutta y rajataan kuvaan, koska näkymät olettavat sen aina osuvan kuvan riville.
 pub fn ruudulta_kuvaan(x: i32, y: i32) -> (i32, i32) {
     let (osoittaja, nimittaja) = (SKAALA_OSOITTAJA as i32, SKAALA_NIMITTAJA as i32);
     (
         ((x - SKAALATTU_X as i32) * nimittaja).div_euclid(osoittaja),
-        (y * nimittaja).div_euclid(osoittaja),
+        ((y - SKAALATTU_Y as i32) * nimittaja)
+            .div_euclid(osoittaja)
+            .clamp(0, KORKEUS as i32 - 1),
     )
 }
 
@@ -572,6 +589,18 @@ pub struct Piirtaja<'a> {
     pub kello: u32,
 }
 
+#[derive(Clone, Copy)]
+struct Tekstityyli {
+    aariviiva: bool,
+    /// Porrasreunat pehmenevät viistoiksi.
+    pehmea: bool,
+    /// Otsikko saa läpikuultavan pudotusvarjon.
+    otsikko: bool,
+}
+
+/// Otsikon pudotusvarjon tummuus, 0..=256.
+const OTSIKON_VARJO: u32 = 150;
+
 impl Piirtaja<'_> {
     pub fn vilkku(&self) -> bool {
         (self.kello / VILKKU_MS).is_multiple_of(2)
@@ -584,18 +613,18 @@ impl Piirtaja<'_> {
 
     /// Bittikarttateksti `kerroin`-kertaisena.
     pub fn teksti_koossa(&mut self, x: i32, y: i32, teksti: &str, kerroin: i32, vari: u32) {
-        self.merkit(
-            x,
-            y,
-            teksti,
-            (kerroin, kerroin, kerroin * fontti::LEVEYS),
-            vari,
-            false,
-        );
+        let tyyli = Tekstityyli {
+            aariviiva: false,
+            pehmea: false,
+            otsikko: false,
+        };
+        let koko = (kerroin, kerroin, kerroin * fontti::LEVEYS);
+        self.merkit(x, y, teksti, koko, vari, tyyli);
     }
 
     /// Suurempi kirjasin otsikoille ja lukemille. `koko` on (merkin leveys, korkeus, askel)
-    /// pikseleinä, `paksu` lisää tumman ääriviivan.
+    /// pikseleinä, `paksu` lisää tumman ääriviivan. Isoissa merkeissä porrasreunat
+    /// pehmenevät viistoiksi, kuten käsin piirretyissä otsikoissa.
     pub fn suurteksti(
         &mut self,
         x: i32,
@@ -606,69 +635,125 @@ impl Piirtaja<'_> {
         paksu: bool,
     ) {
         let pikseli = |mitta: i32| ((mitta as f32 / 7.0).round() as i32).max(1);
-        self.merkit(
-            x,
-            y,
-            teksti,
-            (pikseli(koko.0), pikseli(koko.1), koko.2),
-            vari,
-            paksu,
-        );
+        let (pl, pk) = (pikseli(koko.0), pikseli(koko.1));
+        let tyyli = Tekstityyli {
+            aariviiva: paksu,
+            pehmea: pl >= 2 && pk >= 2,
+            otsikko: true,
+        };
+        self.merkit(x, y, teksti, (pl, pk, koko.2), vari, tyyli);
     }
 
-    /// Vaaleat merkit saavat varjon ja liukuvärin ylhäältä alas; tummat ovat vaalealla
-    /// pohjalla, joten ne piirtyvät tasaisina.
+    /// Vaaleat merkit saavat varjon ja sävyportaan liukuvärin ylhäältä alas; tummat ovat
+    /// vaalealla pohjalla, joten ne piirtyvät tasaisina.
     fn merkit(
         &mut self,
         x: i32,
         y: i32,
         teksti: &str,
-        (pl, pk, askel): (i32, i32, i32),
+        koko: (i32, i32, i32),
         vari: u32,
-        aariviiva: bool,
+        tyyli: Tekstityyli,
     ) {
+        let (pl, pk, _) = koko;
         let vaalea = on_vaalea(vari);
+        let porras = ramppi(vari);
         let rivivarit: [u32; 8] = std::array::from_fn(|rivi| {
             if !vaalea {
                 return vari;
             }
             match rivi {
-                0 | 1 => vaalenna(vari, 0.55),
-                2 => vaalenna(vari, 0.25),
-                3 | 4 => vari,
-                5 => tummenna(vari, 0.1),
-                _ => tummenna(vari, 0.22),
+                0 | 1 => porras[4],
+                2 => porras[3],
+                3..=5 => vari,
+                _ => porras[1],
             }
         });
-        let varjot: &[(i32, i32)] = match (vaalea, aariviiva) {
+        let pehmea = tyyli.pehmea;
+        if vaalea && tyyli.otsikko {
+            // Läpikuultava pudotusvarjo erottaa otsikon taustasta sitä peittämättä.
+            let siirto = if tyyli.aariviiva { 2 } else { 1 };
+            self.kuviot(
+                (x + siirto * pl, y + siirto * pk),
+                teksti,
+                koko,
+                pehmea,
+                |k, x, y, l, korkeus, _| k.himmenna(x, y, l, korkeus, OTSIKON_VARJO),
+            );
+        }
+        let varjot: &[(i32, i32)] = match (vaalea, tyyli.aariviiva) {
             (false, _) => &[],
             // Rivit ovat tiheässä, joten leipätekstin varjo menee vain sivulle.
             (true, false) => &[(1, 0)],
             (true, true) => &[(-1, 0), (1, 0), (0, -1), (0, 1), (1, 1)],
         };
         for &(dx, dy) in varjot {
-            self.kuviot(x + dx * pl, y + dy * pk, teksti, (pl, pk, askel), |_| {
-                ULKOVIIVA
-            });
+            self.kuviot(
+                (x + dx * pl, y + dy * pk),
+                teksti,
+                koko,
+                pehmea,
+                |k, x, y, l, korkeus, _| k.laatikko(x, y, l, korkeus, ULKOVIIVA),
+            );
         }
-        self.kuviot(x, y, teksti, (pl, pk, askel), |rivi| rivivarit[rivi]);
+        self.kuviot((x, y), teksti, koko, pehmea, |k, x, y, l, korkeus, rivi| {
+            k.laatikko(x, y, l, korkeus, rivivarit[rivi])
+        });
     }
 
+    /// Käy läpi merkkien pikselit ja antaa ne `piirra`-funktiolle muodossa
+    /// (kangas, x, y, leveys, korkeus, fontin rivi). `pehmea` täyttää porrasreunojen
+    /// sisäkulmat puolikkain, jolloin vinot viivat ja pyöreät muodot tasoittuvat.
     fn kuviot(
         &mut self,
-        x: i32,
-        y: i32,
+        (x, y): (i32, i32),
         teksti: &str,
         (pl, pk, askel): (i32, i32, i32),
-        vari: impl Fn(usize) -> u32,
+        pehmea: bool,
+        mut piirra: impl FnMut(&mut Kangas, i32, i32, i32, i32, usize),
     ) {
         for (i, merkki) in teksti.chars().enumerate() {
             let vasen = x + i as i32 * askel;
-            for (rivi, bitit) in fontti::kuvio(merkki).iter().enumerate() {
-                let py = y + rivi as i32 * pk;
+            let kuvio = fontti::kuvio(merkki);
+            let taysi = |rivi: i32, sarake: i32| {
+                (0..8).contains(&rivi)
+                    && (0..8).contains(&sarake)
+                    && kuvio[rivi as usize] >> sarake & 1 != 0
+            };
+            for rivi in 0..8 {
+                let py = y + rivi * pk;
                 for sarake in 0..8 {
-                    if bitit >> sarake & 1 != 0 {
-                        self.k.laatikko(vasen + sarake * pl, py, pl, pk, vari(rivi));
+                    let px = vasen + sarake * pl;
+                    if taysi(rivi, sarake) {
+                        piirra(&mut self.k, px, py, pl, pk, rivi as usize);
+                        continue;
+                    }
+                    if !pehmea {
+                        continue;
+                    }
+                    let yla = taysi(rivi - 1, sarake);
+                    let ala = taysi(rivi + 1, sarake);
+                    let vasemmalla = taysi(rivi, sarake - 1);
+                    let oikealla = taysi(rivi, sarake + 1);
+                    // Kulma, jonka kaksi täyttä naapuria rajaavat, kun vastakkaiset ovat tyhjiä.
+                    let kulma = match (yla, ala, vasemmalla, oikealla) {
+                        (true, false, true, false) => Some((true, true)),
+                        (true, false, false, true) => Some((true, false)),
+                        (false, true, true, false) => Some((false, true)),
+                        (false, true, false, true) => Some((false, false)),
+                        _ => None,
+                    };
+                    let Some((ylakulma, vasen_kulma)) = kulma else {
+                        continue;
+                    };
+                    for j in 0..pk {
+                        let osuus = if ylakulma { pk - j } else { j + 1 };
+                        let leveys = pl * osuus / pk;
+                        if leveys == 0 {
+                            continue;
+                        }
+                        let alku = if vasen_kulma { px } else { px + pl - leveys };
+                        piirra(&mut self.k, alku, py + j, leveys, 1, rivi as usize);
                     }
                 }
             }
@@ -1016,9 +1101,9 @@ impl Piirtaja<'_> {
         let p = self.k.pikseli;
         self.pyorea(x, y, l, k, ULKOVIIVA);
         let (sx, sy, sl, sk) = (x + p, y + p, l - 2 * p, k - 2 * p);
-        let (yla, ala) = (vaalenna(tausta, 0.35), tummenna(tausta, 0.3));
-        self.k.liukulaatikko(sx, sy, sl, sk, yla, ala);
-        self.k.laatikko(sx, sy, sl, p, vaalenna(tausta, 0.7));
+        let porras = ramppi(tausta);
+        self.k.liukulaatikko(sx, sy, sl, sk, porras[3], porras[1]);
+        self.k.laatikko(sx, sy, sl, p, porras[4]);
     }
 }
 
