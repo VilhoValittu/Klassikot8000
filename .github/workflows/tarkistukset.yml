@@ -1,0 +1,50 @@
+# Muotoilu, clippy, testit ja Windows-paketin koekäännös jokaisesta mainiin viedystä muutoksesta.
+# Ajetaan minipc:n runnerilla (.github/runner). Pull requesteista ei ajeta: runner on kotiverkossa.
+name: Tarkistukset
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tarkistukset
+  cancel-in-progress: true
+
+env:
+  # rust-toolchain.toml nimeää Windows-isännän työkaluketjun; runner on Linux. Versio lukitaan
+  # samaksi kuin julkaisijan koneella, jotta uudet clippy-lintit eivät kaada CI:tä ennen kuin
+  # Rust päivitetään molempiin. Nosta yhdessä julkaisu.yml:n kanssa.
+  RUSTUP_TOOLCHAIN: "1.95.0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tarkistukset:
+    runs-on: [self-hosted, minipc]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal -c clippy,rustfmt -t x86_64-pc-windows-msvc
+
+      - name: Muotoilu
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (Linux)
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Clippy (Windows)
+        run: cargo xwin clippy --target x86_64-pc-windows-msvc --all-targets --locked -- -D warnings
+
+      - name: Clippy (Windows, release)
+        run: cargo xwin clippy --target x86_64-pc-windows-msvc --release --locked -- -D warnings
+
+      - name: Testit
+        run: cargo test --locked
+
+      - name: Paketti ilman tulosavainta
+        run: bash .github/scripts/paketoi.sh

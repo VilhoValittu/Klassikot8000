@@ -1,0 +1,60 @@
+# Tekee GitHub-julkaisun, kun versiotagi (v1.2.3) viedään GitHubiin. julkaise.ps1 tekee tagin.
+# Ajetaan minipc:n runnerilla, jolla tulosavain on (.github/runner/compose.yaml).
+# Varalla toimii edelleen paikallinen paketoi.ps1 -Julkaise.
+name: Julkaisu
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: julkaisu
+
+env:
+  # Sama versio kuin tarkistukset.yml:ssä.
+  RUSTUP_TOOLCHAIN: "1.95.0"
+  CARGO_TERM_COLOR: always
+  # Oma käännöskansio: avaimellinen exe ei sekoitu tarkistusten koekäännöksiin.
+  CARGO_TARGET_DIR: /home/runner/valimuisti/target-julkaisu
+
+jobs:
+  julkaisu:
+    runs-on: [self-hosted, minipc]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Muutoslista tarvitsee edellisen tagin ja sen jälkeiset commitit.
+          fetch-depth: 0
+
+      - name: Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal -c clippy,rustfmt -t x86_64-pc-windows-msvc
+
+      - name: Tagi vastaa versiota
+        run: |
+          versio=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [[ "$GITHUB_REF_NAME" != "v$versio" ]]; then
+            echo "Tagi $GITHUB_REF_NAME ei vastaa Cargo.toml:n versiota $versio." >&2
+            exit 1
+          fi
+
+      - name: Testit
+        run: cargo test --locked
+
+      - name: Paketti
+        run: bash .github/scripts/paketoi.sh --avain /run/salaisuudet/tulosavain
+
+      - name: Julkaisu
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tagi="$GITHUB_REF_NAME"
+          bash .github/scripts/muutokset.sh "$tagi" > "$RUNNER_TEMP/muutokset.md"
+          valinnat=(--verify-tag --title "Klassikot8000 $tagi" --notes-file "$RUNNER_TEMP/muutokset.md")
+          if [[ "$tagi" == *-* ]]; then
+            valinnat+=(--prerelease)
+          fi
+          gh release create "$tagi" "dist/klassikot8000-${tagi#v}-windows-x64.zip" "${valinnat[@]}"

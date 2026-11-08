@@ -1,0 +1,37 @@
+# GitHub Actions -runner minipc:llä (camilla@192.168.0.251, kansio ~/runner).
+#
+# Käyttöönotto: kopioi tämän kansion tiedostot ja tulosavain (salaisuudet/tulosavain, oikeudet
+# 600) minipc:lle ja käynnistä kerran rekisteröintitokenilla, jonka saa komennolla
+#   gh api -X POST repos/VilhoValittu/Klassikot8000/actions/runners/registration-token --jq .token
+#   REKISTEROINTI=<token> docker compose up -d --build
+# Myöhemmin riittää docker compose up -d --build (esim. Dockerfilen versioiden noston jälkeen).
+#
+# Suojaus: työt ajetaan tavallisena käyttäjänä ilman Docker-pääsyä ja ilman minipc:n tiedostoja.
+# Ainoa liitetty salaisuus on tulosavain vain luettavana. Repon asetus vaatii hyväksynnän
+# ulkopuolisten pull requestien töille.
+services:
+  runner:
+    build: .
+    image: klassikot-runner
+    container_name: actions-runner
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/VilhoValittu/Klassikot8000
+      REKISTEROINTI: ${REKISTEROINTI:-}
+    volumes:
+      - asetukset:/home/runner/asetukset
+      - valimuisti:/home/runner/valimuisti
+      - cargo-registry:/home/runner/.cargo/registry
+      - ./salaisuudet/tulosavain:/run/salaisuudet/tulosavain:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Pi-hole ja muut palvelut pysyvät nopeina käännöksen aikana.
+    cpus: 3
+    mem_limit: 6g
+
+volumes:
+  asetukset:
+  valimuisti:
+  cargo-registry:
