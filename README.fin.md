@@ -94,7 +94,7 @@ Satamaan päässyt vene antaa 10 pistettä, kalastaja 20 ja rahtilaiva 50, ja sa
 
 *Hiiri, nuolet tai A/D kääntävät keilaa, välilyönti tai klikkaus soittaa sumutorvea.*
 
-### Kaivo8000
+### Kaivos8000
 
 Olet ahne kullankaivaja. Kaivat maan alle hissin vierestä, ja pimeässä näet vain sen, minkä lamppusi valaisee; kulta ja timantit välähtelevät kauempaa. Maa kantaa itsensä vain lyhyen matkan: liian leveä tunneli alkaa ritistä, varisee pölyä ja sortuu, savi kestää vähän leveämmän katon, hiekka valuu heti alta kaivettuna ja irtokivi putoaa, kun sen alta kaivetaan. Ritisevän katon voi vielä pelastaa pystyttämällä sen alle tuen. Ylös kiivetään tikkailla, joita on kaksi kertaa tukien verran: ylös-nuoli pystyttää tikkaat omaan ruutuun ja kiipeää. Tikkaat eivät kanna kattoa, ja putoava maa murskaa ne. Myös tukea pitkin voi kiivetä. Löydöt kulkevat säkissä, ja ne kirjautuvat pisteiksi vasta hissillä: sortuma tai liian korkea pudotus vie kypärän ja koko säkin. Kun hissiin on viety tason kiintiön verran kultaa, hissi vie syvemmälle uuteen kaivokseen, jossa on enemmän hiekkaa, kiviä ja luolia. Lampun öljy palaa maan alla ja täyttyy pinnalla tai löydetystä kannusta, ja valo kutistuu öljyn mukana. Haudatuista puunipuista saa lisää tukia. Kolme kypärää menetettynä peli päättyy.
 

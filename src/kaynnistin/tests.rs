@@ -171,7 +171,7 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     assert_eq!(k.valittu, 12);
     k.kasittele(Syote::Ammu);
     assert!(matches!(k.peli, Some(Kaynnissa::Kaivo(_))));
-    assert_eq!(k.otsikko(), "Kaivo8000");
+    assert_eq!(k.otsikko(), "Kaivos8000");
     k.kasittele(Syote::Peru);
 
     // Lista on vierinyt kolme alas, joten yhdeksäs näkyvä on kahdestoista peli.

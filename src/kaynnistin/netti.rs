@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use ureq::Agent;
-use ureq::tls::{TlsConfig, TlsProvider};
+use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
 
 use super::allekirjoitus::allekirjoita;
 use crate::yhteinen::tulokset::{Nettipeli, Tulos, lista_tekstista};
@@ -89,6 +89,9 @@ fn aja(osoite: &str, avain: Option<Avain>, saapuvat: Receiver<Pyynto>, lahtevat:
         .tls_config(
             TlsConfig::builder()
                 .provider(TlsProvider::NativeTls)
+                // Käyttöjärjestelmän omat juurivarmenteet: ureq:n mukana tuleva lista kasvattaisi
+                // exeä noin 200 kt, ja Windows pitää omansa ajan tasalla.
+                .root_certs(RootCerts::PlatformVerifier)
                 .build(),
         )
         .build()

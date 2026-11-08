@@ -40,7 +40,7 @@ A pair scores 10 points, and a flower or season pair 20. Find the next pair with
 
 *Mouse, or arrows and space. Right mouse button deselects, H shows a hint, S shuffles, U puts the last pair back and K starts a new game.*
 
-### Laatan murskain
+### BrickCrusher8000
 Keep the ball in play and break the bricks. 50 stages, three balls, and a fast clear earns bonus points. A white brick brings a second ball and grows the paddle, and as long as both balls stay in play, bricks score double. A black brick turns the ball into a super ball that moves 30% faster, goes through every brick and scores quadruple. A white brick doubles a super ball too. Watching two balls at once is exactly as hard as it sounds.
 
 *Mouse, arrows or A/D, launch with space or a click.*
@@ -50,12 +50,12 @@ A lonely ship, endless rocks. Big rocks split into smaller ones, flying saucers 
 
 *Arrows, WASD or mouse, right mouse button thrusts, space fires, H jumps.*
 
-### Mato8000
+### Worm8000
 A worm game where hitting yourself is the whole idea. A hit closes a loop, and everything caught inside it is yours. The loop uses up the worm's length, though, so eat some apples now and then. The more you catch at once, the bigger the multiplier. Watch out for walls and mosquitoes.
 
 *Arrows, WASD or mouse.*
 
-### Palikka8000
+### Columns8000
 Swap two neighbouring blocks, and three of a kind in a row disappear. The new ones falling from above may keep the chain going, and every link multiplies the score. Four make a bomb, and five in a row make a wild block that takes every block of its neighbour's colour with it. New colours arrive as the levels rise, and the game ends when no move is left.
 
 *Mouse, or arrows and space.*
@@ -75,7 +75,7 @@ No-limit poker against four computers. Everyone starts with 1000, and the last o
 
 *Mouse or keys: V checks or calls, K folds, R raises, arrows and 1-4 change the raise, space hurries the computers and deals the next hand.*
 
-### Majakka8000
+### Lighthouse8000
 
 You keep the lighthouse on a stormy night. Ships come out of the dark towards the harbour and cannot see the rocks. In the dark a ship holds its course while the current pushes it aside. Turn your beam onto it and the captain sees the rocks, steers around them and heads for port, and remembers the way for a moment. The lamp is heavy and turns slowly, so the whole night is about who you light up next. On the dark sea only the foam gives a rock away, and ships show their running lights. The foghorn slows every ship for a moment and recharges slowly. From the second night, unlit smugglers cross the sea too: hold the beam on one and it is caught. A night lasts a minute and a half, and dawn brings the ships still at sea home. Each new night brings new rocks, more ships and a stronger current. Three wrecks end the game.
 
@@ -83,7 +83,7 @@ A rowboat in port scores 10, a fishing boat 20, a freighter 50 and a smuggler 10
 
 *Mouse, arrows or A/D turn the beam, space or click sounds the foghorn.*
 
-### Kaivo8000
+### Minedigger8000
 
 You are a greedy gold digger. You dig down next to the lift, and in the dark you only see what your lamp lights up; gold and diamonds glint from further away. The ground only carries itself a short way: a tunnel that is too wide starts to creak, sheds dust and caves in, clay holds a slightly wider roof, sand pours as soon as you dig under it and a loose boulder drops when its support is gone. A creaking roof can still be saved by putting up a prop under it. You climb up on ladders, and you get twice as many ladders as props: the up arrow puts a ladder in your cell and climbs it. Ladders do not hold the roof, and falling ground smashes them. You can climb a prop too. Your finds travel in a sack and only count as points at the lift: a cave-in or a fall from too high costs a helmet and the whole sack. Once you have sent the level's quota of gold up, the lift takes you deeper to a new mine with more sand, boulders and caves. Lamp oil burns underground and refills on the surface or from a buried can, and the light shrinks with the oil. Buried bundles of timber give more props. Lose three helmets and the game is over.
 
@@ -94,7 +94,7 @@ Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points 
 ## Good to know
 
 - In the menu, pick a game with the arrows, the keys 1-0, the mouse wheel or by pointing, and start it with space or a click.
-- `Esc` returns from a game to the menu. In the action games and Palikka8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
+- `Esc` returns from a game to the menu. In the action games and Columns8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
 - Your chosen levels, solitaire game and last picked game are kept for next time.
 - Every game has an online Top 3, and the menu shows it for the selected game together with your own best. For Battleships the menu also shows wins and losses for each level. Without a connection the games play just as well.
 - The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts, and clicking the notice opens the release page in your browser.

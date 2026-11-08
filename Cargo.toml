@@ -7,7 +7,7 @@ license = "MIT"
 [dependencies]
 minifb = { version = "0.29.0", default-features = false }
 tinyaudio = "2.0.0"
-ureq = { version = "3", default-features = false, features = ["native-tls"] }
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default"] }
 
 # Linuxissa ikkuna tarvitsee X11:n, joka toimii myös Waylandissa XWaylandin kautta. OpenSSL
 # käännetään mukaan, koska sen versio vaihtelee jakeluittain.
@@ -33,3 +33,15 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Riippuvuudet kokooptimoidaan: verkkokirjastot ajetaan omassa säikeessään muutaman kerran
+# käynnistyksessä, joten nopeus ei näy pelissä, ja paketti pienenee noin 30 kt. Ikkuna ja ääni
+# ovat joka ruudussa mukana, joten ne pysyvät nopeusoptimoituina. Oma koodi ei kuulu "*":iin.
+[profile.release.package."*"]
+opt-level = "s"
+
+[profile.release.package.minifb]
+opt-level = 3
+
+[profile.release.package.tinyaudio]
+opt-level = 3
