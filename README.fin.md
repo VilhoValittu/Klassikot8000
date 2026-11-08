@@ -6,6 +6,15 @@ Tylsää? Kolmetoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- j
 
 Pyörii vaikka perunalla. AB:n OG ideasta.
 
+![Pelivalikko](docs/kuvat/valikko_fi.png)
+
+| | |
+| --- | --- |
+| ![Laivanupotus](docs/kuvat/laivanupotus_fi.png) | ![Pasianssi: Klondike](docs/kuvat/pasianssi_fi.png) |
+| Laivanupotus | Pasianssi: Klondike |
+| ![Mahjongg](docs/kuvat/mahjong_fi.png) | ![Majakka8000](docs/kuvat/majakka_fi.png) |
+| Mahjongg | Majakka8000 |
+
 ## Pelit
 
 ### Laivanupotus

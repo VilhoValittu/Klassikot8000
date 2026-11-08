@@ -6,6 +6,15 @@ Bored? Thirteen old-school games in one small window, dressed up in 16-bit SNES 
 
 Runs even on a potato.
 
+![Game menu](docs/kuvat/valikko_en.png)
+
+| | |
+| --- | --- |
+| ![Battleships](docs/kuvat/laivanupotus_en.png) | ![Solitaire: Klondike](docs/kuvat/pasianssi_en.png) |
+| Battleships | Solitaire: Klondike |
+| ![Mahjongg](docs/kuvat/mahjong_en.png) | ![Lighthouse8000](docs/kuvat/majakka_en.png) |
+| Mahjongg | Lighthouse8000 |
+
 ## Games
 
 ### Battleships
