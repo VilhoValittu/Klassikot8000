@@ -1,4 +1,6 @@
-# Tekee GitHub-julkaisun, kun versiotagi (v1.2.3) viedään GitHubiin. julkaise.ps1 tekee tagin.
+# Tekee GitHub-julkaisun, kun versiotagi (v1.2.3) viedään GitHubiin: riittää git tag v1.2.3 ja
+# git push origin v1.2.3 mainin kärjestä, tai julkaise.ps1. Jos versiota ei ole nostettu,
+# nosta-versio.sh nostaa sen, vie noston mainiin ja siirtää tagin siihen.
 # Ajetaan minipc:n runnerilla, jolla tulosavain on (.github/runner/compose.yaml).
 # Varalla toimii edelleen paikallinen paketoi.ps1 -Julkaise.
 name: Julkaisu
@@ -33,13 +35,8 @@ jobs:
       - name: Rust
         run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal -c clippy,rustfmt -t x86_64-pc-windows-msvc
 
-      - name: Tagi vastaa versiota
-        run: |
-          versio=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
-          if [[ "$GITHUB_REF_NAME" != "v$versio" ]]; then
-            echo "Tagi $GITHUB_REF_NAME ei vastaa Cargo.toml:n versiota $versio." >&2
-            exit 1
-          fi
+      - name: Versio tagin mukaiseksi
+        run: bash .github/scripts/nosta-versio.sh "$GITHUB_REF_NAME"
 
       - name: Testit
         run: cargo test --locked
