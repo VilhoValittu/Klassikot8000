@@ -510,7 +510,7 @@ impl Piirtaja<'_> {
     }
 
     fn pasianssi_kursori(&mut self, peli: &Pasianssi) {
-        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa || !self.vilkku() {
+        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa {
             return;
         }
         let (x, y, korkeus) = match peli.kursorin_kohta() {
@@ -533,10 +533,7 @@ impl Piirtaja<'_> {
     }
 
     pub fn korostus(&mut self, x: i32, y: i32, korkeus: i32, vari: u32) {
-        for i in 0..3 {
-            self.k
-                .kehys(x - i, y - i, KORTTI_L + 2 * i, korkeus + 2 * i, vari);
-        }
+        self.valintakehys(x, y, KORTTI_L, korkeus, vari);
     }
 
     fn pasianssi_sivu(&mut self, peli: &Pasianssi) {

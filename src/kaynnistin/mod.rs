@@ -36,6 +36,7 @@ use crate::pelit::tiilirikko::peli::Tiilirikko;
 use crate::pelit::tiilirikko::piirto::tiilimuuri;
 use crate::yhteinen::aanet::Aani;
 use crate::yhteinen::kieli::{self, Kieli, kaanna};
+use crate::yhteinen::osoitin;
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::ruudulta_kuvaan;
 use crate::yhteinen::syote::Syote;
@@ -401,6 +402,7 @@ impl Kaynnistin {
     }
 
     pub fn kaynnista(&mut self, laji: Laji) {
+        osoitin::unohda();
         let siemen = self.siemen;
         // Sama siemen toistaisi saman alkutilanteen, kun peli avataan uudelleen.
         self.siemen = self.siemen.wrapping_add(1);
@@ -526,6 +528,7 @@ impl Kaynnistin {
 
     pub fn kasittele(&mut self, syote: Syote) {
         self.syotteita = self.syotteita.wrapping_add(1);
+        osoitin::kirjaa(syote);
         let aanet_ennen = self.aanet_paalla;
         let kieli_ennen = kieli::nykyinen();
         self.kasittele_nakyma(syote);
@@ -553,6 +556,7 @@ impl Kaynnistin {
             self.tallenna = true;
             self.peli = None;
             self.hiljenna = true;
+            osoitin::unohda();
         }
     }
 

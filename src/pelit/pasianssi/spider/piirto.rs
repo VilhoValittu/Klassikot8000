@@ -220,7 +220,7 @@ impl Piirtaja<'_> {
     }
 
     fn spider_kursori(&mut self, peli: &Pasianssi) {
-        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa || !self.vilkku() {
+        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa {
             return;
         }
         let Kohta::Sarake { sarake, kortti } = peli.spider_kursorin_kohta() else {

@@ -6,7 +6,7 @@ use crate::kaynnistin::tallennus::Tallennus;
 use crate::yhteinen::aanet::{Aanet, Aani, PUHE_VIIVE_MS};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::pelinakyma::Pelinakyma;
-use crate::yhteinen::piirto::{Kehys, aanikytkimella};
+use crate::yhteinen::piirto::{Kehys, VILKKU_MS, aanikytkimella};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
 use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, muokkaa_nimea};
 
@@ -326,6 +326,24 @@ impl Pelinakyma for Luvut {
     fn piirra(&self, kehys: &mut Kehys) {
         piirto::piirra(self, &mut kehys.kuva);
         kehys.venyta();
+    }
+
+    /// Levossa lauta piirretään vain syötteestä ja vilkkumisen tahdissa. Alkuruudun malli
+    /// pyörii ja siirto liukuu, joten niiden aikana kuva elää joka ruudussa.
+    fn kuvan_avain(&self) -> Option<(u32, u32)> {
+        if self.vaihe == Vaihe::Alku || self.viime_siirto.is_some() {
+            return None;
+        }
+        let suuntanuoli = self.vaihe == Vaihe::Pelissa && self.hiiren_suunta.is_some();
+        let vilkkuu = suuntanuoli || self.vaihe == Vaihe::Nimi;
+        Some((
+            0,
+            if vilkkuu {
+                self.kello_ms / VILKKU_MS
+            } else {
+                0
+            },
+        ))
     }
 
     fn aanet(&mut self) -> &mut Aanet {

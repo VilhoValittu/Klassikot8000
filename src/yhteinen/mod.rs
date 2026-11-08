@@ -6,6 +6,7 @@ pub mod fontti;
 pub mod kieli;
 pub mod kortit;
 pub mod loppunapit;
+pub mod osoitin;
 pub mod paletti;
 pub mod pelinakyma;
 pub mod piirto;

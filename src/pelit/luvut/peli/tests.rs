@@ -321,3 +321,26 @@ fn animaatio_paattyy_ja_esc_pyytaa_paluuta() {
     luvut.kasittele(Syote::Peru);
     assert!(luvut.lopeta);
 }
+
+#[test]
+fn levossa_kuva_ei_vaihdu_ajasta_mutta_animaatio_ja_vilkku_vaihtavat() {
+    // alkuruudun malli pyörii
+    assert_eq!(Luvut::new(1).kuvan_avain(), None);
+    let mut luvut = pelissa([[2, 2, 0, 0], [0; 4], [0; 4], [0; 4]]);
+    let lepo = luvut.kuvan_avain();
+    assert!(lepo.is_some());
+    luvut.edista(60_000);
+    assert_eq!(luvut.kuvan_avain(), lepo);
+
+    // siirto liukuu, ja sen jälkeen kuva asettuu taas lepoon
+    luvut.kasittele(Syote::Nuoli(0, -1));
+    assert_eq!(luvut.kuvan_avain(), None);
+    luvut.edista(LIUKU_MS + KIPINA_MS);
+    assert!(luvut.kuvan_avain().is_some());
+
+    // hiiren suuntanuoli vilkkuu
+    luvut.hiiren_suunta = Some(Suunta::Oikea);
+    let ennen = luvut.kuvan_avain();
+    luvut.edista(VILKKU_MS);
+    assert_ne!(luvut.kuvan_avain(), ennen);
+}

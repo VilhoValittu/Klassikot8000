@@ -100,10 +100,7 @@ impl Piirtaja<'_> {
         };
         self.suurteksti(x + 18, y + 150, &tulos, OTSIKKO, VALKOINEN, true);
         if osoitettu {
-            for i in 0..3 {
-                self.k
-                    .kehys(x - i, y - i, SOLU_L + 2 * i, SOLU_K + 2 * i, KELTAINEN);
-            }
+            self.valintakehys(x, y, SOLU_L, SOLU_K, KELTAINEN);
         }
     }
 

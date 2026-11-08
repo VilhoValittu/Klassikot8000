@@ -153,7 +153,7 @@ impl Piirtaja<'_> {
     }
 
     fn pyramidi_kursori(&mut self, peli: &Pasianssi) {
-        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa || !self.vilkku() {
+        if !peli.kursori_nakyy || peli.vaihe != Vaihe::Pelissa {
             return;
         }
         let (x, y) = match peli.pyramidi_kursorin_kohta() {

@@ -3,10 +3,11 @@ use std::sync::LazyLock;
 
 use super::fontti;
 use super::kieli::kaanna;
+use super::osoitin::{self, Tila};
 use super::paletti::ramppi;
 use super::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
 use super::tulokset::{PARHAITA, Tulos};
-use super::vektori::{self, Kangas, kehapiste, sekoita_liuku, tummenna, vaalenna};
+use super::vektori::{self, Kangas, kehapiste, sekoita_liuku};
 
 /// Maisema konepikseleinä: `horisontti` on vedenrajan rivi ja `aurinko_x` sarake, jonka
 /// kohdalla aurinko laskee ja johon meren ruudut katoavat.
@@ -190,7 +191,12 @@ pub const LAVENTELI: u32 = 0xC8D0FF;
 const IKKUNA_YLA: u32 = 0x2848C8;
 const IKKUNA_ALA: u32 = 0x0C1468;
 const IKKUNA_REUNA: u32 = 0xD8E4FF;
-const IKKUNA_VARJO: u32 = 0x8090C8;
+/// Kehyksen sisempi, tummempi sävy.
+const IKKUNA_UURRE: u32 = 0x7080C8;
+const IKKUNA_VIISTE: u32 = 0x4870E0;
+const IKKUNA_VARJO: u32 = 0x08104C;
+const UPOTUS_VALO: u32 = 0x7C88D8;
+const UPOTUS_KULMA: u32 = 0x3C3C7C;
 const ULKOVIIVA: u32 = 0x0A0420;
 
 pub const MERKKI: i32 = 3 * fontti::LEVEYS;
@@ -746,6 +752,13 @@ impl Piirtaja<'_> {
                     let Some((ylakulma, vasen_kulma)) = kulma else {
                         continue;
                     };
+                    // Porras on yhtenäinen vain, jos naapurien välinen vino ruutu on täysi.
+                    // Muuten naapurit ovat erillisiä osia, kuten ääkkösen piste ja kirjain.
+                    let pysty = if ylakulma { rivi - 1 } else { rivi + 1 };
+                    let vaaka = if vasen_kulma { sarake - 1 } else { sarake + 1 };
+                    if !taysi(pysty, vaaka) {
+                        continue;
+                    }
                     for j in 0..pk {
                         let osuus = if ylakulma { pk - j } else { j + 1 };
                         let leveys = pl * osuus / pk;
@@ -864,18 +877,18 @@ impl Piirtaja<'_> {
     /// SNES-roolipelien tapainen ikkuna: pyöristetyt kulmat, vaalea kehys ja sininen liuku.
     pub fn ikkuna(&mut self, x: i32, y: i32, l: i32, k: i32) {
         let p = self.k.pikseli;
+        // Kaksisävyinen kehys: vaalea ulkoreuna ja sen sisällä tummempi uurre.
         self.pyorea(x, y, l, k, ULKOVIIVA);
         self.pyorea(x + p, y + p, l - 2 * p, k - 2 * p, IKKUNA_REUNA);
-        self.k
-            .laatikko(x + 2 * p, y + k - 2 * p - p, l - 4 * p, p, IKKUNA_VARJO);
-        self.k.liukulaatikko(
-            x + 2 * p,
-            y + 2 * p,
-            l - 4 * p,
-            k - 4 * p - p,
-            IKKUNA_YLA,
-            IKKUNA_ALA,
-        );
+        self.pyorea(x + 2 * p, y + 2 * p, l - 4 * p, k - 4 * p, IKKUNA_UURRE);
+        let (sx, sy, sl, sk) = (x + 3 * p, y + 3 * p, l - 6 * p, k - 6 * p);
+        self.k.liukulaatikko(sx, sy, sl, sk, IKKUNA_YLA, IKKUNA_ALA);
+        // Sisäviiste: valo osuu yläreunaan, ja alareuna jää varjoon.
+        self.k.laatikko(sx, sy, sl, p, IKKUNA_VIISTE);
+        self.k.laatikko(sx, sy + sk - p, sl, p, IKKUNA_VARJO);
+        // Kimallus kehyksen vasemmassa yläkulmassa, josta valo tulee.
+        self.k.laatikko(x + 2 * p, y + p, 2 * p, p, VALKOINEN);
+        self.k.laatikko(x + p, y + 2 * p, p, p, VALKOINEN);
     }
 
     /// Pelinäkymien alalaidan viesti-ikkuna.
@@ -903,8 +916,52 @@ impl Piirtaja<'_> {
         let (ulko_l, ulko_k) = (l + 2 * p, k + 2 * p);
         self.k.laatikko(ulko_x, ulko_y, ulko_l, p, ULKOVIIVA);
         self.k.laatikko(ulko_x, ulko_y, p, ulko_k, ULKOVIIVA);
-        self.k.laatikko(ulko_x, y + k, ulko_l, p, 0x7C88D8);
-        self.k.laatikko(x + l, ulko_y, p, ulko_k, 0x7C88D8);
+        self.k.laatikko(ulko_x, y + k, ulko_l, p, UPOTUS_VALO);
+        self.k.laatikko(x + l, ulko_y, p, ulko_k, UPOTUS_VALO);
+        // Varjon ja valon kohtaamiskulmat saavat välisävyn, jolloin reuna kiertää pehmeästi.
+        self.k.laatikko(x + l, ulko_y, p, p, UPOTUS_KULMA);
+        self.k.laatikko(ulko_x, y + k, p, p, UPOTUS_KULMA);
+    }
+
+    /// Valintakehys kohteen `(x, y, l, k)` ympärillä: tumma ääriviiva, värillinen rengas
+    /// ja kulmahakaset. Vilkkumisen tahdissa rengas kimaltaa ja hakaset sykkivät
+    /// ulospäin, kuten SNES-valikoiden kursori, joten kehys ei koskaan katoa näkyvistä.
+    pub fn valintakehys(&mut self, x: i32, y: i32, l: i32, k: i32, vari: u32) {
+        let p = self.k.pikseli;
+        let porras = ramppi(vari);
+        let vaihe = self.vilkku();
+        self.rengas(x - 2 * p, y - 2 * p, l + 4 * p, k + 4 * p, ULKOVIIVA);
+        let renkaan_vari = if vaihe { vari } else { porras[3] };
+        self.rengas(x - p, y - p, l + 2 * p, k + 2 * p, renkaan_vari);
+        let ulos = if vaihe { 2 * p } else { 3 * p };
+        let (vasen, yla) = (x - ulos - p, y - ulos - p);
+        let (oikea, ala) = (x + l + ulos, y + k + ulos);
+        let pituus = 4 * p;
+        for (kx, ky, sx, sy) in [
+            (vasen, yla, 1, 1),
+            (oikea, yla, -1, 1),
+            (vasen, ala, 1, -1),
+            (oikea, ala, -1, -1),
+        ] {
+            // Vaakavarsi ja pystyvarsi kulmasta kohti kohteen keskustaa, varjo alla.
+            let vaaka_x = if sx > 0 { kx } else { kx - pituus + p };
+            let pysty_y = if sy > 0 { ky } else { ky - pituus + p };
+            for (siirto, vari) in [(p, ULKOVIIVA), (0, porras[4])] {
+                self.k
+                    .laatikko(vaaka_x + siirto, ky + siirto, pituus, p, vari);
+                self.k
+                    .laatikko(kx + siirto, pysty_y + siirto, p, pituus, vari);
+            }
+        }
+    }
+
+    /// Konepikselin paksuinen kehys, jonka kulmat on pyöristetty pois.
+    fn rengas(&mut self, x: i32, y: i32, l: i32, k: i32, vari: u32) {
+        let p = self.k.pikseli;
+        self.k.laatikko(x + p, y, l - 2 * p, p, vari);
+        self.k.laatikko(x + p, y + k - p, l - 2 * p, p, vari);
+        self.k.laatikko(x, y + p, p, k - 2 * p, vari);
+        self.k.laatikko(x + l - p, y + p, p, k - 2 * p, vari);
     }
 
     /// Alkuruudun ohjeet: `osat` rivitetään, `rivit` ovat näppäinohjeita. Palauttaa seuraavan vapaan rivin.
@@ -941,7 +998,7 @@ impl Piirtaja<'_> {
     /// Ylälaidan metallipalkki: pelin nimi, lisätieto ja niiden välissä niitit.
     pub fn otsikkopalkki(&mut self, otsikko: &str, nimi: &str) {
         let l = self.k.leveys as i32 - 12;
-        self.nappitausta(6, 6, l, 30, 0x384890);
+        self.kupera(6, 6, l, 30, 0x384890);
         self.teksti(18, 9, otsikko, KELTAINEN);
         let aani_x = self.k.leveys as i32 - 12 - AANI_L;
         let nimi_x = aani_x - 12 - nimi.chars().count() as i32 * MERKKI;
@@ -1091,19 +1148,40 @@ impl Piirtaja<'_> {
 
     /// Pieni viisteinen palkin pala tilastoissa.
     pub fn pala(&mut self, x: i32, y: i32, l: i32, k: i32, vari: u32) {
-        self.k.laatikko(x, y, l, k, tummenna(vari, 0.35));
+        let porras = ramppi(vari);
+        self.k.laatikko(x, y, l, k, porras[0]);
         self.k.laatikko(x, y, l - 3, k - 3, vari);
-        self.k.laatikko(x, y, l - 3, 3, vaalenna(vari, 0.5));
+        self.k.laatikko(x, y, l - 3, 3, porras[4]);
     }
 
-    /// Kupera painike: pyöristetyt kulmat, kiilto ylhäällä ja varjo alhaalla.
+    /// Painike, joka korostuu hiiren alla ja painuu painettaessa.
     pub fn nappitausta(&mut self, x: i32, y: i32, l: i32, k: i32, tausta: u32) {
+        let tila = osoitin::tila(x, y, l, k);
+        self.pinta(x, y, l, k, tausta, tila);
+    }
+
+    /// Kupera pinta ilman hiiren korostusta, kuten laatta tai otsikkopalkki.
+    pub fn kupera(&mut self, x: i32, y: i32, l: i32, k: i32, tausta: u32) {
+        self.pinta(x, y, l, k, tausta, Tila::Lepo);
+    }
+
+    /// Kupera pinta: valo osuu yläreunaan, ja kyljet ja pohja ovat tummaa ääriviivaa.
+    /// Yläreunassa ei ole ääriviivaa, jottei tekstin ylin rivi, kuten ääkkösten pisteet,
+    /// sulaudu siihen. Painettuna yläreuna jää varjoon ja pinta tummuu.
+    fn pinta(&mut self, x: i32, y: i32, l: i32, k: i32, tausta: u32, tila: Tila) {
         let p = self.k.pikseli;
-        self.pyorea(x, y, l, k, ULKOVIIVA);
-        let (sx, sy, sl, sk) = (x + p, y + p, l - 2 * p, k - 2 * p);
         let porras = ramppi(tausta);
-        self.k.liukulaatikko(sx, sy, sl, sk, porras[3], porras[1]);
-        self.k.laatikko(sx, sy, sl, p, porras[4]);
+        let (reuna, yla, ala) = match tila {
+            Tila::Lepo => (porras[4], porras[3], porras[1]),
+            Tila::Alla => (VALKOINEN, porras[4], tausta),
+            Tila::Painettu => (porras[0], porras[1], porras[0]),
+        };
+        self.k.laatikko(x, y + p, p, k - 2 * p, ULKOVIIVA);
+        self.k.laatikko(x + l - p, y + p, p, k - 2 * p, ULKOVIIVA);
+        self.k.laatikko(x + p, y + k - p, l - 2 * p, p, ULKOVIIVA);
+        self.k.laatikko(x + p, y, l - 2 * p, p, reuna);
+        self.k
+            .liukulaatikko(x + p, y + p, l - 2 * p, k - 2 * p, yla, ala);
     }
 }
 

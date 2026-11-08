@@ -19,7 +19,7 @@ peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 peli.mahjong = Mahjongg
 peli.majakka = Majakka8000
-peli.kaivo = Kaivo8000
+peli.kaivo = Kaivos8000
 
 valikko.banneri = PELIKONE
 valikko.kielikytkin = English
@@ -65,7 +65,7 @@ yhteinen.tauko_aanet = P: tauko. M: äänet.
 yhteinen.tauko = TAUKO
 yhteinen.tauon_ohje = Jatka: P, välilyönti tai klikkaus.
 yhteinen.peli_paattyi = PELI PÄÄTTYI!
-yhteinen.voitit = ****HIHIHIHIII VOITIT PELIN!****
+yhteinen.voitit = ***HIHIHIHIII VOITIT PELIN!***
 yhteinen.uudestaan = K = Uudestaan
 yhteinen.valikkoon = E = Valikko
 yhteinen.pisteet = PISTEET
@@ -80,7 +80,7 @@ yhteinen.taso_1 = 1 Helppo
 yhteinen.taso_2 = 2 Normaali
 yhteinen.taso_3 = 3 Vaikea
 
-laivanupotus.banneri = **** LAIVANUPOTUS ****
+laivanupotus.banneri = *** LAIVANUPOTUS ***
 laivanupotus.tervetuloa = Tervetuloa pelaamaan laivanupotusta.
 laivanupotus.ohje_1 = Kummallakin on 10x10 ruudukossa 5 laivaa (pituudet 5, 4, 3, 3 ja 2).
 laivanupotus.ohje_2 = Ammutte vuorotellen, kunnes toisen laivat ovat pohjassa. Laivat eivät kosketa, eivät edes kulmittain.
@@ -112,7 +112,7 @@ laivanupotus.havittaja = Hävittäjä
 laivanupotus.sukellusvene = Sukellusvene
 laivanupotus.partioalus = Partioalus
 
-luvut.banneri = **** 2048 ****
+luvut.banneri = *** 2048 ***
 luvut.tervetuloa = Tervetuloa pelaamaan 2048-peliä.
 luvut.ohje_1 = Siirto työntää kaikki luvut laudan reunaan asti.
 luvut.ohje_2 = Kaksi samaa lukua yhdistyy summakseen, ja laudalle ilmestyy uusi luku.
@@ -124,7 +124,7 @@ luvut.ei_liiku = Ei liiku tuohon suuntaan!
 luvut.uusi_peli = Tallennettu peli odottaa.
 luvut.uusi_nappi = K = Uusi
 luvut.jatka = Jatka: välilyönti tai klikkaa.
-luvut.voitto = ****HIHIHIHIII SAIT 2048!****
+luvut.voitto = ***HIHIHIHIII SAIT 2048!***
 luvut.jatka_nappi = J = Jatka
 luvut.suurin = SUURIN
 luvut.tavoite = Tavoite {}
@@ -133,7 +133,7 @@ luvut.jatketaan = Jatketaan! Kuinka pitkälle pääset?
 luvut.siirto_pisteet = Siirto {}: +{} pistettä!
 luvut.siirto = Siirto {}.
 
-pasianssi.banneri = **** PASIANSSI ****
+pasianssi.banneri = *** PASIANSSI ***
 pasianssi.laji = Peli:
 pasianssi.laji_klondike = Klondike
 pasianssi.laji_spider = Spider
@@ -158,7 +158,7 @@ pasianssi.nappi_uusi = K = Uusi peli
 pasianssi.nappi_alusta = R = Alusta
 pasianssi.nappi_peruuta = U = Peruuta
 pasianssi.nappi_keraa = A = Vie ylös
-pasianssi.tappio = **** SIIRROT LOPPUIVAT! ****
+pasianssi.tappio = *** SIIRROT LOPPUIVAT! ***
 pasianssi.aika = AIKA
 pasianssi.kierros = KIERROS
 pasianssi.pakassa = PAKASSA
@@ -221,7 +221,7 @@ tiilirikko.nappain_hiiri = Hiiri, nuolet, A/D: liikuta mailaa.
 tiilirikko.nappain_laukaisu = Välilyönti tai klikkaus: laukaise.
 tiilirikko.ohje = Hiiri, nuolet tai A/D. P = tauko.
 tiilirikko.laukaisu = Laukaise: välilyönti tai klikkaus.
-tiilirikko.voitto = ****KAIKKI KENTÄT LÄPI!****
+tiilirikko.voitto = ***KAIKKI KENTÄT LÄPI!***
 tiilirikko.kentta = KENTTÄ
 tiilirikko.pallot = PALLOT
 tiilirikko.aikabonus = AIKABONUS
@@ -232,7 +232,7 @@ tiilirikko.pallo_meni = Pallo meni! Palloja jäljellä: {}.
 tiilirikko.kentta_lapi = Kenttä läpi! Aikabonus +{}.
 tiilirikko.loppubonus = Aikabonus +{}. Pisteet: {}.
 
-asteroidit.banneri = **** ASTEROIDIT ****
+asteroidit.banneri = *** ASTEROIDIT ***
 asteroidit.tervetuloa = Tervetuloa pelaamaan Asteroideja.
 asteroidit.ohje_1 = Ammu kivet ja lentävät lautaset. Iso kivi hajoaa kahdeksi pienemmäksi.
 asteroidit.ohje_2 = Aluksia on kolme. 10000 pistettä tuo uuden, ja seuraava maksaa enemmän.
@@ -247,7 +247,7 @@ asteroidit.alus_tuhoutui = Alus tuhoutui! Aluksia jäljellä: {}.
 asteroidit.lisaalus = Lisäalus!
 asteroidit.uusi_aalto = Aalto {}!
 
-silmukka.banneri = **** MATO8000 ****
+silmukka.banneri = *** MATO8000 ***
 silmukka.tervetuloa = Tervetuloa Mato8000-peliin.
 silmukka.ohje_1 = Kun mato osuu itseensä, syntyy silmukka: kaikki sen sisään jäänyt on saalista. Tyhjä silmukka kuluttaa madon.
 silmukka.ohje_2 = Mitä enemmän kerralla, sen moninkertaisemmat pisteet. Omenat kasvattavat. Varo seiniä ja itikoita.
@@ -268,7 +268,7 @@ silmukka.kulta_ilmestyi = Kultaomena! Nopeasti, se katoaa pian.
 silmukka.uusi_taso = Taso {}!
 silmukka.saalis = Saalis {}: +{} pistettä!
 
-palikka.banneri = **** PALIKKA8000 ****
+palikka.banneri = *** PALIKKA8000 ***
 palikka.tervetuloa = Tervetuloa Palikka8000-peliin.
 palikka.ohje_1 = Vaihda kaksi vierekkäistä palikkaa niin, että syntyy kolme samaa suoraan. Putoavat palikat voivat jatkaa ketjua.
 palikka.ohje_2 = Neljästä syntyy pommi, viiden suorasta kaikkipalikka. Peli päättyy, kun siirtoja ei enää ole.
@@ -282,7 +282,7 @@ palikka.ketju = Ketju {}: +{} pistettä!
 palikka.uusi_taso = Taso {}! Pisteet kasvavat.
 palikka.ei_siirtoja = Ei enää siirtoja. Pisteet: {}.
 
-miinaharava.banneri = **** MIINAHARAVA ****
+miinaharava.banneri = *** MIINAHARAVA ***
 miinaharava.tervetuloa = Tervetuloa pelaamaan miinaharavaa.
 miinaharava.ohje_1 = Numero kertoo, montako miinaa on ruudun ympärillä. Avaa kaikki ruudut, joissa ei ole miinaa.
 miinaharava.ohje_2 = Ensimmäinen avaus on aina turvallinen.
@@ -297,7 +297,7 @@ miinaharava.pamaus = Pum! Astuit miinaan.
 miinaharava.tappio = OSUIT MIINAAN!
 miinaharava.ennatys = Uusi ennätys: {} s! {} pistettä.
 miinaharava.aika_viesti = Aika: {} s, {} pistettä.
-mahjong.banneri = **** MAHJONGG ****
+mahjong.banneri = *** MAHJONGG ***
 mahjong.tervetuloa = Tervetuloa pelaamaan mahjonggia.
 mahjong.ohje_1 = Ota pois pareja: kaksi samaa vapaata laattaa.
 mahjong.ohje_2 = Vapaan päällä ei ole mitään ja sivu on auki. Nopeat parit tuovat ketjupisteitä.
@@ -347,7 +347,7 @@ mahjong.erittely_jaljella = Laattoja jäi: {}
 mahjong.yhteensa = PISTEET: {}
 mahjong.loppu_ohje = K = Uusi peli, E = Valikko.
 
-majakka.banneri = **** MAJAKKA8000 ****
+majakka.banneri = *** MAJAKKA8000 ***
 majakka.tervetuloa = Tervetuloa majakanvartijaksi!
 majakka.ohje_1 = Laivat eivät näe karikoita pimeässä. Keilan valaisema laiva väistää ja ohjaa satamaan.
 majakka.ohje_2 = Keila kääntyy hitaasti. Kolme haaksirikkoa päättää pelin.
@@ -375,7 +375,7 @@ majakka.aamu = Aamu! Satamaan pääsi {} laivaa.
 majakka.bonus = Ei haaksirikkoja: bonus +{}.
 majakka.uusi_yo = Yö {} alkaa.
 
-kaivo.banneri = **** KAIVO8000 ****
+kaivo.banneri = *** KAIVOS8000 ***
 kaivo.tervetuloa = Tervetuloa kaivokseen!
 kaivo.ohje_1 = Kaiva kultaa ja vie säkki hissille. Täysi kiintiö vie syvemmälle.
 kaivo.ohje_2 = Leveä tunneli sortuu ja hiekka valuu. Tuki kantaa kattoa, ylös-nuoli pystyttää tikkaat.
@@ -409,7 +409,7 @@ kaivo.ei_tikkaita = Tikkaat loppuivat.
 kaivo.valmis_otsikko = TASO VALMIS!
 kaivo.seuraava = Seuraava: taso {}.
 
-blackjack.banneri = **** BLACKJACK ****
+blackjack.banneri = *** BLACKJACK ***
 blackjack.tervetuloa = Tervetuloa pelaamaan blackjackia.
 blackjack.ohje_1 = Pääse lähemmäs 21:tä kuin jakaja, mutta älä yli. Kuvakortit ovat 10, ässä 1 tai 11.
 blackjack.ohje_2 = Pelaat leikkirahalla: alussa 300, pienin panos 1. Tuloksesi on voitto, jonka viet pöydästä.
@@ -456,7 +456,7 @@ blackjack.viesti_tappio = Hävisit {}.
 blackjack.viesti_tasan = Tasapeli, panos palasi.
 blackjack.konkurssi = Rahat loppuivat. K = uusi peli, {} rahaa.
 
-holdem.banneri = **** TEXAS HOLD'EM ****
+holdem.banneri = *** TEXAS HOLD'EM ***
 holdem.tervetuloa = Tervetuloa Hold'em-pöytään.
 holdem.ohje_1 = Kaksi omaa korttia ja viisi yhteistä: paras viiden kortin käsi voittaa potin.
 holdem.ohje_2 = Neljä konetta, kaikilla 1000 rahaa. Blindit 10/20 tuplaantuvat 10 jaon välein. Viimeinen rahoissa voittaa. Tuloksesi on voitto, jonka viet pöydästä.
@@ -529,16 +529,16 @@ peli.pelikone = Game Machine
 peli.laivanupotus = Battleships
 peli.luvut = 2048
 peli.pasianssi = Solitaire
-peli.tiilirikko = Laatan murskain
+peli.tiilirikko = BrickCrusher8000
 peli.asteroidit = Asteroids
-peli.silmukka = Mato8000
-peli.palikka = Palikka8000
+peli.silmukka = Worm8000
+peli.palikka = Columns8000
 peli.miinaharava = Minesweeper
 peli.blackjack = Blackjack
 peli.holdem = Texas Hold'em
 peli.mahjong = Mahjongg
-peli.majakka = Majakka8000
-peli.kaivo = Kaivo8000
+peli.majakka = Lighthouse8000
+peli.kaivo = Minedigger8000
 
 valikko.banneri = GAME MACHINE
 valikko.kielikytkin = Suomi
@@ -584,7 +584,7 @@ yhteinen.tauko_aanet = P: pause. M: sound.
 yhteinen.tauko = PAUSED
 yhteinen.tauon_ohje = Resume: P, space or click.
 yhteinen.peli_paattyi = GAME OVER!
-yhteinen.voitit = ****HIHIHIHIII YOU WON!****
+yhteinen.voitit = ***HIHIHIHIII YOU WON!***
 yhteinen.uudestaan = K = Again
 yhteinen.valikkoon = E = Menu
 yhteinen.pisteet = SCORE
@@ -599,7 +599,7 @@ yhteinen.taso_1 = 1 Easy
 yhteinen.taso_2 = 2 Normal
 yhteinen.taso_3 = 3 Hard
 
-laivanupotus.banneri = **** BATTLESHIPS ****
+laivanupotus.banneri = *** BATTLESHIPS ***
 laivanupotus.tervetuloa = Welcome to Battleships.
 laivanupotus.ohje_1 = Both sides have 5 ships on a 10x10 grid (lengths 5, 4, 3, 3 and 2).
 laivanupotus.ohje_2 = You take turns firing until one fleet is sunk. Ships never touch, not even at corners.
@@ -631,7 +631,7 @@ laivanupotus.havittaja = Destroyer
 laivanupotus.sukellusvene = Submarine
 laivanupotus.partioalus = Patrol boat
 
-luvut.banneri = **** 2048 ****
+luvut.banneri = *** 2048 ***
 luvut.tervetuloa = Welcome to 2048.
 luvut.ohje_1 = A move pushes all numbers to the edge of the board.
 luvut.ohje_2 = Two equal numbers merge into their sum, and a new number appears.
@@ -643,7 +643,7 @@ luvut.ei_liiku = Nothing moves that way!
 luvut.uusi_peli = A saved game is waiting.
 luvut.uusi_nappi = K = New
 luvut.jatka = Continue: press space or click.
-luvut.voitto = ****HIHIHIHIII YOU GOT 2048!****
+luvut.voitto = ***HIHIHIHIII YOU GOT 2048!***
 luvut.jatka_nappi = J = Go on
 luvut.suurin = LARGEST
 luvut.tavoite = Goal {}
@@ -652,7 +652,7 @@ luvut.jatketaan = Keep going! How far can you get?
 luvut.siirto_pisteet = Move {}: +{} points!
 luvut.siirto = Move {}.
 
-pasianssi.banneri = **** SOLITAIRE ****
+pasianssi.banneri = *** SOLITAIRE ***
 pasianssi.laji = Game:
 pasianssi.laji_klondike = Klondike
 pasianssi.laji_spider = Spider
@@ -677,7 +677,7 @@ pasianssi.nappi_uusi = K = New game
 pasianssi.nappi_alusta = R = Restart
 pasianssi.nappi_peruuta = U = Undo
 pasianssi.nappi_keraa = A = Send up
-pasianssi.tappio = **** OUT OF MOVES! ****
+pasianssi.tappio = *** OUT OF MOVES! ***
 pasianssi.aika = TIME
 pasianssi.kierros = PASS
 pasianssi.pakassa = STOCK
@@ -728,8 +728,8 @@ pyramidi.nappi_nosta = N = Draw
 pyramidi.ei_paria = That doesn't add up to 13.
 pyramidi.voittoviesti = The pyramid is gone! Score: {}.
 
-tiilirikko.banneri = ** LAATAN MURSKAIN **
-tiilirikko.tervetuloa = Welcome to Laatan murskain.
+tiilirikko.banneri = ** BrickCrusher8000 **
+tiilirikko.tervetuloa = Welcome to BrickCrusher8000.
 tiilirikko.ohje_1 = Keep the ball up with the paddle and break all bricks.
 tiilirikko.ohje_2 = The paddle's edge turns the ball more sharply, so you can aim.
 tiilirikko.ohje_3 = There are 50 stages and three balls.
@@ -740,7 +740,7 @@ tiilirikko.nappain_hiiri = Mouse, arrows, A/D: move the paddle.
 tiilirikko.nappain_laukaisu = Space or click: launch.
 tiilirikko.ohje = Mouse, arrows or A/D. P = pause.
 tiilirikko.laukaisu = Launch: space or click.
-tiilirikko.voitto = ****ALL STAGES CLEARED!****
+tiilirikko.voitto = ***ALL STAGES CLEARED!***
 tiilirikko.kentta = STAGE
 tiilirikko.pallot = BALLS
 tiilirikko.aikabonus = BONUS
@@ -751,7 +751,7 @@ tiilirikko.pallo_meni = Ball lost! Balls left: {}.
 tiilirikko.kentta_lapi = Stage clear! Time bonus +{}.
 tiilirikko.loppubonus = Time bonus +{}. Score: {}.
 
-asteroidit.banneri = **** ASTEROIDS ****
+asteroidit.banneri = *** ASTEROIDS ***
 asteroidit.tervetuloa = Welcome to Asteroids.
 asteroidit.ohje_1 = Shoot the rocks and flying saucers. A big rock splits into two smaller ones.
 asteroidit.ohje_2 = You have three ships. 10000 points gives a new one, and the next costs more.
@@ -766,8 +766,8 @@ asteroidit.alus_tuhoutui = Ship destroyed! Ships left: {}.
 asteroidit.lisaalus = Extra ship!
 asteroidit.uusi_aalto = Wave {}!
 
-silmukka.banneri = **** MATO8000 ****
-silmukka.tervetuloa = Welcome to Mato8000.
+silmukka.banneri = *** Worm8000 ***
+silmukka.tervetuloa = Welcome to Worm8000.
 silmukka.ohje_1 = When the worm hits itself it forms a loop: everything inside is caught. An empty loop uses up the worm.
 silmukka.ohje_2 = The more at once, the bigger the multiplier. Apples make you grow. Avoid walls and mosquitoes.
 silmukka.nappain_ohjaus = Arrows, WASD or mouse: steer.
@@ -787,8 +787,8 @@ silmukka.kulta_ilmestyi = Golden apple! Quick, it fades soon.
 silmukka.uusi_taso = Level {}!
 silmukka.saalis = Catch {}: +{} points!
 
-palikka.banneri = **** PALIKKA8000 ****
-palikka.tervetuloa = Welcome to Palikka8000.
+palikka.banneri = *** Columns8000 ***
+palikka.tervetuloa = Welcome to Columns8000.
 palikka.ohje_1 = Swap two neighbouring blocks to line up three of a kind. Falling blocks can continue the chain.
 palikka.ohje_2 = Four make a bomb, five in a row a wild block. The game ends when no moves are left.
 palikka.nappain_hiiri = Mouse: click or drag a block.
@@ -801,7 +801,7 @@ palikka.ketju = Chain {}: +{} points!
 palikka.uusi_taso = Level {}! Scores grow.
 palikka.ei_siirtoja = No moves left. Score: {}.
 
-miinaharava.banneri = **** MINESWEEPER ****
+miinaharava.banneri = *** MINESWEEPER ***
 miinaharava.tervetuloa = Welcome to Minesweeper.
 miinaharava.ohje_1 = A number tells how many mines touch the cell. Open every cell without a mine.
 miinaharava.ohje_2 = Your first open is always safe.
@@ -816,7 +816,7 @@ miinaharava.pamaus = Boom! You hit a mine.
 miinaharava.tappio = YOU HIT A MINE!
 miinaharava.ennatys = New record: {} s! {} points.
 miinaharava.aika_viesti = Time: {} s, {} points.
-mahjong.banneri = **** MAHJONGG ****
+mahjong.banneri = *** MAHJONGG ***
 mahjong.tervetuloa = Welcome to Mahjongg.
 mahjong.ohje_1 = Remove pairs of matching free tiles.
 mahjong.ohje_2 = A free tile has nothing on top and one side open. Quick pairs earn chain points.
@@ -866,7 +866,7 @@ mahjong.erittely_jaljella = Tiles left: {}
 mahjong.yhteensa = SCORE: {}
 mahjong.loppu_ohje = K = New game, E = Menu.
 
-majakka.banneri = **** MAJAKKA8000 ****
+majakka.banneri = *** Lighthouse8000 ***
 majakka.tervetuloa = Welcome, lighthouse keeper!
 majakka.ohje_1 = Ships can't see rocks in the dark. A ship in your beam dodges them and heads for port.
 majakka.ohje_2 = The beam turns slowly. Three wrecks end the game.
@@ -894,7 +894,7 @@ majakka.aamu = Dawn! {} ships made it home.
 majakka.bonus = No wrecks: bonus +{}.
 majakka.uusi_yo = Night {} begins.
 
-kaivo.banneri = **** KAIVO8000 ****
+kaivo.banneri = *** Minedigger8000 ***
 kaivo.tervetuloa = Welcome to the mine!
 kaivo.ohje_1 = Dig for gold and bring the sack to the lift. A full quota takes you deeper.
 kaivo.ohje_2 = Wide tunnels collapse. Props hold the roof; press up for a ladder.
@@ -928,7 +928,7 @@ kaivo.ei_tikkaita = Out of ladders.
 kaivo.valmis_otsikko = LEVEL CLEAR!
 kaivo.seuraava = Next: level {}.
 
-blackjack.banneri = **** BLACKJACK ****
+blackjack.banneri = *** BLACKJACK ***
 blackjack.tervetuloa = Welcome to Blackjack.
 blackjack.ohje_1 = Get closer to 21 than the dealer without going over. Face cards are 10, aces 1 or 11.
 blackjack.ohje_2 = You play with play money: 300 to start, lowest bet 1. Your score is the profit you leave with.
@@ -975,7 +975,7 @@ blackjack.viesti_tappio = You lost {}.
 blackjack.viesti_tasan = Push, your bet came back.
 blackjack.konkurssi = Out of money. K = new game with {}.
 
-holdem.banneri = **** TEXAS HOLD'EM ****
+holdem.banneri = *** TEXAS HOLD'EM ***
 holdem.tervetuloa = Welcome to the Hold'em table.
 holdem.ohje_1 = Two cards of your own and five shared: the best five-card hand wins the pot.
 holdem.ohje_2 = Four computers, everyone has 1000. Blinds 10/20 double every 10 hands. Last one with money wins. Your score is the profit you leave with.

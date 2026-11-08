@@ -50,3 +50,13 @@ fn isojen_ja_pienten_kirjainten_korkeudet_ovat_yhtenaiset() {
         assert_eq!(rivit(merkki).1, 7, "{merkki}");
     }
 }
+
+/// Ääriviivattu ja pehmennetty teksti yhdistäisi kirjaimeen kiinni olevat pisteet.
+#[test]
+fn aakkosten_pisteiden_alla_on_tyhja_rivi() {
+    for merkki in ['Ä', 'Ö', 'ä', 'ö'] {
+        let kuvio = kuvio(merkki);
+        assert_ne!(kuvio[0], 0, "{merkki}");
+        assert_eq!(kuvio[1], 0, "{merkki}");
+    }
+}

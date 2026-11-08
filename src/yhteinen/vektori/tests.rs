@@ -101,3 +101,53 @@ fn sprite_ohittaa_lapinakyvat_merkit() {
     assert_eq!(pikseli(&kuva, 9, 6), 5);
     assert_eq!(pikseli(&kuva, 6, 9), 5);
 }
+
+fn suorakulmio(vasen: f32, yla: f32, oikea: f32, ala: f32, a: u32, b: u32) -> Ruututahko {
+    Ruututahko {
+        pisteet: [
+            (vasen, yla),
+            (oikea, yla),
+            (oikea, ala),
+            (vasen, ala),
+            (vasen, ala),
+        ],
+        maara: 4,
+        a,
+        b,
+    }
+}
+
+#[test]
+fn mallin_reuna_pehmenee_mutta_sisus_ja_ditterointi_sailyvat() {
+    let mut kuva = tyhja();
+    let tahko = suorakulmio(9.0, 9.0, 40.5, 39.0, 0xFF0000, 0x0000FF);
+    piirra_naytteina(&mut Kangas::new(&mut kuva), &[tahko]);
+    // Konepikseli on 3: sisuksen ruudutus vuorottelee konepikseleittäin.
+    assert_eq!(pikseli(&kuva, 18, 18), 0xFF0000);
+    assert_eq!(pikseli(&kuva, 21, 18), 0x0000FF);
+    assert_eq!(pikseli(&kuva, 20, 20), 0xFF0000);
+    // Konepikseli 39..42 on puoliksi tahkoa: väri on tahkon ja taustan välissä.
+    let reuna = pikseli(&kuva, 40, 18);
+    assert!(
+        reuna != 0 && reuna != 0xFF0000 && reuna != 0x0000FF,
+        "{reuna:06X}"
+    );
+    assert_eq!(pikseli(&kuva, 41, 18), reuna);
+    // Tahkon ulkopuoli ei muutu.
+    assert_eq!(pikseli(&kuva, 45, 18), 0);
+    assert_eq!(pikseli(&kuva, 18, 45), 0);
+}
+
+#[test]
+fn vierekkaisten_tahkojen_saumasta_ei_nay_taustaa() {
+    let mut kuva = tyhja();
+    let vari = 0x80C040;
+    let tahkot = [
+        suorakulmio(9.0, 9.0, 25.5, 39.0, vari, vari),
+        suorakulmio(25.5, 9.0, 42.0, 39.0, vari, vari),
+    ];
+    piirra_naytteina(&mut Kangas::new(&mut kuva), &tahkot);
+    for x in 9..42 {
+        assert_eq!(pikseli(&kuva, x, 20), vari, "{x}");
+    }
+}

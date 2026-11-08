@@ -282,41 +282,225 @@ impl Kangas<'_> {
 
     /// Piirtää mallin kaukaisimmasta tahkosta lähimpään, jolloin kukin peittää taakseen
     /// jäävät. Tasaiset, ditteröidyt pinnat kuin Super FX -peleissä, ilman reunaviivoja.
+    ///
+    /// Malli rasteroidaan ensin alinäytteinä ja tiivistetään sitten konepikseleiksi: tahkon
+    /// sisällä konepikseli ja ditteröinti pysyvät ennallaan, mutta reunan konepikseli saa
+    /// peittävyyden mukaisen välisävyn. Näin porrasreunat pehmenevät ruudukosta luopumatta,
+    /// eivätkä tahkojen väliset saumat päästä taustaa läpi.
     pub fn malli(&mut self, tahkot: &[Tahko], kulma: f32, keski: (i32, i32), mitta: f32) {
-        let (sin_y, cos_y) = kulma.sin_cos();
-        let (sin_x, cos_x) = KALLISTUS.sin_cos();
-        let kierra = |p: [f32; 3]| {
-            let x = p[0] * cos_y + p[2] * sin_y;
-            let z = p[2] * cos_y - p[0] * sin_y;
-            [x, p[1] * cos_x + z * sin_x, z * cos_x - p[1] * sin_x]
-        };
+        let tahkot = mallin_tahkot(tahkot, kulma, keski, mitta);
+        piirra_naytteina(self, &tahkot);
+    }
+}
 
-        let mut jarjestys: Vec<(f32, &Tahko, [[f32; 3]; 5])> = tahkot
-            .iter()
-            .map(|tahko| {
-                let kierretyt = tahko.pisteet.map(kierra);
-                let n = tahko.maara as f32;
-                let syvyys = kierretyt[..tahko.maara].iter().map(|p| p[2]).sum::<f32>() / n;
-                (syvyys, tahko, kierretyt)
-            })
-            .collect();
-        jarjestys.sort_by(|a, b| b.0.total_cmp(&a.0));
+/// Tahko ruudun koordinaatteina ja sen kaksi ditteröinnin väriä.
+struct Ruututahko {
+    pisteet: [(f32, f32); 5],
+    maara: usize,
+    a: u32,
+    b: u32,
+}
 
-        for (_, tahko, kierretyt) in jarjestys {
-            let mut ruudulla = [(0, 0); 5];
-            for (kohde, p) in ruudulla.iter_mut().zip(kierretyt) {
+/// Mallin tahkot ruudulle käännettyinä, kaukaisimmasta lähimpään.
+fn mallin_tahkot(tahkot: &[Tahko], kulma: f32, keski: (i32, i32), mitta: f32) -> Vec<Ruututahko> {
+    let (sin_y, cos_y) = kulma.sin_cos();
+    let (sin_x, cos_x) = KALLISTUS.sin_cos();
+    let kierra = |p: [f32; 3]| {
+        let x = p[0] * cos_y + p[2] * sin_y;
+        let z = p[2] * cos_y - p[0] * sin_y;
+        [x, p[1] * cos_x + z * sin_x, z * cos_x - p[1] * sin_x]
+    };
+
+    let mut jarjestys: Vec<(f32, &Tahko, [[f32; 3]; 5])> = tahkot
+        .iter()
+        .map(|tahko| {
+            let kierretyt = tahko.pisteet.map(kierra);
+            let n = tahko.maara as f32;
+            let syvyys = kierretyt[..tahko.maara].iter().map(|p| p[2]).sum::<f32>() / n;
+            (syvyys, tahko, kierretyt)
+        })
+        .collect();
+    jarjestys.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+    jarjestys
+        .into_iter()
+        .map(|(_, tahko, kierretyt)| {
+            let mut pisteet = [(0.0, 0.0); 5];
+            for (kohde, p) in pisteet.iter_mut().zip(kierretyt) {
                 let syvyys = mitta * KAMERAN_ETAISYYS / (p[2] + KAMERAN_ETAISYYS);
                 *kohde = (
-                    keski.0 + (p[0] * syvyys) as i32,
-                    keski.1 - (p[1] * syvyys) as i32,
+                    keski.0 as f32 + p[0] * syvyys,
+                    keski.1 as f32 - p[1] * syvyys,
                 );
             }
             let (a, b) = valaistus(&kierretyt);
-            self.ruudutettu_monikulmio(
-                &ruudulla[..tahko.maara],
-                varjosta(tahko.vari, a),
-                varjosta(tahko.vari, b),
-            );
+            Ruututahko {
+                pisteet,
+                maara: tahko.maara,
+                a: varjosta(tahko.vari, a),
+                b: varjosta(tahko.vari, b),
+            }
+        })
+        .collect()
+}
+
+/// Alinäytteitä konepikselin sivulla.
+const ALINAYTTEITA: usize = 3;
+/// Näyte, johon mikään tahko ei osunut. Värit ovat 24-bittisiä, joten tämä ei ole väri.
+const EI_NAYTETTA: u32 = u32::MAX;
+
+/// Rasteroi tahkot alinäytteiksi mallin ympärille ja tiivistää ne konepikseleiksi:
+/// kokonaan peitetty konepikseli saa näytteidensä värin, reunan konepikseli sekoittuu
+/// taustaan peittävyyden mukaan.
+fn piirra_naytteina(kangas: &mut Kangas, tahkot: &[Ruututahko]) {
+    let pisteet = || tahkot.iter().flat_map(|t| &t.pisteet[..t.maara]);
+    let Some(vasen) = pisteet().map(|p| p.0).reduce(f32::min) else {
+        return;
+    };
+    let oikea = pisteet().map(|p| p.0).fold(vasen, f32::max);
+    let yla = pisteet().map(|p| p.1).fold(f32::MAX, f32::min);
+    let ala = pisteet().map(|p| p.1).fold(f32::MIN, f32::max);
+
+    let p = kangas.pikseli;
+    let (sarakkeita, riveja) = (kangas.leveys as i32 / p, kangas.korkeus as i32 / p);
+    // Rajaus konepikseleinä, kankaan sisällä.
+    let alku_x = (vasen.floor() as i32).div_euclid(p).max(0);
+    let alku_y = (yla.floor() as i32).div_euclid(p).max(0);
+    let loppu_x = (oikea.ceil() as i32).div_euclid(p).min(sarakkeita - 1);
+    let loppu_y = (ala.ceil() as i32).div_euclid(p).min(riveja - 1);
+    if alku_x > loppu_x || alku_y > loppu_y {
+        return;
+    }
+    let s = ALINAYTTEITA;
+    let leveys = (loppu_x - alku_x + 1) as usize * s;
+    let korkeus = (loppu_y - alku_y + 1) as usize * s;
+    let mut naytteet = vec![EI_NAYTETTA; leveys * korkeus];
+    // Kunkin näyterivin täytetyt sarakkeet: tiivistys ohittaa rajauksen tyhjät kulmat.
+    let mut rajat = vec![(usize::MAX, 0); korkeus];
+    let koko = p as f32 / s as f32;
+    let (nolla_x, nolla_y) = ((alku_x * p) as f32, (alku_y * p) as f32);
+
+    for tahko in tahkot {
+        let mut naytepisteet = [(0.0, 0.0); 5];
+        for (kohde, &(x, y)) in naytepisteet.iter_mut().zip(&tahko.pisteet) {
+            *kohde = ((x - nolla_x) / koko, (y - nolla_y) / koko);
+        }
+        tayta(
+            &naytepisteet[..tahko.maara],
+            leveys,
+            korkeus,
+            |rivi, vasen, oikea| {
+                let raja = &mut rajat[rivi];
+                *raja = (raja.0.min(vasen), raja.1.max(oikea));
+                let rivin = &mut naytteet[rivi * leveys..(rivi + 1) * leveys];
+                if tahko.a == tahko.b {
+                    rivin[vasen..oikea].fill(tahko.a);
+                    return;
+                }
+                // Ditteröinnin ruudutus kulkee konepikselin mukaan kuten ennenkin.
+                let konerivi = alku_y + (rivi / s) as i32;
+                let mut x = vasen;
+                while x < oikea {
+                    let palan_loppu = ((x / s + 1) * s).min(oikea);
+                    let sarake = alku_x + (x / s) as i32;
+                    let vari = if (konerivi + sarake) % 2 == 0 {
+                        tahko.a
+                    } else {
+                        tahko.b
+                    };
+                    rivin[x..palan_loppu].fill(vari);
+                    x = palan_loppu;
+                }
+            },
+        );
+    }
+
+    let kaikki = (s * s) as u32;
+    let pu = p as usize;
+    for rivi in 0..korkeus / s {
+        let ylin = rivi * s;
+        let (vasen, oikea) = rajat[ylin..ylin + s]
+            .iter()
+            .fold((usize::MAX, 0), |a, r| (a.0.min(r.0), a.1.max(r.1)));
+        if vasen >= oikea {
+            continue;
+        }
+        let rivit: [&[u32]; ALINAYTTEITA] =
+            std::array::from_fn(|i| &naytteet[(ylin + i) * leveys..(ylin + i + 1) * leveys]);
+        let kuvan_y = (alku_y as usize + rivi) * pu;
+        for sarake in vasen / s..=(oikea - 1) / s {
+            let alku = sarake * s;
+            let ensimmainen = rivit[0][alku];
+            let yhtenainen = rivit
+                .iter()
+                .all(|r| r[alku..alku + s].iter().all(|&vari| vari == ensimmainen));
+            let kuvan_x = (alku_x as usize + sarake) * pu;
+            let vari = if yhtenainen {
+                // Tahkon sisus tai tyhjä tausta: ei laskettavaa.
+                if ensimmainen == EI_NAYTETTA {
+                    continue;
+                }
+                ensimmainen
+            } else {
+                let (mut r, mut g, mut b, mut osuneet) = (0, 0, 0, 0);
+                for &vari in rivit.iter().flat_map(|r| &r[alku..alku + s]) {
+                    if vari != EI_NAYTETTA {
+                        r += vari >> 16 & 0xFF;
+                        g += vari >> 8 & 0xFF;
+                        b += vari & 0xFF;
+                        osuneet += 1;
+                    }
+                }
+                // Reunalla malli peittää vain osan konepikselistä: loput on taustaa.
+                let tausta = kangas.kuva[kuvan_y * kangas.leveys + kuvan_x];
+                let loput = kaikki - osuneet;
+                let kanava =
+                    |summa: u32, siirto: u32| (summa + (tausta >> siirto & 0xFF) * loput) / kaikki;
+                (kanava(r, 16) << 16) | (kanava(g, 8) << 8) | kanava(b, 0)
+            };
+            for y in kuvan_y..kuvan_y + pu {
+                let i = y * kangas.leveys + kuvan_x;
+                kangas.kuva[i..i + pu].fill(vari);
+            }
+        }
+    }
+}
+
+/// Täyttää monikulmion näytteet, joiden keskipiste on sen sisällä (parillis-pariton-sääntö).
+/// Pisteet ovat näytteinä, ja `aseta` saa rivin ja sen sarakkeet `vasen..oikea`.
+fn tayta(
+    pisteet: &[(f32, f32)],
+    leveys: usize,
+    korkeus: usize,
+    mut aseta: impl FnMut(usize, usize, usize),
+) {
+    let ylin = pisteet.iter().map(|p| p.1).fold(f32::MAX, f32::min);
+    let alin = pisteet.iter().map(|p| p.1).fold(f32::MIN, f32::max);
+    let ensimmainen = (ylin - 0.5).ceil().max(0.0) as usize;
+    let viimeinen = ((alin - 0.5).floor() as i64).min(korkeus as i64 - 1);
+    if viimeinen < ensimmainen as i64 {
+        return;
+    }
+    for rivi in ensimmainen..=viimeinen as usize {
+        let y = rivi as f32 + 0.5;
+        let mut leikkaukset = [0.0f32; SUURIN_LEIKKAUS];
+        let mut maara = 0;
+        for (i, &alku) in pisteet.iter().enumerate() {
+            let loppu = pisteet[(i + 1) % pisteet.len()];
+            if (alku.1 <= y) != (loppu.1 <= y) && maara < SUURIN_LEIKKAUS {
+                leikkaukset[maara] =
+                    alku.0 + (y - alku.1) * (loppu.0 - alku.0) / (loppu.1 - alku.1);
+                maara += 1;
+            }
+        }
+        leikkaukset[..maara].sort_unstable_by(f32::total_cmp);
+        for pari in leikkaukset[..maara].chunks_exact(2) {
+            // Sarakkeet, joiden keskipiste on välillä [vasen, oikea).
+            let vasen = ((pari[0] - 0.5).ceil().max(0.0) as usize).min(leveys);
+            let oikea = ((pari[1] - 0.5).ceil().max(0.0) as usize).min(leveys);
+            if vasen < oikea {
+                aseta(rivi, vasen, oikea);
+            }
         }
     }
 }

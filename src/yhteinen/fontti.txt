@@ -3,6 +3,8 @@
 # Isot kirjaimet ovat riveillä 0-6, pienet riveillä 2-6 ja alaosat ulottuvat riville 7.
 # Pystyviivat ovat kahden ja vaakaviivat yhden pikselin paksuisia.
 # Leveys on kuusi pikseliä, vain M, W, m ja w ovat seitsemän.
+# Isot Ä ja Ö ovat viiden rivin korkuisia, jotta pisteiden ja kirjaimen väliin jää tyhjä rivi:
+# muuten ääriviiva ja pehmennys sulauttaisivat pisteet kirjaimeen.
 
 = !
 ..##....
@@ -905,9 +907,9 @@
 ........
 
 = Ä
-#....#..
-.####...
 ##..##..
+........
+.####...
 ##..##..
 ######..
 ##..##..
@@ -915,9 +917,9 @@
 ........
 
 = Ö
-#....#..
-.####...
 ##..##..
+........
+.####...
 ##..##..
 ##..##..
 ##..##..

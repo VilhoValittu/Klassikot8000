@@ -281,7 +281,7 @@ impl Piirtaja<'_> {
     fn laatta(&mut self, keski: (i32, i32), sivu: i32, arvo: u32) {
         let (x, y) = (keski.0 - sivu / 2, keski.1 - sivu / 2);
         self.k.laatikko(x + 6, y + 6, sivu - 3, sivu - 3, 0x04061C);
-        self.nappitausta(x, y, sivu, sivu, laatan_vari(arvo));
+        self.kupera(x, y, sivu, sivu, laatan_vari(arvo));
 
         let teksti = arvo.to_string();
         let pituus = teksti.chars().count();

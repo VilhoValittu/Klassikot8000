@@ -36,6 +36,7 @@ use crate::pelit::silmukka::peli::Silmukka;
 use crate::pelit::tiilirikko::peli::Tiilirikko;
 use crate::yhteinen::aanet::{self, Mikseri, NAYTETAAJUUS};
 use crate::yhteinen::kieli::{self, Kieli};
+use crate::yhteinen::osoitin;
 use crate::yhteinen::piirto::{Kehys, RUUDUN_KORKEUS, RUUDUN_LEVEYS};
 use crate::yhteinen::syote::Syote;
 
@@ -110,6 +111,10 @@ pub struct Liput {
     pub aika_ms: u32,
     /// Kirjoittaa kaikki äänet tähän kansioon WAV-tiedostoina kuunneltaviksi ja lopettaa.
     pub aanet: Option<String>,
+    /// Hiiren paikka näkymän koordinaateissa kuvakaappausta varten: napit korostuvat.
+    pub hiiri: Option<(i32, i32)>,
+    /// Hiiren nappi on pohjassa `--mouse`-kohdassa, ilman napin toimintoa.
+    pub painettu: bool,
 }
 
 impl Liput {
@@ -174,6 +179,11 @@ pub fn lue_liput() -> Result<Liput, String> {
             "--releases" => liput.julkaisut = Some(arvo),
             "--new-version" => liput.uusi_versio = Some(arvo),
             "--time" => liput.aika_ms = luku(&lippu, &arvo)?,
+            "--mouse" => {
+                let (x, y) = arvo.split_once(',').ok_or("--mouse: x,y")?;
+                liput.hiiri = Some((luku(&lippu, x)?, luku(&lippu, y)?));
+            }
+            "--press" => liput.painettu = arvo == "1",
             "--game" => {
                 liput.peli = Some(match arvo.as_str() {
                     "laivanupotus" => Laji::Laivanupotus,
@@ -331,6 +341,13 @@ pub fn aloita(kehys: &mut Kehys) -> Alku {
         // Renkaan tehosteet on ajettu jo, eikä niitä saa hypätä yli.
         if liput.rengas.is_none() {
             kaynnistin.edista(liput.aika_ms);
+        }
+        if let Some((x, y)) = liput.hiiri {
+            kaynnistin.kasittele(Syote::Hiiri(x, y));
+            if liput.painettu {
+                // Vain hiiren tila: klikkaus laukaisisi napin.
+                osoitin::kirjaa(Syote::Klikkaus(x, y));
+            }
         }
         piirto::piirra(&kaynnistin, kehys);
         let tulos = tallenna_png(polku, &kehys.ruutu, RUUDUN_LEVEYS, RUUDUN_KORKEUS);
