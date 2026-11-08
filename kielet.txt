@@ -48,6 +48,7 @@ valikko.valitse = Valitse
 valikko.aanet = Äänet
 valikko.kieli = Kieli
 valikko.lopeta = Lopeta
+valikko.lopeta_uudelleen = Lopeta painamalla uudelleen
 valikko.vali = VÄLI
 
 yhteinen.netti_top = NETTI TOP
@@ -567,6 +568,7 @@ valikko.valitse = Pick
 valikko.aanet = Sound
 valikko.kieli = Language
 valikko.lopeta = Quit
+valikko.lopeta_uudelleen = Press again to quit
 valikko.vali = SPACE
 
 yhteinen.netti_top = NET TOP 3

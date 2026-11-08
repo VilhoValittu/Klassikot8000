@@ -114,7 +114,7 @@ Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä
 ## Hyvä tietää
 
 - Valikossa peli valitaan nuolilla, numeroilla 1–0, hiiren rullalla tai osoittamalla, ja välilyönti tai klikkaus aloittaa sen.
-- `Esc` palaa pelistä valikkoon. Toimintapeleissä ja Palikka8000:ssa se pysäyttää ensin pelin, jottei vahinkopainallus vie peliä, ja toinen painallus palaa valikkoon. Kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
+- `Esc` palaa pelistä valikkoon. Toimintapeleissä ja Palikka8000:ssa se pysäyttää ensin pelin, jottei vahinkopainallus vie peliä, ja toinen painallus palaa valikkoon. Valikossa Esc sulkee ohjelman vasta toisella painalluksella. Kesken jäänyt hyvä tulos pääsee silti listalle. `P` pysäyttää toimintapelit, `M` vaimentaa äänet ja `L` vaihtaa valikossa kielen suomen ja englannin välillä.
 - Valittu taso, pasianssin laji ja viimeksi valittu peli säilyvät seuraavaan kertaan.
 - Jokaisella pelillä on Top 3 -lista myös netissä, ja valikko näyttää sen valitun pelin kohdalla yhdessä oman ennätyksesi kanssa. Laivanupotuksen kohdalla valikko näyttää myös voitot ja tappiot tasoittain. Ilman nettiä pelaat ihan yhtä hyvin.
 - Valikko näyttää pelin version ja kertoo, jos GitHubissa on uudempi julkaisu. Peli katsoo asian käynnistyessään, ja ilmoitusta klikkaamalla julkaisusivu aukeaa selaimeen.

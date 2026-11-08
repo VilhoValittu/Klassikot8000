@@ -47,6 +47,8 @@ use klassikot8000::{laivanupotus, miinaharava};
 /// Valikon mallia ja vilkkua piirretään harvemmin kuin silmukka kiertää: joka toinen
 /// kierros riittää hitaaseen pyörintään ja puolittaa ruudun lähettämisen.
 const VALIKON_ASKEL_MS: u32 = 66;
+/// Näin kauan valikko odottaa toista Esc-painallusta ennen kuin unohtaa ensimmäisen.
+const LOPETUKSEN_VAHVISTUS_MS: u32 = 3000;
 
 /// Kaikki, mistä paikallaan pysyvän näkymän kuva riippuu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +62,7 @@ pub enum KuvanAvain {
         ilmoitus_alla: bool,
         listoja: u32,
         askel: u32,
+        kysyy_lopetusta: bool,
     },
     /// Peli, jonka kuva muuttuu syötteestä, nettilistasta tai pelin omassa tahdissa.
     Peli {
@@ -206,6 +209,9 @@ pub struct Kaynnistin {
     ilmoitus_alla: bool,
     /// Tosi, kun `main.rs`:n kuuluu avata julkaisusivu selaimeen.
     pub avaa_julkaisut: bool,
+    /// Kellon lukema, kun valikossa painettiin Esc. Ohjelma loppuu vasta toisesta painalluksesta,
+    /// koska pelistä palataan Escillä ja kaksi nopeaa painallusta veisi muuten koko ikkunan.
+    lopetus_kysytty_ms: Option<u32>,
     siemen: u64,
 }
 
@@ -231,8 +237,15 @@ impl Kaynnistin {
             uusi_versio: None,
             ilmoitus_alla: false,
             avaa_julkaisut: false,
+            lopetus_kysytty_ms: None,
             siemen,
         }
+    }
+
+    /// Esc on painettu valikossa äsken, joten seuraava Esc lopettaa ohjelman.
+    pub fn kysyy_lopetusta(&self) -> bool {
+        self.lopetus_kysytty_ms
+            .is_some_and(|kysytty| self.kello_ms.saturating_sub(kysytty) < LOPETUKSEN_VAHVISTUS_MS)
     }
 
     pub fn valitse(&mut self, i: usize) {
@@ -336,6 +349,7 @@ impl Kaynnistin {
                     ilmoitus_alla: self.ilmoitus_alla,
                     listoja: self.listoja,
                     askel,
+                    kysyy_lopetusta: self.kysyy_lopetusta(),
                 })
             }
             Some(peli) => peli.nakyma().kuvan_avain().map(|avain| KuvanAvain::Peli {
@@ -561,6 +575,11 @@ impl Kaynnistin {
     }
 
     fn kasittele_valikko(&mut self, syote: Syote) {
+        // Mikä tahansa muu painallus perii lopetuksen. Hiiren liike ja vapautus eivät ole tekoja.
+        let lopetus_kysytty = self.kysyy_lopetusta();
+        if !matches!(syote, Syote::Hiiri(..) | Syote::Vapautus(..)) {
+            self.lopetus_kysytty_ms = None;
+        }
         let kytkimella = matches!(syote, Syote::Klikkaus(x, y) if piirto::aanikytkimella(x, y));
         if syote == Syote::VaihdaAanet || kytkimella {
             self.aanet_paalla = !self.aanet_paalla;
@@ -587,7 +606,8 @@ impl Kaynnistin {
             _ => {}
         }
         match syote {
-            Syote::Peru => self.lopeta = true,
+            Syote::Peru if lopetus_kysytty => self.lopeta = true,
+            Syote::Peru => self.lopetus_kysytty_ms = Some(self.kello_ms),
             Syote::Ammu => self.kaynnista(PELIT[self.valittu].laji),
             Syote::Klikkaus(x, y) if piirto::pelaa_napilla(x, y, self.valittu) => {
                 self.kaynnista(PELIT[self.valittu].laji)

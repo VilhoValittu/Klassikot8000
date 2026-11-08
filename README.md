@@ -103,7 +103,7 @@ Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points 
 ## Good to know
 
 - In the menu, pick a game with the arrows, the keys 1-0, the mouse wheel or by pointing, and start it with space or a click.
-- `Esc` returns from a game to the menu. In the action games and Columns8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
+- `Esc` returns from a game to the menu. In the action games and Columns8000 it pauses the game first, so a stray press doesn't cost you the game, and a second press returns to the menu. In the menu it takes a second press of `Esc` to quit. A good score from an unfinished game still reaches the list. `P` pauses the action games, `M` mutes the sound and `L` in the menu switches the language between Finnish and English.
 - Your chosen levels, solitaire game and last picked game are kept for next time.
 - Every game has an online Top 3, and the menu shows it for the selected game together with your own best. For Battleships the menu also shows wins and losses for each level. Without a connection the games play just as well.
 - The menu shows the game's version and tells you if GitHub has a newer release. The game checks this when it starts, and clicking the notice opens the release page in your browser.

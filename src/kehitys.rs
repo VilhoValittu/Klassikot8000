@@ -105,7 +105,8 @@ pub struct Liput {
     pub kadet: Option<usize>,
     /// Blackjack ja Hold'em: aloittaa pelin, jossa rahat ovat juuri loppuneet.
     pub konkurssi: bool,
-    /// Toimintapelit ja Palikka: painaa lopuksi Esc, joten kuvassa on tauko.
+    /// Toimintapelit ja Palikka: painaa lopuksi Esc, joten kuvassa on tauko. Valikon
+    /// kuvakaappauksessa Esc kysyy lopetusta.
     pub tauko: bool,
     /// Kuvakaappauksen hetki viimeisen laukauksen jälkeen, animaatioiden tarkistukseen.
     pub aika_ms: u32,
@@ -316,7 +317,10 @@ pub fn aloita(kehys: &mut Kehys) -> Alku {
     // Kehitysajo ei koske pelaajan tallennukseen ilman lippua.
     let polku = liput.tallennus.as_ref().map(PathBuf::from);
     if let Some(polku) = &polku {
-        kaynnistin.lataa(tallennus::lue_tiedosto(polku));
+        match tallennus::lue_tiedosto(polku) {
+            Ok(tallennus) => kaynnistin.lataa(tallennus),
+            Err(virhe) => return lopetus(Err(virhe), &polku.display().to_string()),
+        }
     }
     if let Some(kieli) = liput.kieli {
         kieli::aseta(kieli);
@@ -341,6 +345,10 @@ pub fn aloita(kehys: &mut Kehys) -> Alku {
         // Renkaan tehosteet on ajettu jo, eikä niitä saa hypätä yli.
         if liput.rengas.is_none() {
             kaynnistin.edista(liput.aika_ms);
+        }
+        // Valikon lopetuskysymys raukeaa ajan kuluessa, joten Esc painetaan vasta nyt.
+        if liput.tauko && kaynnistin.peli.is_none() {
+            kaynnistin.kasittele(Syote::Peru);
         }
         if let Some((x, y)) = liput.hiiri {
             kaynnistin.kasittele(Syote::Hiiri(x, y));

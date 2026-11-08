@@ -37,7 +37,8 @@ pub fn kortin_keskipiste(i: usize) -> (i32, i32) {
     )
 }
 
-/// Ohjepalkin näppäinten ja selitteiden leveys.
+/// Ohjepalkin näppäinten ja selitteiden leveys. Selitteistä lasketaan pidempi muoto, koska
+/// lopetuksen selite pitenee ensimmäisestä Esc-painalluksesta.
 fn ohjeiden_leveys() -> i32 {
     OHJEET
         .iter()
@@ -46,7 +47,12 @@ fn ohjeiden_leveys() -> i32 {
                 .iter()
                 .map(|nimi| nappaimen_leveys(nimi) + NAPPAINTEN_VALI)
                 .sum();
-            nappaimet - NAPPAINTEN_VALI + SELITTEEN_VALI + pieni_leveys(kaanna(selite))
+            let selite = [false, true]
+                .map(|kysyy| pieni_leveys(ohjeen_selite(selite, kysyy).0))
+                .into_iter()
+                .max()
+                .unwrap_or(0);
+            nappaimet - NAPPAINTEN_VALI + SELITTEEN_VALI + selite
         })
         .sum::<i32>()
         + (OHJEET.len() as i32 - 1) * RYHMIEN_VALI

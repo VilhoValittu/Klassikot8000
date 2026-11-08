@@ -7,6 +7,10 @@ const KESKEN: Kesken = Kesken {
     jatkettu: true,
 };
 
+fn tekstista(teksti: &str) -> Tallennus {
+    Tallennus::tekstista(teksti).expect("otsake kelpaa")
+}
+
 fn tulos(nimi: &str, pisteet: u32) -> Tulos {
     Tulos {
         nimi: nimi.to_string(),
@@ -56,15 +60,15 @@ fn kokonainen() -> Tallennus {
 #[test]
 fn teksti_palautuu_samaksi() {
     let t = kokonainen();
-    assert_eq!(Tallennus::tekstista(&t.tekstiksi()), t);
+    assert_eq!(tekstista(&t.tekstiksi()), t);
     let mut t = Tallennus::default();
     t.lista_mut(Nettipeli::Luvut).paras = 7;
-    assert_eq!(Tallennus::tekstista(&t.tekstiksi()), t);
+    assert_eq!(tekstista(&t.tekstiksi()), t);
 }
 
 #[test]
 fn vanhan_version_avaimet_luetaan_oikeille_listoille() {
-    let t = Tallennus::tekstista(
+    let t = tekstista(
         "klassikot8000 1\nparas 7\ntop 9 A\nlukujono 8 B\ntiilirikko 6\ntiilitop 5 C\n\
              tiilijono 4 D\nasteroidit 3\nsilmukkatop 2 E\npalikkajono 1 F\nspidertop 11 G\n\
              haastejono 12 H\nholdemtop 13 I\n",
@@ -89,14 +93,21 @@ fn vanhan_version_avaimet_luetaan_oikeille_listoille() {
 }
 
 #[test]
-fn vieras_tai_tyhja_tiedosto_antaa_tyhjan_tallennuksen() {
-    assert_eq!(Tallennus::tekstista(""), Tallennus::default());
-    assert_eq!(Tallennus::tekstista("paras 99\n"), Tallennus::default());
+fn vieras_tai_tyhja_tiedosto_ei_kelpaa() {
+    assert_eq!(Tallennus::tekstista(""), None);
+    assert_eq!(Tallennus::tekstista("paras 99\n"), None);
+    assert_eq!(Tallennus::tekstista("klassikot8000 2\nparas 99\n"), None);
+}
+
+#[test]
+fn muistion_bom_ei_haittaa() {
+    let t = tekstista("\u{feff}klassikot8000 1\nparas 7\n");
+    assert_eq!(t.lista(Nettipeli::Luvut).paras, 7);
 }
 
 #[test]
 fn kelvoton_tulos_hylataan_ja_muokattu_lista_jarjestetaan() {
-    let t = Tallennus::tekstista(
+    let t = tekstista(
         "klassikot8000 1\ntop 5 PIENI\ntop 9 ISO\ntop 0 NOLLA\ntop x KISSA\n\
              top 7 pieni\ntop 7 LIIANPITKA\ntop 7\ntop 7 KAKSI OSAA\n",
     );
@@ -108,7 +119,7 @@ fn kelvoton_tulos_hylataan_ja_muokattu_lista_jarjestetaan() {
 
 #[test]
 fn vanhassa_tallennuksessa_aanet_ovat_paalla() {
-    let t = Tallennus::tekstista("klassikot8000 1\nparas 7\n");
+    let t = tekstista("klassikot8000 1\nparas 7\n");
     assert_eq!(t.lista(Nettipeli::Luvut).paras, 7);
     assert!(!t.hiljaa);
     for peli in [
@@ -125,12 +136,12 @@ fn vanhassa_tallennuksessa_aanet_ovat_paalla() {
 
 #[test]
 fn kelvottomat_asetukset_hylataan() {
-    let t = Tallennus::tekstista(
+    let t = tekstista(
         "klassikot8000 1\nlaivataso 3\npasianssitaso -1\npasianssilaji x\nmiinataso 9\n\
              valittu kissa\n",
     );
     assert_eq!(t.asetukset, Asetukset::default());
-    let t = Tallennus::tekstista("klassikot8000 1\nlaivataso 0\nmiinataso 2\nvalittu 4\n");
+    let t = tekstista("klassikot8000 1\nlaivataso 0\nmiinataso 2\nvalittu 4\n");
     assert_eq!(t.asetukset.laivanupotus, laivanupotus::Vaikeus::Helppo);
     assert_eq!(t.asetukset.miinaharava, miinaharava::Vaikeus::Vaikea);
     assert_eq!(t.asetukset.valittu, 4);
@@ -140,30 +151,30 @@ fn kelvottomat_asetukset_hylataan() {
 fn kelvottomat_haastetiedot_hylataan() {
     let nollia = vec!["0"; HAASTEITA].join(",");
     let hyva = format!("klassikot8000 1\nhaastepisteet 2 5,{}\n", &nollia[2..]);
-    assert_eq!(Tallennus::tekstista(&hyva).haastepisteet[2][0], 5);
+    assert_eq!(tekstista(&hyva).haastepisteet[2][0], 5);
     for huono in [
         format!("haastepisteet 3 {nollia}"),
         format!("haastepisteet 0 {nollia},0"),
         "haastepisteet 0 1,2".to_string(),
         format!("haastepisteet 0 99999999,{}", &nollia[2..]),
     ] {
-        let t = Tallennus::tekstista(&format!("klassikot8000 1\n{huono}\n"));
+        let t = tekstista(&format!("klassikot8000 1\n{huono}\n"));
         assert_eq!(t.haastepisteet, Haastepisteet::default(), "{huono}");
     }
-    let t = Tallennus::tekstista("klassikot8000 1\nhaastenimi pieni\n");
+    let t = tekstista("klassikot8000 1\nhaastenimi pieni\n");
     assert!(t.haastenimi.is_empty());
 }
 
 #[test]
 fn kelvottomat_miina_ajat_ja_tilastot_hylataan() {
     let hyva = "klassikot8000 1\nmiinaajat 1,2,3\n";
-    assert_eq!(Tallennus::tekstista(hyva).miinaajat, [1, 2, 3]);
+    assert_eq!(tekstista(hyva).miinaajat, [1, 2, 3]);
     for huono in ["1,2", "1,2,3,4", "a,b,c", "-1,2,3", "1,2,4000000000"] {
-        let t = Tallennus::tekstista(&hyva.replace("1,2,3", huono));
+        let t = tekstista(&hyva.replace("1,2,3", huono));
         assert_eq!(t.miinaajat, [0; 3], "{huono}");
     }
     for huono in ["3 1,2,3", "0 1,2", "x 1,2,3", "1 1,2,3,4", "1 -1,2,3"] {
-        let t = Tallennus::tekstista(&format!("klassikot8000 1\nlaivatilasto {huono}\n"));
+        let t = tekstista(&format!("klassikot8000 1\nlaivatilasto {huono}\n"));
         assert_eq!(t.laivatilasto, [Tilasto::default(); 3], "{huono}");
     }
 }
@@ -185,11 +196,11 @@ fn kelvoton_lauta_hylataan_mutta_paras_sailyy() {
         // täysi lauta ilman siirtoja
         "2,4,2,4,4,2,4,2,2,4,2,4,4,2,4,2",
     ] {
-        let t = Tallennus::tekstista(&hyva.replace(lauta, huono));
+        let t = tekstista(&hyva.replace(lauta, huono));
         assert_eq!(t.lista(Nettipeli::Luvut).paras, 5000, "{huono}");
         assert_eq!(t.kesken, None, "{huono}");
     }
-    let t = Tallennus::tekstista(&hyva.replace("paras 5000", "paras -1"));
+    let t = tekstista(&hyva.replace("paras 5000", "paras -1"));
     assert_eq!(t.lista(Nettipeli::Luvut).paras, 0);
     assert!(t.kesken.is_some());
 }
@@ -198,9 +209,56 @@ fn kelvoton_lauta_hylataan_mutta_paras_sailyy() {
 fn tiedosto_luodaan_ja_luetaan_ja_puuttuva_on_tyhja() {
     let kansio = std::env::temp_dir().join(format!("k8000_{}", std::process::id()));
     let polku = kansio.join("ala").join("tallennus.txt");
-    assert_eq!(lue_tiedosto(&polku), Tallennus::default());
+    assert_eq!(lue_tiedosto(&polku).unwrap(), Tallennus::default());
     kirjoita_tiedosto(&polku, &kokonainen()).unwrap();
     kirjoita_tiedosto(&polku, &kokonainen()).unwrap();
-    assert_eq!(lue_tiedosto(&polku), kokonainen());
+    assert_eq!(lue_tiedosto(&polku).unwrap(), kokonainen());
+    // Ehjästä tiedostosta ei tehdä kopiota.
+    assert_eq!(fs::read_dir(polku.parent().unwrap()).unwrap().count(), 1);
+    fs::remove_dir_all(&kansio).unwrap();
+}
+
+/// Kansion tiedostot, joiden nimi päättyy `.bak`-päätteeseen, sisältöineen.
+fn kopiot(kansio: &Path) -> Vec<Vec<u8>> {
+    fs::read_dir(kansio)
+        .unwrap()
+        .map(|tiedosto| tiedosto.unwrap().path())
+        .filter(|polku| polku.extension().is_some_and(|paate| paate == "bak"))
+        .map(|polku| fs::read(polku).unwrap())
+        .collect()
+}
+
+#[test]
+fn kelvoton_tiedosto_kopioidaan_talteen_ennen_tyhjaa_tallennusta() {
+    let kansio = std::env::temp_dir().join(format!("k8000_kopio_{}", std::process::id()));
+    fs::create_dir_all(&kansio).unwrap();
+    let polku = kansio.join("tallennus.txt");
+    // Uudemman version otsake ja Muistion ANSI-merkistöllä tallentama Ä, joka ei ole UTF-8:aa.
+    for sisalto in [
+        &b"klassikot8000 2\nparas 900\n"[..],
+        b"klassikot8000 1\ntop 9 \xC4\n",
+    ] {
+        fs::write(&polku, sisalto).unwrap();
+        assert_eq!(lue_tiedosto(&polku).unwrap(), Tallennus::default());
+        assert_eq!(kopiot(&kansio), [sisalto]);
+        // Alkuperäinen jää paikalleen, kunnes peli kirjoittaa omansa sen päälle.
+        assert_eq!(fs::read(&polku).unwrap(), sisalto);
+        for kopio in fs::read_dir(&kansio).unwrap() {
+            let kopio = kopio.unwrap().path();
+            if kopio != polku {
+                fs::remove_file(kopio).unwrap();
+            }
+        }
+    }
+    fs::remove_dir_all(&kansio).unwrap();
+}
+
+#[test]
+fn lukukelvotonta_tiedostoa_ei_saa_kirjoittaa_yli() {
+    // Kansio tallennuksen paikalla: lukeminen ja kopiointi epäonnistuvat kaikilla alustoilla.
+    let kansio = std::env::temp_dir().join(format!("k8000_lukossa_{}", std::process::id()));
+    let polku = kansio.join("tallennus.txt");
+    fs::create_dir_all(&polku).unwrap();
+    assert!(lue_tiedosto(&polku).is_err());
     fs::remove_dir_all(&kansio).unwrap();
 }

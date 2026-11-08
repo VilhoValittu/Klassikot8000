@@ -391,11 +391,20 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let (kaynnistin, polku, netti) = {
         let mut kaynnistin = Kaynnistin::new(aikasiemen());
-        let polku = tallennus::oletuspolku();
-        if let Some(polku) = &polku {
+        let polku = tallennus::oletuspolku().and_then(|polku| {
             virheloki::ota_kayttoon(polku.with_file_name("virheet.txt"));
-            kaynnistin.lataa(tallennus::lue_tiedosto(polku));
-        }
+            match tallennus::lue_tiedosto(&polku) {
+                Ok(tallennus) => {
+                    kaynnistin.lataa(tallennus);
+                    Some(polku)
+                }
+                // Tiedostoa ei saatu luettua eikä talteen, joten sen päälle ei kirjoiteta.
+                Err(virhe) => {
+                    virheloki::kirjaa(&format!("{}: {virhe}, ei tallenneta", polku.display()));
+                    None
+                }
+            }
+        });
         let netti = Netti::kaynnista(kaynnistin::netti::OSOITE, kaynnistin::netti::tulosavain());
         if let Some(netti) = &netti {
             netti.laheta(Pyynto::HaeVersio(kaynnistin::netti::JULKAISUT.to_string()));

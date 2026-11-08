@@ -3,6 +3,7 @@
 
 import {
   allekirjoitus_kelpaa,
+  lue_runko,
   lue_tulos,
   PELIT,
   SUURIN_RUNKO,
@@ -50,10 +51,14 @@ async function lisaa(pyynto, env, peli) {
     return vastaus("liian monta tulosta\n", 429);
   }
   // Peli hylkää tuloksen 400:lla eikä yritä uudelleen, joten liian pitkä runko saa saman.
+  // Otsake hylkää liian pitkän heti, ja lue_runko myös ne, joista otsake puuttuu.
   if (Number(pyynto.headers.get("content-length") ?? 0) > SUURIN_RUNKO) {
     return vastaus("kelvoton tulos\n", 400);
   }
-  const runko = await pyynto.text();
+  const runko = await lue_runko(pyynto.body);
+  if (runko === null) {
+    return vastaus("kelvoton tulos\n", 400);
+  }
   const allekirjoitus = pyynto.headers.get("x-allekirjoitus");
   if (!(await allekirjoitus_kelpaa(env.TULOSAVAIN, peli, runko, allekirjoitus))) {
     return vastaus("kelvoton allekirjoitus\n", 400);

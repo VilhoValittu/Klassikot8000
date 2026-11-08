@@ -30,6 +30,29 @@ const RIVI = /^([1-9][0-9]{0,8}) ([A-ZÄÖ0-9]{1,8})$/u;
 // Kelvollinen rivi on enintään 27 tavua. Pidempää pyyntöä ei kannata lukea eikä tutkia.
 export const SUURIN_RUNKO = 64;
 
+// Lukee pyynnön rungon, mutta enintään SUURIN_RUNKO tavua. Paloina lähetetyssä pyynnössä ei ole
+// content-lengthiä, joten raja tarkistetaan lukiessa. Liian pitkä runko antaa null.
+export async function lue_runko(virta) {
+  if (!virta) {
+    return "";
+  }
+  const lukija = virta.getReader();
+  const palat = [];
+  let koko = 0;
+  for (;;) {
+    const { done, value } = await lukija.read();
+    if (done) {
+      return new Blob(palat).text();
+    }
+    koko += value.byteLength;
+    if (koko > SUURIN_RUNKO) {
+      await lukija.cancel();
+      return null;
+    }
+    palat.push(value);
+  }
+}
+
 export function lue_tulos(teksti, suurin) {
   if (teksti.length > SUURIN_RUNKO) {
     return null;

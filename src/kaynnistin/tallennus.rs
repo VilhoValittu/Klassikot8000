@@ -4,9 +4,8 @@
 
 use std::fs;
 use std::io;
-use std::path::Path;
-#[cfg(not(debug_assertions))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use klassikot8000::haasteet::HAASTEITA;
 use klassikot8000::kaivo;
@@ -20,6 +19,7 @@ use klassikot8000::pasianssi::{self, SUURIN_TULOS, Variantti};
 use crate::pelit::laivanupotus::peli::Tilasto;
 use crate::pelit::luvut::peli::Kesken;
 use crate::pelit::pasianssi::peli::Haastepisteet;
+use crate::virheloki;
 use crate::yhteinen::kieli::Kieli;
 use crate::yhteinen::tulokset::{NETTIPELEJA, Nettipeli, Tulos, lisaa_tulos, tulos_tekstista};
 
@@ -245,10 +245,13 @@ impl Tallennus {
         teksti
     }
 
-    pub fn tekstista(teksti: &str) -> Self {
-        let mut rivit = teksti.lines();
+    /// `None`, kun teksti ei ala tämän ohjelman otsakkeella: tiedosto on jotain muuta tai
+    /// uudemman version kirjoittama, eikä sitä saa kirjoittaa tyhjällä päälle.
+    pub fn tekstista(teksti: &str) -> Option<Self> {
+        // Muistio voi lisätä tiedoston alkuun BOM-merkin.
+        let mut rivit = teksti.trim_start_matches('\u{feff}').lines();
         if rivit.next() != Some(OTSAKE) {
-            return Self::default();
+            return None;
         }
         let mut t = Self::default();
         let (mut lauta, mut pisteet, mut siirrot, mut jatkettu) = (None, None, None, false);
@@ -321,7 +324,7 @@ impl Tallennus {
             }
             _ => None,
         };
-        t
+        Some(t)
     }
 
     /// Ennätys-, top- tai jonorivi. Tuntematon avain ohitetaan.
@@ -371,8 +374,35 @@ pub fn oletuspolku() -> Option<PathBuf> {
     )
 }
 
-pub fn lue_tiedosto(polku: &Path) -> Tallennus {
-    fs::read_to_string(polku).map_or_else(|_| Tallennus::default(), |t| Tallennus::tekstista(&t))
+/// Lukee tallennuksen. Puuttuva tiedosto antaa tyhjän tallennuksen. Tyhjä tallennus kirjoitetaan
+/// myöhemmin tiedoston päälle, joten kelvoton tai lukukelvoton tiedosto kopioidaan ensin talteen
+/// omalla nimellään, jottei ennätyksiä menetetä. Virhe kertoo, ettei kopiokaan onnistunut:
+/// silloin tiedostoon ei saa kirjoittaa.
+pub fn lue_tiedosto(polku: &Path) -> io::Result<Tallennus> {
+    let syy = match fs::read_to_string(polku) {
+        Ok(teksti) => match Tallennus::tekstista(&teksti) {
+            Some(tallennus) => return Ok(tallennus),
+            None => "tuntematon muoto".to_string(),
+        },
+        Err(virhe) if virhe.kind() == io::ErrorKind::NotFound => return Ok(Tallennus::default()),
+        Err(virhe) => virhe.to_string(),
+    };
+    let kopio = talteen_polku(polku);
+    fs::copy(polku, &kopio)?;
+    virheloki::kirjaa(&format!(
+        "{}: {syy}, kopio talteen: {}",
+        polku.display(),
+        kopio.display()
+    ));
+    Ok(Tallennus::default())
+}
+
+/// Kopion nimessä on aika, joten myöhempi kopio ei korvaa aiempaa.
+fn talteen_polku(polku: &Path) -> PathBuf {
+    let aika = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |aika| aika.as_secs());
+    polku.with_extension(format!("{aika}.bak"))
 }
 
 /// Kirjoittaa ensin väliaikaiseen tiedostoon, jottei keskeytynyt kirjoitus tuhoa tallennusta.

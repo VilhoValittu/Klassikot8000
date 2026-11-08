@@ -150,12 +150,14 @@ const RYHMIEN_VALI: i32 = 40;
 const YLOS: &str = "^";
 const ALAS: &str = "v";
 const VALI: &str = "valikko.vali";
+const LOPETA: &str = "valikko.lopeta";
+const LOPETA_UUDELLEEN: &str = "valikko.lopeta_uudelleen";
 const OHJEET: [(&[&str], &str); 5] = [
     (&[YLOS, ALAS, "1-0"], "valikko.valitse"),
     (&[VALI], PELAA),
     (&["M"], "valikko.aanet"),
     (&["L"], "valikko.kieli"),
-    (&["ESC"], "valikko.lopeta"),
+    (&["ESC"], LOPETA),
 ];
 
 // Pelien pikselikuvakkeet 12x12. Kirjain on väri, piste läpinäkyvä.
@@ -286,6 +288,16 @@ fn pieni_leveys(teksti: &str) -> i32 {
     teksti.chars().count() as i32 * PIENI_MERKKI
 }
 
+/// Ohjeen selite ja sen väri. Ensimmäisen Esc-painalluksen jälkeen lopetuksen selite kertoo
+/// keltaisella, että toinen painallus sulkee ohjelman.
+fn ohjeen_selite(selite: &str, kysyy_lopetusta: bool) -> (&'static str, u32) {
+    if kysyy_lopetusta && selite == LOPETA {
+        (kaanna(LOPETA_UUDELLEEN), KELTAINEN)
+    } else {
+        (kaanna(selite), LAVENTELI)
+    }
+}
+
 fn nappaimen_leveys(nimi: &str) -> i32 {
     match nimi {
         YLOS | ALAS => NAPPAIN,
@@ -403,7 +415,7 @@ impl Piirtaja<'_> {
         let (netista, parhaat) = kaynnistin.valitun_parhaat();
         let laji = kaynnistin.valikon_listan_laji();
         self.listalaatikko(netista, laji, parhaat, kaynnistin.valitun_oma_paras());
-        self.ohjepalkki();
+        self.ohjepalkki(kaynnistin.kysyy_lopetusta());
     }
 
     /// `ika` on aika valinnan vaihtumisesta: uusi malli kasvaa täyteen kokoonsa.
@@ -661,7 +673,7 @@ impl Piirtaja<'_> {
     }
 
     /// Näppäimet kuvina selitteineen ja versio oikeassa laidassa.
-    fn ohjepalkki(&mut self) {
+    fn ohjepalkki(&mut self, kysyy_lopetusta: bool) {
         let korkeus = RUUDUN_KORKEUS as i32 - ALAPALKKI_Y;
         self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, korkeus, PALKKI);
         self.k.laatikko(0, ALAPALKKI_Y, RUUTU_L, P, TAUSTA);
@@ -672,8 +684,8 @@ impl Piirtaja<'_> {
                 x += nappaimen_leveys(nimi) + NAPPAINTEN_VALI;
             }
             x += SELITTEEN_VALI - NAPPAINTEN_VALI;
-            let selite = kaanna(selite);
-            self.pieni(x, OHJE_TEKSTI_Y, selite, LAVENTELI);
+            let (selite, vari) = ohjeen_selite(selite, kysyy_lopetusta);
+            self.pieni(x, OHJE_TEKSTI_Y, selite, vari);
             x += pieni_leveys(selite) + RYHMIEN_VALI;
         }
         let versio = muotoile("valikko.versio", &[&VERSIO]);

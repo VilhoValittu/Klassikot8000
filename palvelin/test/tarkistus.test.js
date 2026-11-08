@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   allekirjoitus_kelpaa,
+  lue_runko,
   lue_tulos,
   PELIT,
   SUURIN_RUNKO,
@@ -53,6 +54,35 @@ test("liian pitkä runko hylätään, mutta pisin kelvollinen rivi mahtuu", () =
   assert.ok(new TextEncoder().encode(pisin).length <= SUURIN_RUNKO);
   assert.deepEqual(lue_tulos(pisin, 1e9), { pisteet: 999999999, nimi: "ÄÄÄÄÄÄÄÄ" });
   assert.equal(lue_tulos(`12 A${" ".repeat(SUURIN_RUNKO)}`, 1000), null);
+});
+
+/// Runko paloina, kuten ilman content-lengthiä lähetetyssä pyynnössä.
+function paloina(...palat) {
+  return new ReadableStream({
+    start(ohjain) {
+      for (const pala of palat) {
+        ohjain.enqueue(new TextEncoder().encode(pala));
+      }
+      ohjain.close();
+    },
+  });
+}
+
+test("runko luetaan paloista rajaan asti", async () => {
+  assert.equal(await lue_runko(paloina("120 ", "VÄINÖ7")), "120 VÄINÖ7");
+  assert.equal(await lue_runko(paloina("1".repeat(SUURIN_RUNKO))), "1".repeat(SUURIN_RUNKO));
+  assert.equal(await lue_runko(null), "");
+});
+
+test("rajan ylittävä runko hylätään lukematta loppuun", async () => {
+  assert.equal(await lue_runko(paloina("1".repeat(SUURIN_RUNKO), "1")), null);
+  // Loputon virta: lukeminen pysähtyy rajaan eikä jää odottamaan loppua.
+  const loputon = new ReadableStream({
+    pull(ohjain) {
+      ohjain.enqueue(new Uint8Array(16));
+    },
+  });
+  assert.equal(await lue_runko(loputon), null);
 });
 
 // Sama avain ja allekirjoitus ovat pelin testissä (kaynnistin/allekirjoitus.rs).

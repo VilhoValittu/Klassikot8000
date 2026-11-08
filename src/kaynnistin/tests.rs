@@ -21,6 +21,11 @@ fn laivanupotus(k: &Kaynnistin) -> &Peli {
     }
 }
 
+/// Tallennus tekstiksi ja takaisin, kuten tiedoston kautta seuraavaan käynnistykseen.
+fn kierratetty(tallennus: &Tallennus) -> Tallennus {
+    Tallennus::tekstista(&tallennus.tekstiksi()).expect("oma tallennus kelpaa")
+}
+
 fn luvut(k: &mut Kaynnistin) -> &mut Luvut {
     match &mut k.peli {
         Some(Kaynnissa::Luvut(peli)) => peli,
@@ -41,8 +46,45 @@ fn valikko_kaynnistaa_pelin_ja_esc_palaa_valikkoon() {
     assert!(k.hiljenna);
     assert!(!k.lopeta);
 
+    // Valikossa ensimmäinen Esc vain kysyy, toinen lopettaa.
+    k.kasittele(Syote::Peru);
+    assert!(!k.lopeta);
+    assert!(k.kysyy_lopetusta());
     k.kasittele(Syote::Peru);
     assert!(k.lopeta);
+}
+
+#[test]
+fn lopetuksen_kysymys_raukeaa_muusta_painalluksesta_ja_ajan_kuluessa() {
+    let mut k = Kaynnistin::new(1);
+    k.kasittele(Syote::Peru);
+    // Hiiren liike ei ole vastaus.
+    k.kasittele(Syote::Hiiri(5, 5));
+    assert!(k.kysyy_lopetusta());
+    k.kasittele(Syote::Nuoli(1, 0));
+    assert!(!k.kysyy_lopetusta());
+    k.kasittele(Syote::Peru);
+    assert!(!k.lopeta);
+
+    k.edista(LOPETUKSEN_VAHVISTUS_MS - 1);
+    assert!(k.kysyy_lopetusta());
+    k.edista(1);
+    assert!(!k.kysyy_lopetusta());
+    k.kasittele(Syote::Peru);
+    assert!(!k.lopeta);
+    k.kasittele(Syote::Peru);
+    assert!(k.lopeta);
+}
+
+#[test]
+fn lopetuksen_kysymys_muuttaa_valikon_kuvaa() {
+    let mut k = Kaynnistin::new(1);
+    let ennen = k.kuvan_avain(false);
+    k.kasittele(Syote::Peru);
+    let kysyy = k.kuvan_avain(false);
+    assert_ne!(ennen, kysyy);
+    k.edista(LOPETUKSEN_VAHVISTUS_MS);
+    assert_ne!(k.kuvan_avain(false), kysyy);
 }
 
 #[test]
@@ -462,7 +504,7 @@ fn tarkista_korttipelin_tulos(k: &mut Kaynnistin, peli: Nettipeli, pisteet: u32)
     assert!(k.tallenna);
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(uusi.pyynnot, [Pyynto::Laheta(peli, tulos.clone())]);
     uusi.vastaanota(Vastaus::Lahetetty(peli, tulos.clone()));
     let lista = uusi.tallennus.lista(peli);
@@ -675,7 +717,7 @@ fn palikan_tulos_tallentuu_jonottaa_ja_palautuu() {
     );
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(
         uusi.pyynnot,
         [Pyynto::Laheta(Nettipeli::Palikka, tulos.clone())]
@@ -739,7 +781,7 @@ fn miinaharavan_taso_ja_ennatys_sailyvat() {
     tarkista_korttipelin_tulos(&mut k, Nettipeli::Miinaharava, pisteet);
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     uusi.kaynnista(Laji::Miinaharava);
     let Some(Kaynnissa::Miinaharava(peli)) = &uusi.peli else {
         panic!("miinaharava ei ole käynnissä");
@@ -784,7 +826,7 @@ fn silmukan_tulos_tallentuu_jonottaa_ja_palautuu() {
     );
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(
         uusi.pyynnot,
         [Pyynto::Laheta(Nettipeli::Silmukka, tulos.clone())]
@@ -838,7 +880,7 @@ fn asteroidien_tulos_tallentuu_jonottaa_ja_palautuu() {
     );
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(
         uusi.pyynnot,
         [Pyynto::Laheta(Nettipeli::Asteroidit, tulos.clone())]
@@ -883,7 +925,7 @@ fn tiilirikon_ennatys_tallentuu_pelin_paattyessa_ja_palautuu() {
     assert_eq!(k.tallennus.lista(Nettipeli::Tiilirikko).paras, 70);
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     uusi.kaynnista(Laji::Tiilirikko);
     let Some(Kaynnissa::Tiilirikko(peli)) = &uusi.peli else {
         panic!("tiilirikko ei ole käynnissä");
@@ -919,7 +961,7 @@ fn tiilirikon_top3_tallentuu_nimen_jalkeen_ja_sulkiessa_ja_palautuu() {
     );
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     uusi.kaynnista(Laji::Tiilirikko);
     let Some(Kaynnissa::Tiilirikko(peli)) = &uusi.peli else {
         panic!("tiilirikko ei ole käynnissä");
@@ -970,7 +1012,7 @@ fn nettitulos_jonottaa_tiedostossa_kunnes_lahetys_on_kuitattu() {
 
     // lähetys ei ehtinyt perille: seuraava käynnistys yrittää uudelleen
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(
         uusi.pyynnot,
         [Pyynto::Laheta(Nettipeli::Tiilirikko, tulos.clone())]
@@ -1019,7 +1061,7 @@ fn luvut_ja_tiilirikko_pitavat_nettilistansa_ja_jononsa_erillaan() {
 
     // lähetys ei ehtinyt perille: seuraava käynnistys yrittää uudelleen
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(
         uusi.pyynnot,
         [Pyynto::Laheta(Nettipeli::Luvut, odotettu.clone())]
@@ -1104,7 +1146,7 @@ fn tasot_laji_ja_valinta_sailyvat_uudelleenkaynnistyksen_yli() {
 
     // sama kuin ohjelman uudelleenkäynnistys: tila kulkee tekstin kautta
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(uusi.valittu, 2);
     uusi.kaynnista(Laji::Laivanupotus);
     assert_eq!(laivanupotus(&uusi).vaikeus, Vaikeus::Helppo);
@@ -1153,7 +1195,7 @@ fn laivanupotuksen_tilasto_tallentuu_ja_palautuu() {
     tarkista_korttipelin_tulos(&mut k, Nettipeli::Laivanupotus, pisteet);
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(uusi.valitun_oma_paras(), Some(pisteet));
     uusi.kaynnista(Laji::Laivanupotus);
     assert_eq!(laivanupotus(&uusi).tilastot[1], odotettu);
@@ -1239,7 +1281,7 @@ fn pasianssin_lajien_ennatykset_tallentuvat_ja_valikko_nimeaa_lajin() {
     assert_eq!(k.valitun_oma_paras(), Some(77));
 
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     uusi.kaynnista(Laji::Pasianssi);
     let Some(Kaynnissa::Pasianssi(peli)) = &uusi.peli else {
         panic!("pasianssi ei ole käynnissä");
@@ -1334,7 +1376,7 @@ fn keskenerainen_2048_palautuu_valikon_kautta_ja_tiedoston_tilasta() {
 
     // sama kuin ohjelman uudelleenkäynnistys: tila kulkee tekstin kautta
     let mut uusi = Kaynnistin::new(2);
-    uusi.tallennus = Tallennus::tekstista(&k.tallennus.tekstiksi());
+    uusi.tallennus = kierratetty(&k.tallennus);
     uusi.kaynnista(Laji::Luvut);
     assert!(luvut(&mut uusi).jatkuu);
     uusi.kasittele(Syote::Ammu);
@@ -1356,7 +1398,7 @@ fn aanivalinta_tallentuu_heti_ja_palautuu_tiedoston_tilasta() {
 
     // sama kuin ohjelman uudelleenkäynnistys: tila kulkee tekstin kautta
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert!(!uusi.aanet_paalla);
     uusi.kaynnista(Laji::Laivanupotus);
     assert!(!laivanupotus(&uusi).aanet.paalla);
@@ -1379,7 +1421,7 @@ fn kieli_vaihtuu_valikossa_tallentuu_ja_palautuu() {
     // sama kuin ohjelman uudelleenkäynnistys: tila kulkee tekstin kautta
     kieli::aseta(kieli::Kieli::Suomi);
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     assert_eq!(uusi.otsikko(), "Game Machine");
 
     let (x, y) = piirto::kielikytkimen_keskipiste();
@@ -1412,7 +1454,7 @@ fn top3_tallentuu_heti_ja_palautuu_tiedoston_tilasta() {
 
     // sama kuin ohjelman uudelleenkäynnistys: tila kulkee tekstin kautta
     let mut uusi = Kaynnistin::new(2);
-    uusi.lataa(Tallennus::tekstista(&k.tallennus.tekstiksi()));
+    uusi.lataa(kierratetty(&k.tallennus));
     uusi.kaynnista(Laji::Luvut);
     assert_eq!(luvut(&mut uusi).taulu.parhaat[0].nimi, "Ö");
     assert_eq!(luvut(&mut uusi).taulu.parhaat[0].pisteet, 4);
