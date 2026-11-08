@@ -3,6 +3,7 @@
 # nosta-versio.sh nostaa sen, vie noston mainiin ja siirtää tagin siihen.
 # Ajetaan minipc:n runnerilla, jolla tulosavain on (.github/runner/compose.yaml).
 # Varalla toimii edelleen paikallinen paketoi.ps1 -Julkaise.
+# Testejä ei ajeta: ne on ajettu jo ennakkoon (tarkistukset.yml jokaisesta mainin muutoksesta).
 name: Julkaisu
 
 on:
@@ -33,13 +34,10 @@ jobs:
           fetch-depth: 0
 
       - name: Rust
-        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal -c clippy,rustfmt -t x86_64-pc-windows-msvc
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal -t x86_64-pc-windows-msvc
 
       - name: Versio tagin mukaiseksi
         run: bash .github/scripts/nosta-versio.sh "$GITHUB_REF_NAME"
-
-      - name: Testit
-        run: cargo test --locked
 
       - name: Paketti
         run: bash .github/scripts/paketoi.sh --avain /run/salaisuudet/tulosavain
