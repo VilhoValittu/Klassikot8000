@@ -163,10 +163,11 @@ fn pimeassa_laiva_pitaa_suuntansa_ja_valossa_kaantyy_satamaan() {
 fn sataman_lahella_laiva_loytaa_perille_pimeassakin() {
     let (mut meri, mut arpa) = tyyni(Vaikeus::Vaikea);
     meri.keila.kantama = 0.0;
-    // Kummaltakin puolelta suuta suoraan kohti rantaa.
+    // Kummaltakin puolelta suuta vinosti ja suoraan edestä, luotsin säteen sisältä kohti rantaa.
+    let vino = (LUOTSIN_SADE - 5.0) / 2.0_f32.sqrt();
     for (laji, paikka) in [
-        (Laji::Vene, (SATAMA.0 - 80.0, SATAMA.1 - 60.0)),
-        (Laji::Rahtilaiva, (SATAMA.0 + 70.0, SATAMA.1 - 75.0)),
+        (Laji::Vene, (SATAMA.0 - vino, SATAMA.1 - vino)),
+        (Laji::Rahtilaiva, (SATAMA.0 + vino, SATAMA.1 - vino)),
         (Laji::Kalastaja, (SATAMA.0, SATAMA.1 - LUOTSIN_SADE + 5.0)),
     ] {
         assert!(lahella_satamaa(paikka));
