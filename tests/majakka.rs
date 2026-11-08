@@ -2,10 +2,11 @@ use std::f32::consts::PI;
 
 use klassikot8000::Arpa;
 use klassikot8000::majakka::{
-    AAMUN_TAUKO_MS, ASKEL_MS, ENITEN_KARIKOITA, KEILAN_KULMAT, KIINNIOTTO_MS, Kari, LEVEYS, Laiva,
-    Laji, MAJAKKA, Meri, Ohjaus, RENKAITA, SATAMA, SUURIN_PISTEMAARA, TORVEN_HIDASTUS,
-    TORVEN_KESTO_MS, TULO_LOPPUU_MS, Tapahtuma, ULAPPA, VAYLA, Vaikeus, Vuorokausi, YON_KESTO_MS,
-    etaisyys, karikko_kelpaa, karikot, ranta_y, suulla, suunta_majakalta,
+    AAMUN_TAUKO_MS, ASKEL_MS, ENITEN_KARIKOITA, KEILAN_KULMAT, KIINNIOTTO_MS, Kari, LEVEYS,
+    LUOTSIN_SADE, Laiva, Laji, MAJAKKA, Meri, Ohjaus, RENKAITA, SATAMA, SUURIN_PISTEMAARA,
+    TORVEN_HIDASTUS, TORVEN_KESTO_MS, TULO_LOPPUU_MS, Tapahtuma, ULAPPA, VAYLA, Vaikeus,
+    Vuorokausi, YON_KESTO_MS, etaisyys, karikko_kelpaa, karikot, lahella_satamaa, ranta_y, suulla,
+    suunta_majakalta,
 };
 
 /// Tyhjä, tyyni meri ilman uusia laivoja: testi päättää itse, mitä merellä on. Yö on niin
@@ -89,12 +90,24 @@ fn keila_kaantyy_rajatulla_nopeudella_ja_pysyy_merella() {
         aja(&mut meri, &mut arpa, 5000, Ohjaus { kaanto: 0, tahtain });
         assert!((meri.keila.kulma + 2.0).abs() < 0.001);
     }
-    assert_eq!(suunta_majakalta((0.0, MAJAKKA.1 + 30.0)), KEILAN_KULMAT.0);
+    assert_eq!(suunta_majakalta((0.0, MAJAKKA.1 + 300.0)), KEILAN_KULMAT.0);
     assert_eq!(
-        suunta_majakalta((LEVEYS, MAJAKKA.1 + 30.0)),
+        suunta_majakalta((LEVEYS, MAJAKKA.1 + 300.0)),
         KEILAN_KULMAT.1
     );
     assert!((suunta_majakalta((MAJAKKA.0, 0.0)) + PI / 2.0).abs() < 0.001);
+}
+
+#[test]
+fn keila_ylettyy_rannan_ja_satamansuun_laivoihin() {
+    let (mut meri, _) = tyyni(Vaikeus::Vaikea);
+    let rannalla = |x: f32| (x, ranta_y(x) - 10.0);
+    let suulla = [SATAMA.0 - 30.0, SATAMA.0, SATAMA.0 + 30.0].map(|x| (x, SATAMA.1 - 12.0));
+    let rannat = [20.0, 120.0, 220.0, 420.0, 520.0, 640.0].map(rannalla);
+    for p in suulla.into_iter().chain(rannat) {
+        meri.keila.kulma = suunta_majakalta(p);
+        assert!(meri.keila.valaisee(p, Laji::Vene.sade()), "{p:?}");
+    }
 }
 
 #[test]
@@ -144,6 +157,34 @@ fn pimeassa_laiva_pitaa_suuntansa_ja_valossa_kaantyy_satamaan() {
     assert!(meri.laivat[0].tietaa());
     aja(&mut meri, &mut arpa, 200, Ohjaus::default());
     assert!(!meri.laivat[0].tietaa());
+}
+
+#[test]
+fn sataman_lahella_laiva_loytaa_perille_pimeassakin() {
+    let (mut meri, mut arpa) = tyyni(Vaikeus::Vaikea);
+    meri.keila.kantama = 0.0;
+    // Kummaltakin puolelta suuta suoraan kohti rantaa.
+    for (laji, paikka) in [
+        (Laji::Vene, (SATAMA.0 - 80.0, SATAMA.1 - 60.0)),
+        (Laji::Rahtilaiva, (SATAMA.0 + 70.0, SATAMA.1 - 75.0)),
+        (Laji::Kalastaja, (SATAMA.0, SATAMA.1 - LUOTSIN_SADE + 5.0)),
+    ] {
+        assert!(lahella_satamaa(paikka));
+        meri.aika_ms = TULO_LOPPUU_MS;
+        meri.laivat = vec![Laiva::uusi(laji, paikka, PI / 2.0)];
+        assert!(meri.laivat[0].tietaa() && !meri.laivat[0].valaistu);
+        let mut tapahtumat = aja(&mut meri, &mut arpa, 12_000, Ohjaus::default());
+        assert_eq!(meri.vuorokausi, Vuorokausi::Yo);
+        tapahtumat.retain(|t| *t != Tapahtuma::Puuska);
+        assert!(
+            matches!(tapahtumat[..], [Tapahtuma::Satamassa { laji: l, .. }] if l == laji),
+            "{laji:?}: {tapahtumat:?}"
+        );
+    }
+    // Kauempana pimeässä ei ole luotsia.
+    let kaukana = (SATAMA.0 - 200.0, SATAMA.1 - 60.0);
+    assert!(!lahella_satamaa(kaukana));
+    assert!(!Laiva::uusi(Laji::Vene, kaukana, PI / 2.0).tietaa());
 }
 
 #[test]

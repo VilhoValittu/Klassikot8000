@@ -4,7 +4,8 @@
 //!
 //! Laivat tulevat pimeästä kohti satamaa. Pimeässä laiva pitää suuntansa, ja virta ja tuuli
 //! siirtävät sitä. Keilan valaisema kapteeni näkee karikot, kiertää ne ja kääntyy satamaan, ja
-//! muistaa näkemänsä vielä hetken.
+//! muistaa näkemänsä vielä hetken. Sataman lähellä kapteeni tuntee vedet ja löytää perille
+//! pimeässäkin.
 
 use std::f32::consts::{PI, TAU};
 
@@ -34,8 +35,12 @@ pub const SATAMA: Piste = (300.0, 500.0);
 pub const SUUN_PUOLIKAS: f32 = 42.0;
 /// Laivat ohjaavat ensin suun eteen ja sieltä suoraan sisään, jottei ranta jää tielle.
 pub const ULAPPA: Piste = (300.0, 425.0);
-/// Keila kääntyy merelle, ei maalle.
-pub const KEILAN_KULMAT: (f32, f32) = (-PI + 0.12, -0.12);
+/// Keila laskeutuu näin paljon vaakatason alle, jotta rannan ja satamansuun laivat saa valoon.
+const KEILAN_LASKU: f32 = 0.45;
+/// Keila kääntyy merelle ja rantaan, ei maalle majakan taakse.
+pub const KEILAN_KULMAT: (f32, f32) = (-PI - KEILAN_LASKU, KEILAN_LASKU);
+/// Näin lähellä satamansuuta kapteeni tuntee vedet ja ohjaa perille ilman valoakin.
+pub const LUOTSIN_SADE: f32 = 30.0;
 pub const TORVEN_KESTO_MS: u32 = 3500;
 pub const TORVEN_HIDASTUS: f32 = 0.35;
 /// Salakuljettaja jää kiinni, kun se on ollut keilassa yhteensä näin kauan.
@@ -94,19 +99,18 @@ pub fn suulla(x: f32) -> bool {
     (x - SATAMA.0).abs() < SUUN_PUOLIKAS
 }
 
-/// Suunta majakalta pisteeseen keilan sallimissa rajoissa. Majakan alapuolella keila jää
-/// lähemmän reunan puolelle.
+/// Suunta majakalta pisteeseen keilan sallimissa rajoissa. Vasemmalla alhaalla kulma jatkuu
+/// -π:n ohi, jotta keilan kulma-alue on yhtenäinen, ja suoraan alapuolella keila jää lähemmän
+/// reunan puolelle.
 pub fn suunta_majakalta(p: Piste) -> f32 {
     let kulma = (p.1 - MAJAKKA.1).atan2(p.0 - MAJAKKA.0);
-    if kulma > 0.0 {
-        if kulma > PI / 2.0 {
-            KEILAN_KULMAT.0
-        } else {
-            KEILAN_KULMAT.1
-        }
-    } else {
-        kulma.clamp(KEILAN_KULMAT.0, KEILAN_KULMAT.1)
-    }
+    let kulma = if kulma > PI / 2.0 { kulma - TAU } else { kulma };
+    kulma.clamp(KEILAN_KULMAT.0, KEILAN_KULMAT.1)
+}
+
+/// Onko piste niin lähellä satamaa, että kapteeni löytää perille pimeässäkin.
+pub fn lahella_satamaa(p: Piste) -> bool {
+    etaisyys(p, SATAMA) < LUOTSIN_SADE
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -307,9 +311,10 @@ impl Laiva {
         }
     }
 
-    /// Kapteeni tietää karikot: salakuljettaja aina, muut keilan muistin varassa.
+    /// Kapteeni tietää karikot: salakuljettaja aina, muut keilan muistin varassa tai sataman
+    /// lähellä.
     pub fn tietaa(&self) -> bool {
-        self.laji == Laji::Salakuljettaja || self.opastus_ms > 0
+        self.laji == Laji::Salakuljettaja || self.opastus_ms > 0 || lahella_satamaa(self.paikka)
     }
 
     /// Satamaan pyrkivän laivan seuraava välietappi.
