@@ -164,11 +164,33 @@ fn versio_luetaan_uudelleenohjauksesta_jota_ei_seurata() {
 
 #[test]
 fn palvelinvirhe_ei_kuittaa_tulosta_lahetetyksi() {
-    let (osoite, saie) = palvelin(vec![http("500 Oops", "")]);
+    // 429 tulee palvelimen rajoittimesta: tulos kelpaa myöhemmin, joten sitä ei saa pudottaa.
+    let (osoite, saie) = palvelin(vec![
+        http("500 Oops", ""),
+        http("429 Too Many Requests", "liian monta tulosta\n"),
+    ]);
+    let agentti = Agent::new_with_defaults();
+    for _ in 0..2 {
+        let pyynto = Pyynto::Laheta(Nettipeli::Luvut, tulos("A", 1));
+        assert_eq!(
+            kasittele(&agentti, &osoite, Some(&TESTIAVAIN), pyynto),
+            [Vastaus::Epaonnistui]
+        );
+    }
+    saie.join().unwrap();
+}
+
+#[test]
+fn yhteysvirhe_lahetyksessa_kertoo_epaonnistumisesta() {
+    let kuuntelija = TcpListener::bind("127.0.0.1:0").unwrap();
+    let osoite = format!("http://{}", kuuntelija.local_addr().unwrap());
+    drop(kuuntelija);
     let agentti = Agent::new_with_defaults();
     let pyynto = Pyynto::Laheta(Nettipeli::Luvut, tulos("A", 1));
-    assert!(kasittele(&agentti, &osoite, Some(&TESTIAVAIN), pyynto).is_empty());
-    saie.join().unwrap();
+    assert_eq!(
+        kasittele(&agentti, &osoite, Some(&TESTIAVAIN), pyynto),
+        [Vastaus::Epaonnistui]
+    );
 }
 
 #[test]

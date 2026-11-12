@@ -7,6 +7,9 @@ ARG RUNNER_VERSION=2.338.2
 ARG RUNNER_SHA256=baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40
 ARG XWIN_VERSION=0.23.1
 ARG XWIN_SHA256=c492c6dfb7e5ac0eee586b796e0fc950ba13077e7f0bbb046f445d71790d5360
+# Palvelimen testit (palvelin/test) tarvitsevat Noden oman SQLiten, jota Debianin paketissa ei ole.
+ARG NODE_VERSION=24.15.0
+ARG NODE_SHA256=44836872d9aec49f1e6b52a9a922872db9a2b02d235a616a5681b6a85fec8d89
 # Sama kuin minipc:n käyttäjän, jotta vain luettavaksi liitetty tulosavain aukeaa kontissa.
 ARG UID=1000
 
@@ -27,6 +30,13 @@ RUN curl -fsSL -o /tmp/xwin.tgz \
     && echo "${XWIN_SHA256}  /tmp/xwin.tgz" | sha256sum -c - \
     && tar -xzf /tmp/xwin.tgz -C /usr/local/bin cargo-xwin \
     && rm /tmp/xwin.tgz
+
+RUN curl -fsSL -o /tmp/node.tgz \
+        "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" \
+    && echo "${NODE_SHA256}  /tmp/node.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/node.tgz -C /usr/local --strip-components=1 \
+        "node-v${NODE_VERSION}-linux-x64/bin/node" \
+    && rm /tmp/node.tgz
 
 RUN useradd -m -u "${UID}" runner
 USER runner

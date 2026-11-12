@@ -1534,3 +1534,54 @@ fn kaivo_saa_pohjassa_olevat_nuolet_ilman_hiiren_oikeaa_nappia() {
     };
     assert!(peli.kaivos.kaivaja.paikka.0 > klassikot8000::kaivo::ALKU.0 + 1);
 }
+
+#[test]
+fn epaonnistunut_lahetys_yritetaan_uudelleen_viiveen_jalkeen() {
+    let tulos = |nimi: &str, pisteet| Tulos {
+        nimi: nimi.to_string(),
+        pisteet,
+    };
+    let mut tallennus = Tallennus::default();
+    tallennus
+        .lista_mut(Nettipeli::Luvut)
+        .jono
+        .push(tulos("A", 5));
+    tallennus
+        .lista_mut(Nettipeli::Kaivo)
+        .jono
+        .push(tulos("B", 7));
+    let mut k = Kaynnistin::new(1);
+    k.lataa(tallennus);
+    let jono = [
+        Pyynto::Laheta(Nettipeli::Luvut, tulos("A", 5)),
+        Pyynto::Laheta(Nettipeli::Kaivo, tulos("B", 7)),
+    ];
+    assert_eq!(k.pyynnot, jono);
+    k.pyynnot.clear();
+
+    // Ilman epäonnistumista mitään ei lähetetä uudelleen.
+    k.edista(UUSINTA_VIIVE_MS * 2);
+    assert!(!k.pyynnot.iter().any(|p| matches!(p, Pyynto::Laheta(..))));
+    k.pyynnot.clear();
+
+    // Toinen epäonnistuminen siirtää uusintaa: viive lasketaan erän viimeisestä.
+    k.vastaanota(Vastaus::Epaonnistui);
+    k.edista(UUSINTA_VIIVE_MS - 1);
+    k.vastaanota(Vastaus::Epaonnistui);
+    k.edista(UUSINTA_VIIVE_MS - 1);
+    assert!(k.pyynnot.is_empty());
+    k.edista(1);
+    assert_eq!(k.pyynnot, jono);
+    k.pyynnot.clear();
+
+    // Perille päässyt tulos poistuu jonosta, joten seuraava uusinta lähettää vain loput.
+    k.vastaanota(Vastaus::Lahetetty(Nettipeli::Luvut, tulos("A", 5)));
+    k.vastaanota(Vastaus::Epaonnistui);
+    k.edista(UUSINTA_VIIVE_MS);
+    assert_eq!(k.pyynnot, jono[1..]);
+    k.pyynnot.clear();
+
+    // Uusinta tehdään kerran: seuraava vaatii uuden epäonnistumisen.
+    k.edista(UUSINTA_VIIVE_MS * 2);
+    assert!(k.pyynnot.is_empty());
+}

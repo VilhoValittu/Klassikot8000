@@ -1,5 +1,6 @@
 //! Nettilistan pyynnöt omassa säikeessään, jottei hidas yhteys nyki peliä. Epäonnistunut
-//! pyyntö ei näy pelaajalle: lista pysyy ennallaan ja tulos jää jonoon seuraavaa käynnistystä varten.
+//! pyyntö ei näy pelaajalle: lista pysyy ennallaan ja tulos jää jonoon. Käynnistin yrittää jonoa
+//! uudelleen hetken päästä ja viimeistään seuraavassa käynnistyksessä.
 //! Sama säie katsoo käynnistyksessä, onko GitHubissa uudempi julkaisu.
 
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -53,6 +54,8 @@ pub enum Vastaus {
     Lista(Nettipeli, Vec<Tulos>),
     /// Tulos on käsitelty, eikä sitä tarvitse lähettää uudelleen.
     Lahetetty(Nettipeli, Tulos),
+    /// Tulos ei päässyt perille tai palvelin ei ottanut sitä nyt vastaan. Se on yhä jonossa.
+    Epaonnistui,
     /// Julkaistu versio on uudempi kuin tämä ohjelma.
     UusiVersio(String),
 }
@@ -137,7 +140,7 @@ fn kasittele(agentti: &Agent, osoite: &str, avain: Option<&Avain>, pyynto: Pyynt
                     Some(lista) => {
                         vec![Vastaus::Lista(peli, lista), Vastaus::Lahetetty(peli, tulos)]
                     }
-                    None => Vec::new(),
+                    None => vec![Vastaus::Epaonnistui],
                 },
             }
         }

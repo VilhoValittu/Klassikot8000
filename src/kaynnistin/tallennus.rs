@@ -374,6 +374,44 @@ pub fn oletuspolku() -> Option<PathBuf> {
     )
 }
 
+/// Tallennuksen lukko. Jokainen ilmentymä lukee tallennuksen käynnistyessään ja kirjoittaa koko
+/// tilansa, joten kaksi yhtäaikaista hävittäisi toistensa ennätykset.
+#[cfg(any(test, not(debug_assertions)))]
+#[derive(Debug)]
+pub enum Lukitus {
+    /// Lukko pysyy niin kauan kuin tiedosto on auki, ja käyttöjärjestelmä vapauttaa sen myös
+    /// kaatuneelta ohjelmalta.
+    Oma(fs::File),
+    /// Toinen ilmentymä on jo käynnissä.
+    Varattu,
+    /// Lukkoa ei saatu tehtyä, esimerkiksi koska kansioon ei voi kirjoittaa.
+    Puuttuu(io::Error),
+}
+
+/// Lukitsee tallennuksen tälle ilmentymälle. Lukko on oma tiedostonsa tallennuksen vieressä,
+/// koska tallennus itse korvataan jokaisella kirjoituksella uudella tiedostolla.
+#[cfg(any(test, not(debug_assertions)))]
+pub fn lukitse(polku: &Path) -> Lukitus {
+    let avaa = || {
+        if let Some(kansio) = polku.parent() {
+            fs::create_dir_all(kansio)?;
+        }
+        fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(polku.with_extension("lukko"))
+    };
+    match avaa() {
+        Ok(tiedosto) => match tiedosto.try_lock() {
+            Ok(()) => Lukitus::Oma(tiedosto),
+            Err(fs::TryLockError::WouldBlock) => Lukitus::Varattu,
+            Err(fs::TryLockError::Error(virhe)) => Lukitus::Puuttuu(virhe),
+        },
+        Err(virhe) => Lukitus::Puuttuu(virhe),
+    }
+}
+
 /// Lukee tallennuksen. Puuttuva tiedosto antaa tyhjän tallennuksen. Tyhjä tallennus kirjoitetaan
 /// myöhemmin tiedoston päälle, joten kelvoton tai lukukelvoton tiedosto kopioidaan ensin talteen
 /// omalla nimellään, jottei ennätyksiä menetetä. Virhe kertoo, ettei kopiokaan onnistunut:

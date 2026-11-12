@@ -21,6 +21,8 @@ use tinyaudio::{OutputDevice, OutputDeviceParameters, run_output_device};
 use kaynnistin::netti::Pyynto;
 use kaynnistin::netti::{JULKAISUSIVU, Netti};
 use kaynnistin::tallennus;
+#[cfg(not(debug_assertions))]
+use kaynnistin::tallennus::Lukitus;
 use kaynnistin::{Kaynnistin, piirto};
 use yhteinen::aanet::{Mikseri, NAYTETAAJUUS};
 use yhteinen::kieli;
@@ -389,10 +391,26 @@ fn main() -> ExitCode {
         kehitys::Alku::Valmis(koodi) => return koodi,
     };
     #[cfg(not(debug_assertions))]
-    let (kaynnistin, polku, netti) = {
-        let mut kaynnistin = Kaynnistin::new(aikasiemen());
-        let polku = tallennus::oletuspolku().and_then(|polku| {
+    let (kaynnistin, polku, netti, _lukko) = {
+        let polku = tallennus::oletuspolku();
+        if let Some(polku) = &polku {
             virheloki::ota_kayttoon(polku.with_file_name("virheet.txt"));
+        }
+        // Lukko pidetään ohjelman loppuun asti.
+        let lukko = match polku.as_deref().map(tallennus::lukitse) {
+            // Peli on jo auki toisessa ikkunassa, ja kaksi ilmentymää kirjoittaisi toistensa
+            // tallennuksen yli.
+            Some(Lukitus::Varattu) => return ExitCode::SUCCESS,
+            Some(Lukitus::Oma(lukko)) => Some(lukko),
+            // Ilman lukkoa pelataan kuten ennenkin.
+            Some(Lukitus::Puuttuu(virhe)) => {
+                virheloki::kirjaa(&format!("tallennuksen lukko: {virhe}"));
+                None
+            }
+            None => None,
+        };
+        let mut kaynnistin = Kaynnistin::new(aikasiemen());
+        let polku = polku.and_then(|polku| {
             match tallennus::lue_tiedosto(&polku) {
                 Ok(tallennus) => {
                     kaynnistin.lataa(tallennus);
@@ -409,7 +427,7 @@ fn main() -> ExitCode {
         if let Some(netti) = &netti {
             netti.laheta(Pyynto::HaeVersio(kaynnistin::netti::JULKAISUT.to_string()));
         }
-        (kaynnistin, polku, netti)
+        (kaynnistin, polku, netti, lukko)
     };
 
     match pelisilmukka(kaynnistin, &mut kehys, polku.as_deref(), netti) {

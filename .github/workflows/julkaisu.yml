@@ -1,9 +1,11 @@
 # Tekee GitHub-julkaisun, kun versiotagi (v1.2.3) viedään GitHubiin: riittää git tag v1.2.3 ja
 # git push origin v1.2.3 mainin kärjestä, tai julkaise.ps1. Jos versiota ei ole nostettu,
-# nosta-versio.sh nostaa sen, vie noston mainiin ja siirtää tagin siihen.
+# nosta-versio.sh nostaa sen, vie noston mainiin ja siirtää tagin siihen. Tagin on oltava
+# mainissa ja muotoa v1.2.3: esiversioita ei julkaista.
 # Ajetaan minipc:n runnerilla, jolla tulosavain on (.github/runner/compose.yaml).
 # Varalla toimii edelleen paikallinen paketoi.ps1 -Julkaise.
-# Testejä ei ajeta: ne on ajettu jo ennakkoon (tarkistukset.yml jokaisesta mainin muutoksesta).
+# Testejä ei ajeta: ne on ajettu jo ennakkoon (tarkistukset.yml jokaisesta mainin muutoksesta),
+# ja nosta-versio.sh hylkää tagin, joka ei ole mainissa.
 name: Julkaisu
 
 on:
@@ -48,8 +50,5 @@ jobs:
         run: |
           tagi="$GITHUB_REF_NAME"
           bash .github/scripts/muutokset.sh "$tagi" > "$RUNNER_TEMP/muutokset.md"
-          valinnat=(--verify-tag --title "Klassikot8000 $tagi" --notes-file "$RUNNER_TEMP/muutokset.md")
-          if [[ "$tagi" == *-* ]]; then
-            valinnat+=(--prerelease)
-          fi
-          gh release create "$tagi" "dist/klassikot8000-${tagi#v}-windows-x64.zip" "${valinnat[@]}"
+          gh release create "$tagi" "dist/klassikot8000-${tagi#v}-windows-x64.zip" \
+            --verify-tag --title "Klassikot8000 $tagi" --notes-file "$RUNNER_TEMP/muutokset.md"

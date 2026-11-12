@@ -262,3 +262,32 @@ fn lukukelvotonta_tiedostoa_ei_saa_kirjoittaa_yli() {
     assert!(lue_tiedosto(&polku).is_err());
     fs::remove_dir_all(&kansio).unwrap();
 }
+
+#[test]
+fn tallennuksen_lukon_saa_vain_yksi_kerrallaan() {
+    let kansio = std::env::temp_dir().join(format!("k8000_lukko_{}", std::process::id()));
+    // Kansiota ei vielä ole: lukitus luo sen, kuten ensimmäisellä käynnistyksellä.
+    let polku = kansio.join("uusi").join("tallennus.txt");
+    let Lukitus::Oma(lukko) = lukitse(&polku) else {
+        panic!("vapaa lukko on saatava");
+    };
+    assert!(matches!(lukitse(&polku), Lukitus::Varattu));
+    // Lukko ei estä tallennuksen kirjoittamista eikä lukemista.
+    kirjoita_tiedosto(&polku, &kokonainen()).unwrap();
+    assert_eq!(lue_tiedosto(&polku).unwrap(), kokonainen());
+    drop(lukko);
+    assert!(matches!(lukitse(&polku), Lukitus::Oma(_)));
+    fs::remove_dir_all(&kansio).unwrap();
+}
+
+#[test]
+fn lukko_jota_ei_voi_tehda_ei_ole_varattu() {
+    // Tiedosto kansion paikalla: lukkotiedostoa ei voi luoda millään alustalla.
+    let este = std::env::temp_dir().join(format!("k8000_eilukkoa_{}", std::process::id()));
+    fs::write(&este, "").unwrap();
+    match lukitse(&este.join("tallennus.txt")) {
+        Lukitus::Puuttuu(virhe) => assert!(!virhe.to_string().is_empty()),
+        muu => panic!("lukkoa ei pitänyt syntyä: {muu:?}"),
+    }
+    fs::remove_file(&este).unwrap();
+}

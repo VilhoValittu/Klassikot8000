@@ -2,7 +2,8 @@
 # Nostaa Cargo.toml:n ja Cargo.lock:n version tagin mukaiseksi, kun pelkkä tagi viedään GitHubiin
 # (git tag v1.2.3; git push origin v1.2.3). Tekee saman versionnostocommitin kuin julkaise.ps1,
 # vie sen mainiin ja siirtää tagin siihen, jotta julkaisun lähdekoodi vastaa tagia.
-# Jos versio on jo oikea (julkaise.ps1 teki noston), ei tee mitään.
+# Jos versio on jo oikea (julkaise.ps1 teki noston), tarkistaa vain, että tagi on mainissa:
+# julkaisu ei aja testejä, ja vain mainin commitit on testattu (tarkistukset.yml).
 # Ajo: nosta-versio.sh v1.2.3 (julkaisu.yml, minipc:n runner)
 set -euo pipefail
 
@@ -16,7 +17,12 @@ fi
 uusi="${BASH_REMATCH[1]}"
 nykyinen=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
 
+git fetch -q origin main
 if [[ "$nykyinen" == "$uusi" ]]; then
+    if ! git merge-base --is-ancestor HEAD origin/main; then
+        echo "Tagi $tagi ei ole mainissa. Julkaisu tehdään vain mainin commitista." >&2
+        exit 1
+    fi
     echo "Versio on jo $uusi, nostoa ei tarvita."
     exit 0
 fi
@@ -26,7 +32,6 @@ if [[ "$(printf '%s\n%s\n' "$nykyinen" "$uusi" | sort -V | tail -n 1)" != "$uusi
 fi
 
 # Nosto tehdään mainin kärkeen, kuten julkaise.ps1:ssä. Muuten main ja julkaisu erkanisivat.
-git fetch -q origin main
 if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
     echo "Tagi $tagi ei osoita mainin uusimpaan committiin. Siirrä tagi mainin kärkeen ja vie se uudelleen." >&2
     exit 1

@@ -1,4 +1,5 @@
-# Muotoilu, clippy, testit ja Windows-paketin koekäännös jokaisesta mainiin viedystä muutoksesta.
+# Muotoilu, clippy, testit, palvelimen testit ja Windows-paketin koekäännös jokaisesta mainiin
+# viedystä muutoksesta.
 # Ajetaan minipc:n runnerilla (.github/runner). Pull requesteista ei ajeta: runner on kotiverkossa.
 name: Tarkistukset
 
@@ -45,6 +46,10 @@ jobs:
 
       - name: Testit
         run: cargo test --locked
+
+      # Tiedostot nimetään: pelkkää kansiota node pitäisi testitiedostona.
+      - name: Palvelimen testit
+        run: node --test palvelin/test/tarkistus.test.js palvelin/test/index.test.js
 
       - name: Paketti ilman tulosavainta
         run: bash .github/scripts/paketoi.sh

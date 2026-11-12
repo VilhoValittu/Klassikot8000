@@ -49,6 +49,9 @@ use klassikot8000::{laivanupotus, miinaharava};
 const VALIKON_ASKEL_MS: u32 = 66;
 /// Näin kauan valikko odottaa toista Esc-painallusta ennen kuin unohtaa ensimmäisen.
 const LOPETUKSEN_VAHVISTUS_MS: u32 = 3000;
+/// Näin kauan viimeisestä epäonnistuneesta lähetyksestä jono yritetään uudelleen. Palvelimen
+/// rajoitin laskee tulokset minuutin jaksoissa, joten sen hylkäämät mahtuvat seuraavaan jaksoon.
+const UUSINTA_VIIVE_MS: u32 = 60_000;
 
 /// Kaikki, mistä paikallaan pysyvän näkymän kuva riippuu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -212,6 +215,8 @@ pub struct Kaynnistin {
     /// Kellon lukema, kun valikossa painettiin Esc. Ohjelma loppuu vasta toisesta painalluksesta,
     /// koska pelistä palataan Escillä ja kaksi nopeaa painallusta veisi muuten koko ikkunan.
     lopetus_kysytty_ms: Option<u32>,
+    /// Kellon lukema, jolloin jonoon jääneet tulokset lähetetään uudelleen.
+    uusinta_ms: Option<u32>,
     siemen: u64,
 }
 
@@ -238,6 +243,7 @@ impl Kaynnistin {
             ilmoitus_alla: false,
             avaa_julkaisut: false,
             lopetus_kysytty_ms: None,
+            uusinta_ms: None,
             siemen,
         }
     }
@@ -443,15 +449,23 @@ impl Kaynnistin {
     pub fn lataa(&mut self, tallennus: Tallennus) {
         self.aanet_paalla = !tallennus.hiljaa;
         kieli::aseta(tallennus.kieli);
-        // Edellisellä kerralla lähettämättä jääneet tulokset yritetään uudelleen.
-        for peli in Nettipeli::KAIKKI {
-            let jono = tallennus.lista(peli).jono.iter().cloned();
-            self.pyynnot
-                .extend(jono.map(|tulos| Pyynto::Laheta(peli, tulos)));
-        }
         let valittu = tallennus.asetukset.valittu;
         self.tallennus = tallennus;
+        // Edellisellä kerralla lähettämättä jääneet tulokset yritetään uudelleen.
+        self.laheta_jonot();
         self.valitse(valittu);
+    }
+
+    /// Pyytää lähettämään kaikki jonoissa odottavat tulokset. Jo pyydettyä ei pyydetä toiseen kertaan.
+    fn laheta_jonot(&mut self) {
+        for peli in Nettipeli::KAIKKI {
+            for tulos in &self.tallennus.lista(peli).jono {
+                let pyynto = Pyynto::Laheta(peli, tulos.clone());
+                if !self.pyynnot.contains(&pyynto) {
+                    self.pyynnot.push(pyynto);
+                }
+            }
+        }
     }
 
     /// Ottaa verkkosäikeen vastauksen. Lähetetty tulos poistuu jonosta.
@@ -471,6 +485,11 @@ impl Kaynnistin {
             Vastaus::Lahetetty(peli, tulos) => {
                 self.tallennus.lista_mut(peli).jono.retain(|t| *t != tulos);
                 self.tallenna = true;
+            }
+            // Verkkosäie käsittelee pyynnöt peräkkäin. Jokainen epäonnistuminen siirtää uusintaa,
+            // joten se alkaa vasta, kun koko edellinen erä on käsitelty.
+            Vastaus::Epaonnistui => {
+                self.uusinta_ms = Some(self.kello_ms.saturating_add(UUSINTA_VIIVE_MS));
             }
             Vastaus::UusiVersio(versio) => self.uusi_versio = Some(versio),
         }
@@ -512,6 +531,10 @@ impl Kaynnistin {
 
     pub fn edista(&mut self, ms: u32) {
         self.kello_ms = self.kello_ms.saturating_add(ms);
+        if self.uusinta_ms.is_some_and(|aika| self.kello_ms >= aika) {
+            self.uusinta_ms = None;
+            self.laheta_jonot();
+        }
         let Some(peli) = &mut self.peli else {
             self.hae_valikon_lista();
             return;
