@@ -230,7 +230,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
     luvut.taulu.netti = Some(taysi(1000));
     luvut.kasittele(Syote::Nuoli(0, -1));
     assert_eq!(luvut.vaihe, Vaihe::Tappio);
-    assert_eq!(luvut.taulu.lahetys, None);
+    assert_eq!(luvut.taulu.lahetys, Vec::new());
 
     let mut luvut = pelissa(LUKKOON_PISTEILLA);
     luvut.taulu.parhaat = taysi(1000);
@@ -240,7 +240,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
     luvut.kasittele(Syote::Kirjain('B'));
     luvut.kasittele(Syote::Ammu);
     assert_eq!(luvut.taulu.netti.as_ref().unwrap()[0].nimi, "B");
-    assert_eq!(luvut.taulu.lahetys.as_ref().unwrap().pisteet, 4);
+    assert_eq!(luvut.taulu.lahetys.last().unwrap().pisteet, 4);
 }
 
 #[test]
@@ -251,7 +251,7 @@ fn ilman_verkkoa_tulos_kirjataan_omalle_listalle_ja_lahetettavaksi() {
     luvut.kasittele(Syote::Ammu);
     assert_eq!(luvut.taulu.nakyva()[0].nimi, "B");
     assert_eq!(luvut.taulu.netti, None);
-    assert_eq!(luvut.taulu.lahetys.as_ref().unwrap().nimi, "B");
+    assert_eq!(luvut.taulu.lahetys.last().unwrap().nimi, "B");
 }
 
 #[test]

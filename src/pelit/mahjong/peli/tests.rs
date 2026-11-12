@@ -110,7 +110,7 @@ fn voitto_kysyy_nimen_ja_kirjaa_tuloksen() {
         pisteet,
     };
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
-    assert_eq!(peli.taulu.lahetys, Some(tulos));
+    assert_eq!(peli.taulu.lahetys, vec![tulos]);
     peli.edista(JUHLA_MS);
     assert!(peli.kuvan_askel().is_some());
     peli.kasittele(Syote::Kirjain('K'));

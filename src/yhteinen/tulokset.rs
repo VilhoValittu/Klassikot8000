@@ -34,13 +34,14 @@ pub enum Nettipeli {
     Mahjong,
     Majakka,
     Kaivo,
+    Jatsi,
 }
 
 pub const NETTIPELEJA: usize = Nettipeli::KAIKKI.len();
 
 impl Nettipeli {
     /// Järjestys on sama kuin luvuilla, joten `peli as usize` osoittaa listaan.
-    pub const KAIKKI: [Nettipeli; 16] = [
+    pub const KAIKKI: [Nettipeli; 17] = [
         Nettipeli::Luvut,
         Nettipeli::Tiilirikko,
         Nettipeli::Asteroidit,
@@ -57,6 +58,7 @@ impl Nettipeli {
         Nettipeli::Mahjong,
         Nettipeli::Majakka,
         Nettipeli::Kaivo,
+        Nettipeli::Jatsi,
     ];
 
     /// Pelin tunnus palvelimella.
@@ -78,6 +80,7 @@ impl Nettipeli {
             Nettipeli::Mahjong => "mahjong",
             Nettipeli::Majakka => "majakka",
             Nettipeli::Kaivo => "kaivo",
+            Nettipeli::Jatsi => "jatsi",
         }
     }
 
@@ -138,8 +141,9 @@ pub struct Tulostaulu {
     pub parhaat: Vec<Tulos>,
     /// Nettilista. `None`, kunnes palvelin on vastannut.
     pub netti: Option<Vec<Tulos>>,
-    /// Kirjattu tulos, joka odottaa lähetystä nettilistalle.
-    pub lahetys: Option<Tulos>,
+    /// Kirjatut tulokset, jotka odottavat lähetystä nettilistalle. Moninpelistä niitä voi
+    /// tulla kerralla useampi.
+    pub lahetys: Vec<Tulos>,
 }
 
 impl Tulostaulu {
@@ -149,7 +153,7 @@ impl Tulostaulu {
             paras: 0,
             parhaat: Vec::new(),
             netti: None,
-            lahetys: None,
+            lahetys: Vec::new(),
         }
     }
 
@@ -181,7 +185,7 @@ impl Tulostaulu {
         if let Some(lista) = &mut self.netti {
             lisaa(lista, tulos.clone());
         }
-        self.lahetys = Some(tulos);
+        self.lahetys.push(tulos);
     }
 }
 

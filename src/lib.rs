@@ -10,6 +10,8 @@ pub mod blackjack;
 pub mod haasteet;
 #[path = "pelit/holdem/logiikka.rs"]
 pub mod holdem;
+#[path = "pelit/jatsi/logiikka.rs"]
+pub mod jatsi;
 #[path = "pelit/kaivo/logiikka.rs"]
 pub mod kaivo;
 pub mod kortit;

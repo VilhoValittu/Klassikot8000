@@ -14,6 +14,8 @@ use crate::pelit::blackjack::peli::Blackjack;
 use crate::pelit::blackjack::piirto::pelimerkkipinot;
 use crate::pelit::holdem::peli::Holdem;
 use crate::pelit::holdem::piirto::poytamalli;
+use crate::pelit::jatsi::peli::Jatsi;
+use crate::pelit::jatsi::piirto::noppamalli;
 use crate::pelit::kaivo::peli::Kaivo;
 use crate::pelit::kaivo::piirto::kaivosmalli;
 use crate::pelit::laivanupotus::peli::{Peli, Tilasto};
@@ -175,6 +177,7 @@ pelit! {
     Holdem(Holdem, "peli.holdem", "valikko.holdem", poytamalli, |_| Nettipeli::Holdem),
     Majakka(Majakka, "peli.majakka", "valikko.majakka", majakkamalli, |_| Nettipeli::Majakka),
     Kaivo(Kaivo, "peli.kaivo", "valikko.kaivo", kaivosmalli, |_| Nettipeli::Kaivo),
+    Jatsi(Jatsi, "peli.jatsi", "valikko.jatsi", noppamalli, |_| Nettipeli::Jatsi),
 }
 
 /// Pelin valinta ja käynnissä oleva peli. Asetukset säilyvät, kun peli vaihtuu.
@@ -509,7 +512,7 @@ impl Kaynnistin {
             tallennettu.parhaat = taulu.parhaat.clone();
             self.netti[taulu.peli as usize] = taulu.netti.clone();
             // Jono kirjataan tiedostoon, jottei tulos katoa, vaikka lähetys epäonnistuisi.
-            if let Some(tulos) = taulu.lahetys.take() {
+            for tulos in std::mem::take(&mut taulu.lahetys) {
                 if taulu.peli.yksi_per_nimi() {
                     // Uusi tulos korvaa saman nimen vanhan, joten jonoon jää vain uusin.
                     paivita_nimen_tulos(&mut tallennettu.jono, tulos.clone());

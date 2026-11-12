@@ -240,6 +240,12 @@ const KAIVO_KUVA: [&str; 12] = [
     "..O....Y....", ".O....YYY...", "O....YYWYY..", "....YYYYYYY.",
 ];
 #[rustfmt::skip]
+const NOPPA_KUVA: [&str; 12] = [
+    "............", ".WWWWWWWWWW.", ".WKKWWWWKKW.", ".WKKWWWWKKW.",
+    ".WWWWWWWWWW.", ".WWWWKKWWWW.", ".WWWWKKWWWW.", ".WWWWWWWWWW.",
+    ".WKKWWWWKKW.", ".WKKWWWWKKW.", ".WWWWWWWWWW.", "............",
+];
+#[rustfmt::skip]
 const KAIUTIN: [&str; 5] = ["..W...", "WWW.C.", "WWW..C", "WWW.C.", "..W..."];
 // Kolmiot pikselikuvina: monikulmiona näin pieni kolmio pyöristyy ruudukkoon vinoksi.
 const YLOS_KUVA: [&str; 3] = ["..W..", ".WWW.", "WWWWW"];
@@ -263,6 +269,7 @@ fn kuvake(laji: Laji) -> (u32, &'static [&'static str; 12]) {
         Laji::Holdem => (0x1E5A3A, &MERKKI_KUVA),
         Laji::Majakka => (0x0C1450, &MAJAKKA_KUVA),
         Laji::Kaivo => (0x3A2418, &KAIVO_KUVA),
+        Laji::Jatsi => (0x8A1A2A, &NOPPA_KUVA),
     }
 }
 

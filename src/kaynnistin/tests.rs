@@ -130,6 +130,8 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 12);
     k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 13);
+    k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 0);
     k.kasittele(Syote::Numero(1));
     assert_eq!(k.valittu, 0);
@@ -216,9 +218,16 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     assert_eq!(k.otsikko(), "Kaivos8000");
     k.kasittele(Syote::Peru);
 
-    // Lista on vierinyt kolme alas, joten yhdeksäs näkyvä on kahdestoista peli.
+    k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 13);
+    k.kasittele(Syote::Ammu);
+    assert!(matches!(k.peli, Some(Kaynnissa::Jatsi(_))));
+    assert_eq!(k.otsikko(), "Jatsi");
+    k.kasittele(Syote::Peru);
+
+    // Lista on vierinyt neljä alas, joten yhdeksäs näkyvä on kolmastoista peli.
     k.kasittele(Syote::Numero(9));
-    assert_eq!(k.valittu, 11);
+    assert_eq!(k.valittu, 12);
 }
 
 #[test]
@@ -545,7 +554,7 @@ fn haasteen_tulos_tallentuu_ja_lahtee_omalle_listalleen() {
         pisteet: 3000,
     };
     peli.haastetaulu.parhaat = vec![tulos.clone()];
-    peli.haastetaulu.lahetys = Some(tulos.clone());
+    peli.haastetaulu.lahetys = vec![tulos.clone()];
     k.paivita_tallennus();
     assert_eq!(k.tallennus.haastepisteet[1][4], 3000);
     assert_eq!(k.tallennus.haastenimi, "V");

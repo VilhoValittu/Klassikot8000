@@ -2,7 +2,7 @@
 
 [Suomeksi](README.fin.md) | **English**
 
-Bored? Thirteen old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
+Bored? Fourteen old-school games in one small window, dressed up in 16-bit SNES and Mega Drive style. No account, no ads, nothing to learn. Open it, pick a game and let the time pass.
 
 Runs even on a potato.
 
@@ -99,6 +99,12 @@ You are a greedy gold digger. You dig down next to the lift, and in the dark you
 Gold is worth more the deeper it lies (10–35 points) and a diamond 100 points or more. A full quota gives a level bonus, and every unused prop adds to it. The levels differ in props, oil and light, how long the roof holds and how many hazards there are. A harder level multiplies the points (normal by two, hard by three).
 
 *Arrows, WASD or clicks dig and walk one cell at a time (a held arrow keeps going after a moment), the up arrow in an empty cell puts up a ladder, space, right click or a click on your own cell puts up or takes down a prop (on a ladder it swaps the ladder for a prop), and R throws the rescue rope, which pulls you up at the cost of a helmet and the sack.*
+
+### Yatzy
+
+Five dice, up to three rolls a turn and 15 rows to fill, by the Nordic rules: ones to sixes on top, and 63 points there earn a 50-point bonus. Below them come one pair, two pairs, three and four of a kind, the small (1–5) and large (2–6) straight, full house, chance and Yatzy. Hold dice between rolls and score one row each turn; a row that does not fit scores nothing, so scratch it wisely. Set the table on the intro screen: up to four players, each a human or a computer, so you can play against the machine, with friends on the same computer, or alone. The level is the computers' skill: easy is greedy, normal plays sensibly and hard weighs every hold by its odds. Every human's total goes on the top list under their own name, and beating the computers multiplies it by the level (normal by two, hard by three). An unfinished game waits for the next time.
+
+*Space or the Roll button rolls, 1–5 or a click holds a die, arrows pick a row and K or a click scores it. Scratching a row takes a second press. On the intro screen the arrows choose the seat and the player and N names a human. When a computer is playing, space finishes its turn at once.*
 
 ## Good to know
 

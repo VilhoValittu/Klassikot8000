@@ -25,7 +25,7 @@ pub trait Pelinakyma {
     /// Ikkuna suljetaan kesken pelin: nimeä odottava tulos kirjataan, ettei se katoa.
     fn viimeistele(&mut self) {}
 
-    /// Pelin top-listat. Käynnistin lähettää jokaisen taulun `lahetys`-tuloksen.
+    /// Pelin top-listat. Käynnistin lähettää jokaisen taulun `lahetys`-tulokset.
     fn listat(&mut self) -> Vec<&mut Tulostaulu> {
         Vec::new()
     }

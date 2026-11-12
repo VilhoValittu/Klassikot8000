@@ -220,11 +220,11 @@ fn haasteen_voitto_kysyy_nimen_kerran_ja_summa_korvaa_rivin() {
     assert_eq!(peli.vaihe, Vaihe::Voitto);
     assert_eq!(peli.haastenimi, "V");
     assert_eq!(peli.haastepisteet[0][0], eka);
-    let lahetetty = peli.haastetaulu.lahetys.take().unwrap();
+    let lahetetty = peli.haastetaulu.lahetys.pop().unwrap();
     assert_eq!(lahetetty.pisteet, eka);
     // Tavallisten pelien listat eivät muutu.
     assert!(peli.taulut[0].parhaat.is_empty());
-    assert_eq!(peli.taulu().lahetys, None);
+    assert_eq!(peli.taulu().lahetys, Vec::new());
 
     // Seuraava haaste ei enää kysy nimeä, ja rivi päivittyy saman nimen alle.
     peli.kasittele(Syote::Kirjain('K'));
@@ -235,7 +235,7 @@ fn haasteen_voitto_kysyy_nimen_kerran_ja_summa_korvaa_rivin() {
     assert_eq!(peli.vaihe, Vaihe::Voitto);
     let summa = eka + haasteet::pisteet(HAASTEITA - 1, 0);
     assert_eq!(peli.haasteiden_summa(), summa);
-    assert_eq!(peli.haastetaulu.lahetys.take().unwrap().pisteet, summa);
+    assert_eq!(peli.haastetaulu.lahetys.pop().unwrap().pisteet, summa);
     assert_eq!(peli.haastetaulu.parhaat.len(), 1);
     assert_eq!(peli.haastetaulu.parhaat[0].pisteet, summa);
     assert_eq!(peli.lapaistyja_haasteita(), 2);
@@ -249,7 +249,7 @@ fn huonompi_uusinta_ei_muuta_tulosta_eika_laheta_mitaan() {
     yhden_kortin_paassa_voitosta(&mut peli);
     peli.kasittele(Syote::Kirjain('A'));
     let paras = peli.haastepisteet[0][0];
-    peli.haastetaulu.lahetys = None;
+    peli.haastetaulu.lahetys.clear();
     peli.uusi_tulos = false;
 
     peli.kasittele(Syote::Kirjain('K'));
@@ -259,7 +259,7 @@ fn huonompi_uusinta_ei_muuta_tulosta_eika_laheta_mitaan() {
     peli.kasittele(Syote::Kirjain('A'));
     assert_eq!(peli.vaihe, Vaihe::Voitto);
     assert_eq!(peli.haastepisteet[0][0], paras);
-    assert_eq!(peli.haastetaulu.lahetys, None);
+    assert_eq!(peli.haastetaulu.lahetys, Vec::new());
     assert!(!peli.uusi_tulos);
 }
 
@@ -279,7 +279,7 @@ fn listalle_yltamaton_summa_sailyy_mutta_ei_kysy_nimea() {
     assert_eq!(peli.vaihe, Vaihe::Voitto);
     assert!(peli.haastepisteet[0][0] > 0);
     assert!(peli.uusi_tulos);
-    assert_eq!(peli.haastetaulu.lahetys, None);
+    assert_eq!(peli.haastetaulu.lahetys, Vec::new());
 }
 
 #[test]
@@ -499,7 +499,7 @@ fn viimeinen_kortti_voittaa_ja_kello_pysahtyy() {
         peli.taulut[Variantti::Klondike as usize].parhaat[0].pisteet,
         pisteet
     );
-    assert_eq!(peli.taulu().lahetys.as_ref().unwrap().nimi, "K");
+    assert_eq!(peli.taulu().lahetys.last().unwrap().nimi, "K");
 
     peli.kasittele(Syote::Kirjain('K'));
     assert_eq!(peli.vaihe, Vaihe::Alku);
@@ -525,7 +525,7 @@ fn listalle_yltamaton_voitto_ja_keskeytys_eivat_kysy_nimea() {
     aseta(&mut peli, 0, &[viimeinen]);
     peli.kasittele(Syote::Kirjain('A'));
     assert_eq!(peli.vaihe, Vaihe::Voitto);
-    assert_eq!(peli.taulu().lahetys, None);
+    assert_eq!(peli.taulu().lahetys, Vec::new());
     // Listalle yltämätönkin voitto on oma ennätys, ja se tallennetaan.
     let pisteet = aikapisteet(Vaikeus::Normaali, 0);
     assert_eq!(peli.taulut.each_ref().map(|t| t.paras), [pisteet, 0, 0]);
@@ -534,7 +534,7 @@ fn listalle_yltamaton_voitto_ja_keskeytys_eivat_kysy_nimea() {
     let mut peli = pelissa();
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu().lahetys, None);
+    assert_eq!(peli.taulu().lahetys, Vec::new());
 }
 
 #[test]

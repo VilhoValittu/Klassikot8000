@@ -32,7 +32,7 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_lahtee_nettiin() {
         pisteet,
     };
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
-    assert_eq!(peli.taulu.lahetys, Some(tulos));
+    assert_eq!(peli.taulu.lahetys, vec![tulos]);
     assert!(peli.uusi_tulos);
 
     // täydelle listalle heikompi tulos ei pääse, eikä nimeä kysytä
@@ -47,7 +47,7 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_lahtee_nettiin() {
     peli.avaa((1, 1));
     peli.avaa((8, 8));
     assert_eq!(peli.vaihe, Vaihe::Voitto);
-    assert!(peli.taulu.lahetys.is_none());
+    assert!(peli.taulu.lahetys.is_empty());
 }
 
 #[test]

@@ -2,7 +2,7 @@
 
 **Suomeksi** | [English](README.md)
 
-Tylsää? Kolmetoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Tylsää? Neljätoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
 Pyörii vaikka perunalla. AB:n OG ideasta.
 
@@ -110,6 +110,12 @@ Olet ahne kullankaivaja. Kaivat maan alle hissin vierestä, ja pimeässä näet 
 Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä tai enemmän. Täysi kiintiö antaa tasobonuksen, ja jokainen käyttämättä jäänyt tuki kasvattaa sitä. Tasot eroavat tukien, öljyn ja valon määrässä, katon kestossa ja vaarojen määrässä. Vaikeampi taso kertoo pisteet (normaali kahdella, vaikea kolmella).
 
 *Nuolet, WASD tai klikkaus kaivavat ja kävelevät ruudun kerrallaan (pohjassa pidetty nuoli jatkaa liikettä hetken kuluttua), ylös-nuoli tyhjässä ruudussa pystyttää tikkaat, välilyönti, oikea nappi tai klikkaus omaan ruutuun pystyttää tai purkaa tuen (tikkaissa vaihtaa ne tueksi), ja R heittää hätäköyden, joka nostaa pinnalle kypärän ja säkin hinnalla.*
+
+### Jatsi
+
+Viisi noppaa, kolme heittoa vuorossa ja 15 riviä täytettävänä pohjoismaisin säännöin: ylhäällä ykkösistä kuutosiin, ja 63 pistettä niistä tuo 50 pisteen bonuksen. Alla ovat pari, kaksi paria, kolme ja neljä samaa, pieni (1–5) ja suuri (2–6) suora, täyskäsi, sattuma ja jatsi. Lukitse noppia heittojen välissä ja kirjaa joka vuorolla yksi rivi; rivi, johon nopat eivät käy, jää nollaksi, joten viivaa viisaasti. Pöytä katetaan alkuruudulla: enintään neljä pelaajaa, kukin ihminen tai kone, joten voit pelata konetta vastaan, kavereiden kanssa samalla koneella tai yksin. Taso on koneiden taito: helppo on ahne, normaali pelaa järkevästi ja vaikea punnitsee jokaisen lukituksen todennäköisyyksillä. Jokaisen ihmisen summa menee top-listalle hänen omalla nimellään, ja voitto koneista kertoo sen tasolla (normaali kahdella, vaikea kolmella). Kesken jäänyt peli odottaa seuraavaa kertaa.
+
+*Välilyönti tai Heitä-nappi heittää, 1–5 tai klikkaus lukitsee nopan, nuolet valitsevat rivin ja K tai klikkaus kirjaa sen. Viivaus vaatii toisen painalluksen. Alkuruudulla nuolet valitsevat paikan ja pelaajan, ja N nimeää ihmisen. Kun kone pelaa, välilyönti pelaa sen vuoron heti loppuun.*
 
 ## Hyvä tietää
 

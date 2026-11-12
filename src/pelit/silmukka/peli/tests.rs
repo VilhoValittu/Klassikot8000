@@ -171,7 +171,7 @@ fn kuolema_kysyy_nimen_ja_palaa_loppuruutuun() {
     assert_eq!(peli.vaihe, Vaihe::Tappio);
     assert!(peli.uusi_tulos);
     assert_eq!(peli.taulu.parhaat[0].nimi, "KM");
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 40);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 40);
 }
 
 #[test]
@@ -186,7 +186,7 @@ fn listalle_yltamaton_tulos_ei_kysy_nimea_ja_uusi_peli_alkaa_alusta() {
     peli.taulu.netti = Some(taysi);
     peli.edista(ASKEL_MS);
     assert_eq!(peli.vaihe, Vaihe::Tappio);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     peli.kasittele(Syote::Kirjain('K'));
     assert_eq!(peli.vaihe, Vaihe::Pelissa);
@@ -224,7 +224,7 @@ fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
     peli.kasittele(Syote::Ammu);
     assert!(peli.lopeta);
     assert_eq!(peli.taulu.parhaat[0].nimi, "B");
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 500);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 500);
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
     assert!(!peli.lopeta);
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     let mut peli = paattyva(500);
     peli.poistu();

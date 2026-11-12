@@ -8,6 +8,7 @@ use std::process::ExitCode;
 use klassikot8000::Arpa;
 use klassikot8000::asteroidit::Avaruus;
 use klassikot8000::blackjack::{self, Vuoro};
+use klassikot8000::jatsi::{self, Toimi, koneen_toimi};
 use klassikot8000::kaivo::Kaivos;
 use klassikot8000::laivanupotus::{Ruutu, Vaikeus};
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU, Suunta};
@@ -23,6 +24,7 @@ use crate::kaynnistin::{Kaynnissa, Kaynnistin, Laji, PELIT, piirto, tallennus};
 use crate::pelit::asteroidit::peli::Asteroidit;
 use crate::pelit::blackjack::peli::Blackjack;
 use crate::pelit::holdem::peli::{self as holdem_peli, Holdem};
+use crate::pelit::jatsi::peli::{self as jatsi_peli, HEITTO_MS, Jatsi, KONE_ASKEL_MS};
 use crate::pelit::kaivo::peli::Kaivo;
 use crate::pelit::laivanupotus::peli::{Peli, Vaihe};
 use crate::pelit::luvut::peli::{self as luvut_peli, Luvut};
@@ -200,6 +202,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "holdem" => Laji::Holdem,
                     "majakka" => Laji::Majakka,
                     "kaivo" => Laji::Kaivo,
+                    "jatsi" => Laji::Jatsi,
                     _ => return Err(format!("--game: {arvo}")),
                 });
             }
@@ -388,6 +391,7 @@ fn valmistele(peli: &mut Kaynnissa, liput: &Liput) {
         Kaynnissa::Holdem(peli) => valmistele_holdem(peli, liput),
         Kaynnissa::Majakka(peli) => valmistele_majakka(peli, liput),
         Kaynnissa::Kaivo(peli) => valmistele_kaivo(peli, liput),
+        Kaynnissa::Jatsi(peli) => valmistele_jatsi(peli, liput),
     }
 }
 
@@ -620,6 +624,64 @@ fn valmistele_kaivo(peli: &mut Kaivo, liput: &Liput) {
         });
         for _ in 0..40 {
             peli.edista(16);
+        }
+    }
+}
+
+/// `--keys` alkuruudulla tai pelissä, ja `--plays <n>` pelaa n kirjausta: ihmisen vuorot
+/// vaikean koneen päätöksin, koneet omassa tahdissaan.
+fn valmistele_jatsi(peli: &mut Jatsi, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        let taso = jatsi::Vaikeus::KAIKKI
+            .into_iter()
+            .find(|taso| taso.nimi() == vaikeus.nimi());
+        peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+    }
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '^' => Syote::Nuoli(-1, 0),
+            'v' => Syote::Nuoli(1, 0),
+            '<' => Syote::Nuoli(0, -1),
+            '>' => Syote::Nuoli(0, 1),
+            '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+            _ => Syote::Kirjain(merkki.to_ascii_uppercase()),
+        });
+        peli.edista(HEITTO_MS);
+    }
+    let Some(kirjauksia) = liput.pelatut else {
+        return;
+    };
+    if peli.vaihe == jatsi_peli::Vaihe::Alku {
+        peli.kasittele(Syote::Ammu);
+    }
+    let kirjattu = |peli: &Jatsi| -> u32 {
+        peli.poyta
+            .kirjat
+            .iter()
+            .map(|k| k.kirjattuja() as u32)
+            .sum()
+    };
+    let alku = kirjattu(peli);
+    while kirjattu(peli) - alku < kirjauksia && peli.vaihe == jatsi_peli::Vaihe::Pelissa {
+        if peli.poyta.kone_vuorossa() {
+            peli.edista(KONE_ASKEL_MS + HEITTO_MS);
+        } else {
+            match koneen_toimi(jatsi::Vaikeus::Vaikea, &peli.poyta) {
+                Toimi::Heita => peli.heita(),
+                Toimi::Lukitse(lukitut) => {
+                    peli.poyta.lukitut = lukitut;
+                    peli.heita();
+                }
+                Toimi::Kirjaa(rivi) => {
+                    // Nolla vaatii vahvistuksen: toinen painallus viivaa.
+                    peli.kirjaa(rivi);
+                    if peli.viivaus == Some(rivi) {
+                        peli.kirjaa(rivi);
+                    }
+                }
+            }
+            peli.edista(HEITTO_MS);
         }
     }
 }

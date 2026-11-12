@@ -3,6 +3,7 @@
 pub mod asteroidit;
 pub mod blackjack;
 pub mod holdem;
+pub mod jatsi;
 pub mod kaivo;
 pub mod laivanupotus;
 pub mod luvut;

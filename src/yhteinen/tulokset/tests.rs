@@ -65,7 +65,12 @@ fn taulu_kirjaa_tuloksen_kaikille_listoille_ja_lahtemaan() {
     };
     assert_eq!(taulu.parhaat.len(), 2);
     assert_eq!(taulu.nakyva(), std::slice::from_ref(&b));
-    assert_eq!(taulu.lahetys, Some(b));
+    // Kumpikin odottaa lähetystä, kunnes käynnistin ottaa ne.
+    let a = Tulos {
+        nimi: "A".to_string(),
+        pisteet: 50,
+    };
+    assert_eq!(taulu.lahetys, vec![a, b]);
 
     // Yhden rivin listalla saman nimen uusi tulos korvaa vanhan.
     let mut haasteet = Tulostaulu::new(Nettipeli::Haasteet);

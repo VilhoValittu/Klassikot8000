@@ -31,12 +31,22 @@ fn kokonainen() -> Tallennus {
             mahjong: mahjong::Vaikeus::Vaikea,
             majakka: majakka::Vaikeus::Helppo,
             kaivo: kaivo::Vaikeus::Vaikea,
+            jatsi: jatsi::Vaikeus::Helppo,
         },
         kesken: Some(KESKEN),
         haastenimi: "HAASTAJA".to_string(),
         miinaajat: [12, 0, 345],
         ..Tallennus::default()
     };
+    t.jatsipaikat = jatsi_peli::paikat_riveista(&["0 I VÄINÖ", "1 K", "2 I B", "3 -"]).unwrap();
+    t.jatsikesken = JatsiKesken::riveista(
+        "1,2,66123,10100",
+        &[
+            "I 3,-,-,-,-,-,-,-,-,-,-,-,-,-,50 VÄINÖ",
+            "K -,-,-,-,-,-,12,-,-,-,-,-,-,-,-",
+        ],
+    );
+    assert!(t.jatsikesken.is_some());
     t.haastepisteet[1][3] = 3500;
     t.haastepisteet[2][19] = 3500;
     t.laivatilasto[2] = Tilasto {

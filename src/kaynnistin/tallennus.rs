@@ -1,5 +1,5 @@
 //! Pelien yhteinen tallennus tekstitiedostoon: asetukset, ennätykset, top-listat, lähtemättömät
-//! nettitulokset ja kesken jäänyt 2048. Rikkinäinen tiedosto ei saa estää pelaamista, joten
+//! nettitulokset sekä kesken jääneet 2048 ja Jatsi. Rikkinäinen tiedosto ei saa estää pelaamista, joten
 //! kelvottomat tiedot jätetään huomiotta. Tiedostoa käsittelee vain `main.rs`.
 
 use std::fs;
@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use klassikot8000::haasteet::HAASTEITA;
+use klassikot8000::jatsi;
 use klassikot8000::kaivo;
 use klassikot8000::laivanupotus;
 use klassikot8000::luvut::{Lukulauta, Ruudut, SIVU};
@@ -16,6 +17,7 @@ use klassikot8000::majakka;
 use klassikot8000::miinaharava;
 use klassikot8000::pasianssi::{self, SUURIN_TULOS, Variantti};
 
+use crate::pelit::jatsi::peli::{self as jatsi_peli, Istuin, Kesken as JatsiKesken};
 use crate::pelit::laivanupotus::peli::Tilasto;
 use crate::pelit::luvut::peli::Kesken;
 use crate::pelit::pasianssi::peli::Haastepisteet;
@@ -51,6 +53,7 @@ pub struct Asetukset {
     pub mahjong: mahjong::Vaikeus,
     pub majakka: majakka::Vaikeus,
     pub kaivo: kaivo::Vaikeus,
+    pub jatsi: jatsi::Vaikeus,
 }
 
 impl Default for Asetukset {
@@ -64,6 +67,7 @@ impl Default for Asetukset {
             mahjong: mahjong::Vaikeus::Helppo,
             majakka: majakka::Vaikeus::Normaali,
             kaivo: kaivo::Vaikeus::Normaali,
+            jatsi: jatsi::Vaikeus::Normaali,
         }
     }
 }
@@ -86,6 +90,9 @@ pub struct Tallennus {
     pub miinaajat: [u32; 3],
     /// Laivanupotuksen voitot, tappiot ja ennätys tasoittain.
     pub laivatilasto: [Tilasto; 3],
+    /// Jatsin alkuruudun paikat. Tyhjä, kun niitä ei ole tallennettu.
+    pub jatsipaikat: Vec<Istuin>,
+    pub jatsikesken: Option<JatsiKesken>,
 }
 
 /// Listan rivien avaimet tiedostossa: erillinen ennätys, top 3 ja jono. Vanhat nimet
@@ -110,6 +117,7 @@ fn avaimet(peli: Nettipeli) -> (Option<&'static str>, &'static str, &'static str
         Nettipeli::Mahjong => (Some("mahjongparas"), "mahjongtop", "mahjongjono"),
         Nettipeli::Majakka => (Some("majakka"), "majakkatop", "majakkajono"),
         Nettipeli::Kaivo => (Some("kaivo"), "kaivotop", "kaivojono"),
+        Nettipeli::Jatsi => (Some("jatsiparas"), "jatsitop", "jatsijono"),
     }
 }
 
@@ -191,7 +199,7 @@ impl Tallennus {
         let a = &self.asetukset;
         let mut teksti = format!(
             "{OTSAKE}\nhiljaa {}\nkieli {}\nvalittu {}\nlaivataso {}\npasianssitaso {}\n\
-             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\n",
+             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\njatsitaso {}\n",
             self.hiljaa as u8,
             self.kieli.koodi(),
             a.valittu,
@@ -205,6 +213,7 @@ impl Tallennus {
             numero(&mahjong::Vaikeus::KAIKKI, &a.mahjong),
             numero(&majakka::Vaikeus::KAIKKI, &a.majakka),
             numero(&kaivo::Vaikeus::KAIKKI, &a.kaivo),
+            numero(&jatsi::Vaikeus::KAIKKI, &a.jatsi),
         );
         for peli in Nettipeli::KAIKKI {
             let (paras, top, jono) = avaimet(peli);
@@ -232,6 +241,15 @@ impl Tallennus {
             let luvut: Vec<String> = pisteet.iter().map(u32::to_string).collect();
             teksti += &format!("haastepisteet {laji} {}\n", luvut.join(","));
         }
+        for rivi in jatsi_peli::paikat_riveiksi(&self.jatsipaikat) {
+            teksti += &format!("jatsipaikka {rivi}\n");
+        }
+        if let Some(kesken) = &self.jatsikesken {
+            teksti += &format!("jatsivuoro {}\n", kesken.vuororivi());
+            for rivi in kesken.kirjarivit() {
+                teksti += &format!("jatsikirja {rivi}\n");
+            }
+        }
         if let Some(kesken) = &self.kesken {
             let luvut: Vec<String> = kesken.ruudut.iter().flatten().map(u32::to_string).collect();
             teksti += &format!(
@@ -255,6 +273,7 @@ impl Tallennus {
         }
         let mut t = Self::default();
         let (mut lauta, mut pisteet, mut siirrot, mut jatkettu) = (None, None, None, false);
+        let (mut jatsipaikat, mut jatsivuoro, mut jatsikirjat) = (Vec::new(), None, Vec::new());
         for rivi in rivit {
             let Some((avain, arvo)) = rivi.split_once(' ') else {
                 continue;
@@ -287,6 +306,12 @@ impl Tallennus {
                 "kaivotaso" => {
                     a.kaivo = valinta(&kaivo::Vaikeus::KAIKKI, arvo).unwrap_or(a.kaivo);
                 }
+                "jatsitaso" => {
+                    a.jatsi = valinta(&jatsi::Vaikeus::KAIKKI, arvo).unwrap_or(a.jatsi);
+                }
+                "jatsipaikka" => jatsipaikat.push(arvo),
+                "jatsivuoro" => jatsivuoro = Some(arvo),
+                "jatsikirja" => jatsikirjat.push(arvo),
                 "miinaajat" => t.miinaajat = luvut(arvo).unwrap_or_default(),
                 "laivatilasto" => {
                     if let Some((taso, tilasto)) = tilastorivi(arvo) {
@@ -311,6 +336,11 @@ impl Tallennus {
                 _ => t.lue_listan_rivi(avain, arvo),
             }
         }
+        // Kelvoton paikka hylkää kaikki paikat, jottei pöytä jää puolittain vanhaksi.
+        if !jatsipaikat.is_empty() {
+            t.jatsipaikat = jatsi_peli::paikat_riveista(&jatsipaikat).unwrap_or_default();
+        }
+        t.jatsikesken = jatsivuoro.and_then(|vuoro| JatsiKesken::riveista(vuoro, &jatsikirjat));
         t.kesken = match (lauta, pisteet, siirrot) {
             (Some(ruudut), Some(pisteet), Some(siirrot))
                 if Lukulauta::ruuduista(ruudut).on_siirtoja() =>

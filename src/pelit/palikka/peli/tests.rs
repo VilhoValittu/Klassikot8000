@@ -202,7 +202,7 @@ fn jumi_paattaa_pelin_vasta_toiston_jalkeen_ja_kysyy_nimen() {
     peli.kasittele(Syote::Ammu);
     assert_eq!(peli.vaihe, Vaihe::Tappio);
     assert_eq!(peli.taulu.parhaat[0].nimi, "K");
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 40);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 40);
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn listalle_yltamaton_loppu_ja_uusi_peli() {
     peli.taulu.paras = 40;
     peli.edista(1);
     assert_eq!(peli.vaihe, Vaihe::Tappio);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     peli.kasittele(Syote::Kirjain('K'));
     assert_eq!(peli.vaihe, Vaihe::Pelissa);
@@ -254,7 +254,7 @@ fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
     assert!(!peli.lopeta);
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 }
 
 #[test]

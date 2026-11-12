@@ -453,7 +453,7 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_kirjaa_pisteet() {
         pisteet,
     };
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
-    assert_eq!(peli.taulu.lahetys, Some(tulos));
+    assert_eq!(peli.taulu.lahetys, vec![tulos]);
     assert!(peli.uusi_tulos);
     assert_eq!(peli.pisteet(), pisteet);
 }
@@ -476,7 +476,7 @@ fn listalle_yltamaton_voitto_ja_tappio_eivat_kysy_nimea() {
         }
     }
     assert!(matches!(peli.vaihe, Vaihe::Voitto | Vaihe::Tappio));
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
     if peli.vaihe == Vaihe::Tappio {
         assert_eq!(peli.pisteet(), 0);
     }
@@ -489,7 +489,7 @@ fn ikkunan_sulkeminen_kirjaa_nimea_odottavan_voiton() {
     assert_eq!(peli.taulu.parhaat[0].nimi, "NIMETÖN");
     let listat = peli.listat();
     assert_eq!(listat[0].peli, Nettipeli::Laivanupotus);
-    assert!(listat[0].lahetys.is_some());
+    assert!(!listat[0].lahetys.is_empty());
 }
 
 #[test]

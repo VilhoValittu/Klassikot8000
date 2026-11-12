@@ -221,10 +221,10 @@ fn viimeisena_rahoissa_voittaa_pelin() {
     assert!(!peli.lopeta);
     assert_eq!(peli.taulu.parhaat[0].pisteet, 4000);
     // Kertaalleen kirjattu voitto ei kirjaudu toista kertaa poistuttaessa.
-    peli.taulu.lahetys = None;
+    peli.taulu.lahetys.clear();
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     peli.lopeta = false;
     peli.kasittele(Syote::Kirjain('K'));

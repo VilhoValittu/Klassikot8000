@@ -178,7 +178,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
     peli.taulu.netti = Some(taysi(1000));
     peli.edista(ASKEL_MS);
     assert_eq!(peli.vaihe, Vaihe::Tappio);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     let mut peli = paattyva(40);
     peli.taulu.parhaat = taysi(1000);
@@ -189,7 +189,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
     peli.kasittele(Syote::Ammu);
     let lista = peli.taulu.netti.as_ref().unwrap();
     assert_eq!(lista[0].nimi, "B");
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 40);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 40);
 }
 
 #[test]
@@ -200,7 +200,7 @@ fn ilman_verkkoa_tulos_kirjataan_omalle_listalle_ja_lahetettavaksi() {
     peli.kasittele(Syote::Ammu);
     assert_eq!(peli.taulu.nakyva()[0].nimi, "B");
     assert_eq!(peli.taulu.netti, None);
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().nimi, "B");
+    assert_eq!(peli.taulu.lahetys.last().unwrap().nimi, "B");
 }
 
 #[test]
@@ -292,7 +292,7 @@ fn esc_kesken_pelin_pysayttaa_ja_toinen_kysyy_nimen() {
     peli.kasittele(Syote::Ammu);
     assert!(peli.lopeta);
     assert_eq!(peli.taulu.parhaat[0].nimi, "B");
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 500);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 500);
 }
 
 #[test]
@@ -309,7 +309,7 @@ fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
     assert!(!peli.lopeta);
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     let mut peli = paattyva(500);
     peli.poistu();

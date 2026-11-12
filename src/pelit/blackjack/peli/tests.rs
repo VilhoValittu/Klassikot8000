@@ -244,7 +244,7 @@ fn voitolla_poistuva_kirjoittaa_nimen_ja_tulos_on_voitto() {
     assert_eq!(peli.taulu.parhaat[0].nimi, "E");
     assert_eq!(peli.taulu.parhaat[0].pisteet, 120);
     assert!(peli.uusi_tulos);
-    assert_eq!(peli.taulu.lahetys.as_ref().unwrap().pisteet, 120);
+    assert_eq!(peli.taulu.lahetys.last().unwrap().pisteet, 120);
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn ilman_voittoa_tai_listapaikkaa_poistutaan_heti() {
     let mut peli = pelissa(&[]);
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 
     let mut peli = pelissa(&[]);
     peli.poyta.rahat = ALKURAHA + 5 * YKSI;
@@ -265,7 +265,7 @@ fn ilman_voittoa_tai_listapaikkaa_poistutaan_heti() {
     ]);
     peli.kasittele(Syote::Peru);
     assert!(peli.lopeta);
-    assert_eq!(peli.taulu.lahetys, None);
+    assert_eq!(peli.taulu.lahetys, Vec::new());
 }
 
 #[test]
