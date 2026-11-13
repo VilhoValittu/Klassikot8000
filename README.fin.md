@@ -132,10 +132,14 @@ Ruutupaperin klassikko 15x15-laudalla konetta tai kaveria vastaan. Ensimmäinen 
 
 ## Pelaamaan
 
-Hae Windows-paketti (`windows-x64`) [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest), pura se ja käynnistä `klassikot8000-<versio>.exe`.
+Hae koneellesi sopiva paketti [julkaisuista](https://github.com/VilhoValittu/Klassikot8000/releases/latest) ja pura se.
+
+- **Windows** (`windows-x64`): käynnistä `klassikot8000-<versio>.exe`.
+- **Linux** (`linux-x64`, `linux-arm64`): käynnistä `klassikot8000-<versio>`. Peli tarvitsee X11:n tai XWaylandin ja äänille ALSA-kirjaston. Työpöytäkoneissa ne ovat yleensä valmiina.
+- **macOS** (`macos-arm64` Apple Siliconille, `macos-x64` Intelille): avaa `Klassikot8000-<versio>.app`. Paketilla ei ole Applen allekirjoitusta, joten macOS estää ensimmäisen käynnistyksen. Poista esto Päätteessä: `xattr -d com.apple.quarantine Klassikot8000-<versio>.app`.
 
 Lähdekoodista käännetty peli toimii samoin, mutta ei lähetä tuloksia nettilistalle: lista hyväksyy vain julkaisupakettien tulokset.
 
 ## Lisenssi
 
-Klassikot8000 on julkaistu [MIT-lisenssillä](LICENSE). Julkaisupaketeissa on sen lisäksi käytettyjen kirjastojen lisenssit tiedostossa `THIRD-PARTY-LICENSES.txt`.
+Klassikot8000 on julkaistu [MIT-lisenssillä](LICENSE). Julkaisupaketeissa on sen lisäksi käytettyjen kirjastojen lisenssit tiedostossa `THIRD-PARTY-LICENSES.txt`. macOS-paketissa molemmat ovat kansiossa `Klassikot8000-<versio>.app/Contents/Resources`.

@@ -18,7 +18,8 @@ concurrency:
 env:
   # rust-toolchain.toml nimeää Windows-isännän työkaluketjun; runner on Linux. Versio lukitaan
   # samaksi kuin julkaisijan koneella, jotta uudet clippy-lintit eivät kaada CI:tä ennen kuin
-  # Rust päivitetään molempiin. Nosta yhdessä julkaisu.yml:n kanssa.
+  # Rust päivitetään molempiin. Nosta yhdessä release-*.yml:n, _release-github.yml:n
+  # ja .github/runner/linux/Dockerfilen kanssa.
   RUSTUP_TOOLCHAIN: "1.95.0"
   CARGO_TERM_COLOR: always
 

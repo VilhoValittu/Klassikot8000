@@ -121,10 +121,14 @@ The squared-paper classic on a 15x15 board, against the computer or a friend. Th
 
 ## Get playing
 
-Grab the Windows package (`windows-x64`) from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest), unpack it and run `klassikot8000-<version>.exe`.
+Grab the package for your computer from the [releases](https://github.com/VilhoValittu/Klassikot8000/releases/latest) and unpack it.
+
+- **Windows** (`windows-x64`): run `klassikot8000-<version>.exe`.
+- **Linux** (`linux-x64`, `linux-arm64`): run `klassikot8000-<version>`. The game needs X11 or XWayland, and the ALSA library for sound. Desktop systems usually have both.
+- **macOS** (`macos-arm64` for Apple silicon, `macos-x64` for Intel): open `Klassikot8000-<version>.app`. The package isn't signed by Apple, so macOS blocks the first launch. To allow it, run this in Terminal: `xattr -d com.apple.quarantine Klassikot8000-<version>.app`.
 
 A game built from source plays the same, but doesn't send scores to the online list: the list only accepts scores from the release packages.
 
 ## License
 
-Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`.
+Klassikot8000 is released under the [MIT License](LICENSE). The release packages also include the licenses of the libraries it uses in `THIRD-PARTY-LICENSES.txt`. In the macOS package both files are in `Klassikot8000-<version>.app/Contents/Resources`.

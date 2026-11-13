@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Tekee julkaisun muutoslistan commit-viesteistä: edellisestä versiotagista annettuun tagiin.
-# Ajo: muutokset.sh v0.3.4
+# Ajo: muutokset.sh v0.3.4, tai muutokset.sh HEAD ennen tagia (julkaise.py:n esikatselu).
 set -euo pipefail
 
 tagi="$1"
-edellinen=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$tagi^" 2>/dev/null || true)
+# Versiotagin oma tagi ohitetaan; muu viite (HEAD) verrataan sen omaan viimeisimpään tagiin.
+lahto="$tagi"
+if [[ "$tagi" == v[0-9]* ]]; then
+    lahto="$tagi^"
+fi
+edellinen=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$lahto" 2>/dev/null || true)
 alue="${edellinen:+$edellinen..}$tagi"
 
 uutta=""

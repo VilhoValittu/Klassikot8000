@@ -1,0 +1,91 @@
+name: Build package on a GitHub runner
+
+# Kutsutaan release-macos-arm64.yml:stä, release-macos-x86_64.yml:stä ja release-linux-arm64.yml:stä.
+# Yksi natiivikäännös arkkitehtuuria kohden omalla GitHubin koneellaan, ei universal-pakettia.
+# Paketoi .github/scripts/paketoi-unix.sh. Tulosavain tulee salaisuudesta TULOSAVAIN (käyttäjän
+# päätös 2026-11-13); työnkulut käynnistyvät vain käsin (workflow_dispatch), eivät pull requesteista.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Versiotagi, esim. v0.6.0"
+        required: true
+        type: string
+      runner:
+        description: "GitHubin kone, esim. macos-latest"
+        required: true
+        type: string
+      artifact:
+        description: "upload-artifactin nimi"
+        required: true
+        type: string
+      asset_suffix:
+        description: "Paketin nimen loppu: klassikot8000-<versio>-<suffix>"
+        required: true
+        type: string
+    secrets:
+      TULOSAVAIN:
+        required: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_TAG: ${{ inputs.tag }}
+  # Sama versio kuin tarkistukset.yml:ssä. rust-toolchain.toml nimeää Windowsin MSVC:n, joka ei
+  # asennu muille alustoille, joten versio annetaan tässä.
+  RUSTUP_TOOLCHAIN: "1.95.0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Paketti ${{ inputs.asset_suffix }} (${{ inputs.runner }})
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Tagin tarkistus
+        run: bash .github/scripts/tarkista-tagi.sh "$RELEASE_TAG"
+
+      - name: Linuxin kehityspaketit
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
+
+      - name: Rust
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+          rustc --version
+
+      - name: Paketti (.github/scripts/paketoi-unix.sh)
+        env:
+          TULOSAVAIN: ${{ secrets.TULOSAVAIN }}
+        run: |
+          if [[ -z "$TULOSAVAIN" ]]; then
+            echo "Salaisuus TULOSAVAIN puuttuu: gh secret set TULOSAVAIN < paketointi/tulosavain" >&2
+            exit 1
+          fi
+          tiedosto="$RUNNER_TEMP/tulosavain"
+          trap 'rm -f "$tiedosto"' EXIT
+          (umask 077 && printf '%s' "$TULOSAVAIN" > "$tiedosto")
+          bash .github/scripts/paketoi-unix.sh --avain "$tiedosto"
+
+      - name: Paketin nimi
+        run: |
+          paketti="dist/klassikot8000-${RELEASE_TAG#v}-${{ inputs.asset_suffix }}"
+          test -f "$paketti" || { echo "Pakettia $paketti ei syntynyt." >&2; exit 1; }
+          echo "PAKETTI=$paketti" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ env.PAKETTI }}
+          if-no-files-found: error
+          retention-days: 1

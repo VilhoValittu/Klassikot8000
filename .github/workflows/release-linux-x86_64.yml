@@ -1,0 +1,74 @@
+name: Release Linux x86_64
+# julkaise.py löytää tagin ajon tällä otsikolla.
+run-name: Release ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+
+# Käynnistää julkaise.bat / julkaise.sh (gh workflow run), tai käsin Actions-sivulta (Run workflow)
+# tagille, joka on jo GitHubissa. Pelkkä tagin push ei käynnistä mitään. Jokaisella paketilla on
+# oma työnkulkunsa, kuten DecayCoressa, joten minkä tahansa voi rakentaa ja julkaista yksinään.
+# _release-publish.yml lisää paketin GitHub-julkaisuun; ensimmäinen paketti luo julkaisun.
+# Paketti tehdään minipc:n Ubuntu 22.04 -runnerilla (.github/runner/linux, label minipc-linux),
+# jolla tulosavain on. Ubuntu 22.04: peli toimii yhtä vanhoissa jakeluissa kuin Linux ARM64
+# -paketti (ubuntu-22.04-arm). Uudempi pohja nostaisi pelaajalta vaadittavaa glibc-versiota.
+# Testejä ei ajeta: tarkistukset.yml ajaa ne jokaisesta mainin muutoksesta, ja tagin on oltava
+# mainissa (.github/scripts/tarkista-tagi.sh).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Versiotagi, joka on jo GitHubissa, esim. v0.6.0"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_TAG: ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Linux x86_64 -paketti (minipc)
+    runs-on: [self-hosted, minipc-linux]
+    timeout-minutes: 60
+    env:
+      # Sama versio kuin tarkistukset.yml:ssä.
+      RUSTUP_TOOLCHAIN: "1.95.0"
+      CARGO_TERM_COLOR: always
+      # Oma käännöskansio: avaimellinen ohjelma ei sekoitu tarkistusten koekäännöksiin.
+      CARGO_TARGET_DIR: /home/runner/valimuisti/target-julkaisu
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          # Tarkistus "tagi on mainissa" tarvitsee mainin historian.
+          fetch-depth: 0
+
+      - name: Tagin tarkistus
+        run: bash .github/scripts/tarkista-tagi.sh "$RELEASE_TAG"
+
+      - name: Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+
+      - name: Paketti (.github/scripts/paketoi-unix.sh)
+        run: bash .github/scripts/paketoi-unix.sh --avain /run/salaisuudet/tulosavain
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: klassikot8000-linux-x64
+          path: dist/klassikot8000-${{ env.VERSION }}-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Linux x86_64 -paketin julkaisu
+    needs: build
+    uses: ./.github/workflows/_release-publish.yml
+    with:
+      tag: ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+      artifact: klassikot8000-linux-x64
+      asset_suffix: linux-x64.tar.gz

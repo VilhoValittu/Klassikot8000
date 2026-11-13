@@ -1,0 +1,50 @@
+name: Release macOS arm64
+# julkaise.py löytää tagin ajon tällä otsikolla.
+run-name: Release ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+
+# Käynnistää julkaise.bat / julkaise.sh (gh workflow run), tai käsin Actions-sivulta (Run workflow)
+# tagille, joka on jo GitHubissa. Pelkkä tagin push ei käynnistä mitään. Jokaisella paketilla on
+# oma työnkulkunsa, kuten DecayCoressa, joten minkä tahansa voi rakentaa ja julkaista yksinään.
+# _release-publish.yml lisää paketin GitHub-julkaisuun; ensimmäinen paketti luo julkaisun.
+# macOS arm64 (Apple Silicon) GitHubin koneella, _release-github.yml.
+# Testejä ei ajeta: tarkistukset.yml ajaa ne jokaisesta mainin muutoksesta, ja tagin on oltava
+# mainissa (.github/scripts/tarkista-tagi.sh).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Versiotagi, joka on jo GitHubissa, esim. v0.6.0"
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_TAG: ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: macOS arm64 -paketti
+    uses: ./.github/workflows/_release-github.yml
+    with:
+      tag: ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+      runner: macos-latest
+      artifact: klassikot8000-macos-arm64
+      asset_suffix: macos-arm64.zip
+    secrets:
+      TULOSAVAIN: ${{ secrets.TULOSAVAIN }}
+
+  publish:
+    name: macOS arm64 -paketin julkaisu
+    needs: build
+    uses: ./.github/workflows/_release-publish.yml
+    with:
+      tag: ${{ startsWith(inputs.tag, 'v') && inputs.tag || format('v{0}', inputs.tag) }}
+      artifact: klassikot8000-macos-arm64
+      asset_suffix: macos-arm64.zip

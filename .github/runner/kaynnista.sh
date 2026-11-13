@@ -15,7 +15,8 @@ else
         exit 1
     fi
     ./config.sh --unattended --url "$REPO_URL" --token "$REKISTEROINTI" \
-        --name minipc --labels minipc --work /home/runner/tyo --replace
+        --name "${RUNNER_NAME:-minipc}" --labels "${RUNNER_LABELS:-minipc}" \
+        --work /home/runner/tyo --replace
     for f in "${tiedostot[@]}"; do cp "$f" "$asetukset/"; done
 fi
 
