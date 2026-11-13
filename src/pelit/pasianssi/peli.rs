@@ -431,7 +431,11 @@ impl Pasianssi {
         }
         let pisteet = self.pisteet();
         let i = self.lista_indeksi();
-        self.taulut[i].lisaa(Tulos { nimi, pisteet });
+        self.taulut[i].lisaa(Tulos {
+            nimi,
+            pisteet,
+            aika: None,
+        });
         self.uusi_tulos = true;
         self.vaihe = Vaihe::Voitto;
     }
@@ -440,6 +444,7 @@ impl Pasianssi {
         let tulos = Tulos {
             nimi: self.haastenimi.clone(),
             pisteet: self.haasteiden_summa(),
+            aika: None,
         };
         self.haastetaulu.lisaa(tulos);
         self.uusi_tulos = true;

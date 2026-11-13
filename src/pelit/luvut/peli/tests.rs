@@ -222,6 +222,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
             .map(|_| Tulos {
                 nimi: "A".to_string(),
                 pisteet,
+                aika: None,
             })
             .collect::<Vec<_>>()
     };
@@ -261,6 +262,7 @@ fn listalle_yltamaton_tappio_ei_kysy_nimea() {
         .map(|_| Tulos {
             nimi: "A".to_string(),
             pisteet: 4,
+            aika: None,
         })
         .collect();
     luvut.kasittele(Syote::Nuoli(0, -1));

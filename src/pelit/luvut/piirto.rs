@@ -349,6 +349,7 @@ impl Piirtaja<'_> {
             PARHAAT_Y,
             PARHAAT_L,
             TULOS,
+            None,
             listan_otsikko(luvut.taulu.netti.is_some()),
             luvut.taulu.nakyva(),
         );

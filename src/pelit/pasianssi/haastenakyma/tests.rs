@@ -16,6 +16,11 @@ pub fn takaisin_keskipiste() -> (i32, i32) {
 }
 
 #[test]
+fn lista_paivamaarineen_mahtuu_ohjeen_ylapuolelle() {
+    const { assert!(LISTA_Y + PARHAAT_OTSIKKO + 3 * parhaiden_askel(OTSIKKO, Some(TULOS)) < SUMMA_Y) };
+}
+
+#[test]
 fn ruudukko_mahtuu_ja_solut_loytyvat() {
     let (oikea, alin) = solun_paikka(HAASTEITA - 1);
     assert!(oikea + SOLU_L < SIVU_X - 12);

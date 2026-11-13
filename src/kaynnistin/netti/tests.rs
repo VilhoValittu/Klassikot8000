@@ -56,16 +56,22 @@ fn tulos(nimi: &str, pisteet: u32) -> Tulos {
     Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     }
 }
 
 #[test]
 fn haku_ja_lahetys_kulkevat_ja_hylatty_tulos_kuitataan() {
-    let lista = http("200 OK", "120 VÄINÖ\n50 B\n");
+    // Vanhan palvelimen rivi ilman aikaa kelpaa yhä.
+    let lista = http("200 OK", "120 VÄINÖ 1763000000\n50 B\n");
     let hylatty = http("400 Bad Request", "kelvoton tulos\n");
     let (osoite, saie) = palvelin(vec![lista.clone(), lista, hylatty]);
     let netti = Netti::kaynnista(&osoite, Some(TESTIAVAIN)).unwrap();
-    let odotettu = vec![tulos("VÄINÖ", 120), tulos("B", 50)];
+    let vaino = Tulos {
+        aika: Some(1_763_000_000),
+        ..tulos("VÄINÖ", 120)
+    };
+    let odotettu = vec![vaino, tulos("B", 50)];
 
     netti.laheta(Pyynto::Hae(Nettipeli::Tiilirikko));
     assert_eq!(
@@ -90,8 +96,8 @@ fn haku_ja_lahetys_kulkevat_ja_hylatty_tulos_kuitataan() {
     );
 
     let pyynnot = saie.join().unwrap();
-    assert!(pyynnot[0].starts_with("GET /top3?peli=tiilirikko "));
-    assert!(pyynnot[1].starts_with("POST /tulos?peli=luvut "));
+    assert!(pyynnot[0].starts_with("GET /top3?peli=tiilirikko&aika=1 "));
+    assert!(pyynnot[1].starts_with("POST /tulos?peli=luvut&aika=1 "));
     assert!(pyynnot[1].ends_with(" 120 VÄINÖ"));
     let allekirjoitus = allekirjoita(&TESTIAVAIN, "luvut", "120 VÄINÖ");
     assert!(pyynnot[1].contains(&format!(" allekirjoitus={allekirjoitus} ")));

@@ -1,6 +1,6 @@
 use super::*;
 use crate::yhteinen::piirto::{LEVEYS, SUURI};
-use crate::yhteinen::tulokset::{NIMEN_PITUUS, tulos_tekstista};
+use crate::yhteinen::tulokset::{NIMEN_PITUUS, nimi_kelpaa};
 use std::path::Path;
 
 /// Ajaa tarkistuksen kummallakin kielellä ja palauttaa suomen.
@@ -99,7 +99,7 @@ fn oletusnimi_kelpaa_tulokseksi() {
     kaikilla_kielilla(|| {
         let nimi = kaanna("yhteinen.oletusnimi");
         assert!(nimi.chars().count() <= NIMEN_PITUUS);
-        assert!(tulos_tekstista(&format!("1 {nimi}")).is_some());
+        assert!(nimi_kelpaa(nimi));
     });
 }
 

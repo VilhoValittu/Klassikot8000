@@ -26,6 +26,30 @@ fn kierratetty(tallennus: &Tallennus) -> Tallennus {
     Tallennus::tekstista(&tallennus.tekstiksi()).expect("oma tallennus kelpaa")
 }
 
+/// Pelin ainoa lähtevä tulos. Sen nimi ja pisteet ovat odotetut, ja se on saanut kirjaushetken,
+/// jota testi ei voi tietää etukäteen.
+fn lahteva(pyynnot: &[Pyynto], peli: Nettipeli, nimi: &str, pisteet: u32) -> Tulos {
+    let lahtevat: Vec<&Tulos> = pyynnot
+        .iter()
+        .filter_map(|pyynto| match pyynto {
+            Pyynto::Laheta(lista, tulos) if *lista == peli => Some(tulos),
+            _ => None,
+        })
+        .collect();
+    let [tulos] = lahtevat[..] else {
+        panic!("odotettiin yksi lähtevä tulos: {pyynnot:?}");
+    };
+    assert_eq!((tulos.nimi.as_str(), tulos.pisteet), (nimi, pisteet));
+    assert!(tulos.aika.is_some());
+    tulos.clone()
+}
+
+/// Kuten `lahteva`, mutta muita pyyntöjä ei saa olla.
+fn ainoa_lahteva(pyynnot: Vec<Pyynto>, peli: Nettipeli, nimi: &str, pisteet: u32) -> Tulos {
+    assert_eq!(pyynnot.len(), 1, "{pyynnot:?}");
+    lahteva(&pyynnot, peli, nimi, pisteet)
+}
+
 fn luvut(k: &mut Kaynnistin) -> &mut Luvut {
     match &mut k.peli {
         Some(Kaynnissa::Luvut(peli)) => peli,
@@ -493,6 +517,7 @@ fn valinta_vaihtaa_mallin() {
     k.tallennus.lista_mut(Nettipeli::Asteroidit).parhaat = vec![Tulos {
         nimi: "A".to_string(),
         pisteet: 100,
+        aika: None,
     }];
     let (netista, parhaat) = k.valitun_parhaat();
     assert!(!netista);
@@ -505,11 +530,7 @@ fn valinta_vaihtaa_mallin() {
 fn tarkista_korttipelin_tulos(k: &mut Kaynnistin, peli: Nettipeli, pisteet: u32) {
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
-    let tulos = Tulos {
-        nimi: "A".to_string(),
-        pisteet,
-    };
-    assert!(k.pyynnot.contains(&Pyynto::Laheta(peli, tulos.clone())));
+    let tulos = lahteva(&k.pyynnot, peli, "A", pisteet);
     assert!(k.tallenna);
 
     let mut uusi = Kaynnistin::new(2);
@@ -552,6 +573,7 @@ fn haasteen_tulos_tallentuu_ja_lahtee_omalle_listalleen() {
     let tulos = Tulos {
         nimi: "V".to_string(),
         pisteet: 3000,
+        aika: None,
     };
     peli.haastetaulu.parhaat = vec![tulos.clone()];
     peli.haastetaulu.lahetys = vec![tulos.clone()];
@@ -615,6 +637,7 @@ fn valikko_nayttaa_viimeksi_valitun_lajin_listan_ja_nettilista_menee_lajille() {
     k.tallennus.lista_mut(Nettipeli::Spider).parhaat = vec![Tulos {
         nimi: "S".to_string(),
         pisteet: 9,
+        aika: None,
     }];
     k.valitse(
         PELIT
@@ -628,6 +651,7 @@ fn valikko_nayttaa_viimeksi_valitun_lajin_listan_ja_nettilista_menee_lajille() {
     let lista = vec![Tulos {
         nimi: "NETTI".to_string(),
         pisteet: 7,
+        aika: None,
     }];
     k.vastaanota(Vastaus::Lista(Nettipeli::Spider, lista.clone()));
     let Some(Kaynnissa::Pasianssi(peli)) = &k.peli else {
@@ -716,14 +740,7 @@ fn palikan_tulos_tallentuu_jonottaa_ja_palautuu() {
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
 
-    let tulos = Tulos {
-        nimi: "A".to_string(),
-        pisteet: 350,
-    };
-    assert_eq!(
-        std::mem::take(&mut k.pyynnot),
-        [Pyynto::Laheta(Nettipeli::Palikka, tulos.clone())]
-    );
+    let tulos = ainoa_lahteva(std::mem::take(&mut k.pyynnot), Nettipeli::Palikka, "A", 350);
 
     let mut uusi = Kaynnistin::new(2);
     uusi.lataa(kierratetty(&k.tallennus));
@@ -825,13 +842,11 @@ fn silmukan_tulos_tallentuu_jonottaa_ja_palautuu() {
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
 
-    let tulos = Tulos {
-        nimi: "A".to_string(),
-        pisteet: 225,
-    };
-    assert_eq!(
+    let tulos = ainoa_lahteva(
         std::mem::take(&mut k.pyynnot),
-        [Pyynto::Laheta(Nettipeli::Silmukka, tulos.clone())]
+        Nettipeli::Silmukka,
+        "A",
+        225,
     );
 
     let mut uusi = Kaynnistin::new(2);
@@ -879,13 +894,11 @@ fn asteroidien_tulos_tallentuu_jonottaa_ja_palautuu() {
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
 
-    let tulos = Tulos {
-        nimi: "A".to_string(),
-        pisteet: 100,
-    };
-    assert_eq!(
+    let tulos = ainoa_lahteva(
         std::mem::take(&mut k.pyynnot),
-        [Pyynto::Laheta(Nettipeli::Asteroidit, tulos.clone())]
+        Nettipeli::Asteroidit,
+        "A",
+        100,
     );
 
     let mut uusi = Kaynnistin::new(2);
@@ -1009,13 +1022,11 @@ fn nettitulos_jonottaa_tiedostossa_kunnes_lahetys_on_kuitattu() {
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
 
-    let tulos = Tulos {
-        nimi: "A".to_string(),
-        pisteet: 70,
-    };
-    assert_eq!(
+    let tulos = ainoa_lahteva(
         std::mem::take(&mut k.pyynnot),
-        [Pyynto::Laheta(Nettipeli::Tiilirikko, tulos.clone())]
+        Nettipeli::Tiilirikko,
+        "A",
+        70,
     );
     assert_eq!(k.tallennus.lista(Nettipeli::Tiilirikko).jono.len(), 1);
 
@@ -1037,6 +1048,7 @@ fn luvut_ja_tiilirikko_pitavat_nettilistansa_ja_jononsa_erillaan() {
     let tulos = |nimi: &str, pisteet| Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     };
     let lukkoon = [
         [2, 2, 16, 8],
@@ -1060,11 +1072,7 @@ fn luvut_ja_tiilirikko_pitavat_nettilistansa_ja_jononsa_erillaan() {
     k.kasittele(Syote::Nuoli(0, -1));
     k.kasittele(Syote::Kirjain('A'));
     k.kasittele(Syote::Ammu);
-    let odotettu = tulos("A", 4);
-    assert_eq!(
-        std::mem::take(&mut k.pyynnot),
-        [Pyynto::Laheta(Nettipeli::Luvut, odotettu.clone())]
-    );
+    let odotettu = ainoa_lahteva(std::mem::take(&mut k.pyynnot), Nettipeli::Luvut, "A", 4);
     assert_eq!(k.tallennus.lista(Nettipeli::Luvut).jono.len(), 1);
     assert!(k.tallennus.lista(Nettipeli::Tiilirikko).jono.is_empty());
 
@@ -1235,6 +1243,7 @@ fn valikko_nayttaa_oman_ennatyksen_myos_listalle_yltamattomana() {
     lista.parhaat = vec![Tulos {
         nimi: "A".to_string(),
         pisteet: 40,
+        aika: None,
     }];
     assert_eq!(k.valitun_oma_paras(), Some(40));
     k.tallennus.lista_mut(Nettipeli::Blackjack).paras = 90;
@@ -1253,6 +1262,7 @@ fn listalle_yltamaton_poytavoitto_jaa_omaksi_ennatykseksi() {
         Tulos {
             nimi: "X".to_string(),
             pisteet: 1000,
+            aika: None,
         };
         3
     ];
@@ -1343,6 +1353,7 @@ fn valikko_hakee_valitun_pelin_nettilistan_kerran_ja_nayttaa_sen() {
     let lista = vec![Tulos {
         nimi: "N".to_string(),
         pisteet: 5,
+        aika: None,
     }];
     k.vastaanota(Vastaus::Lista(Nettipeli::Tiilirikko, lista.clone()));
     assert_ne!(k.kuvan_avain(false), ennen);
@@ -1549,6 +1560,7 @@ fn epaonnistunut_lahetys_yritetaan_uudelleen_viiveen_jalkeen() {
     let tulos = |nimi: &str, pisteet| Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     };
     let mut tallennus = Tallennus::default();
     tallennus

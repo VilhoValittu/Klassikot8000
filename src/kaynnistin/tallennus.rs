@@ -23,7 +23,9 @@ use crate::pelit::luvut::peli::Kesken;
 use crate::pelit::pasianssi::peli::Haastepisteet;
 use crate::virheloki;
 use crate::yhteinen::kieli::Kieli;
-use crate::yhteinen::tulokset::{NETTIPELEJA, Nettipeli, Tulos, lisaa_tulos, tulos_tekstista};
+use crate::yhteinen::tulokset::{
+    NETTIPELEJA, Nettipeli, Tulos, lisaa_tulos, nimi_kelpaa, tulos_tekstiksi, tulos_tekstista,
+};
 
 const OTSAKE: &str = "klassikot8000 1";
 // Rajat pitävät muokatun tiedoston luvut sellaisina, ettei pistelasku voi ylivuotaa.
@@ -222,10 +224,10 @@ impl Tallennus {
                 teksti += &format!("{avain} {}\n", lista.paras);
             }
             for tulos in &lista.parhaat {
-                teksti += &format!("{top} {} {}\n", tulos.pisteet, tulos.nimi);
+                teksti += &format!("{top} {}\n", tulos_tekstiksi(tulos));
             }
             for tulos in &lista.jono {
-                teksti += &format!("{jono} {} {}\n", tulos.pisteet, tulos.nimi);
+                teksti += &format!("{jono} {}\n", tulos_tekstiksi(tulos));
             }
         }
         for (taso, tilasto) in self.laivatilasto.iter().enumerate() {
@@ -319,9 +321,8 @@ impl Tallennus {
                     }
                 }
                 "haastenimi" => {
-                    // Nimi kelpaa samoin ehdoin kuin tulosrivillä.
-                    if let Some(tulos) = tulos_tekstista(&format!("1 {arvo}")) {
-                        t.haastenimi = tulos.nimi;
+                    if nimi_kelpaa(arvo) {
+                        t.haastenimi = arvo.to_string();
                     }
                 }
                 "haastepisteet" => {

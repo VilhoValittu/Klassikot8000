@@ -260,6 +260,7 @@ fn ilman_voittoa_tai_listapaikkaa_poistutaan_heti() {
         tulokset::Tulos {
             nimi: "A".to_string(),
             pisteet: 100,
+            aika: None,
         };
         3
     ]);

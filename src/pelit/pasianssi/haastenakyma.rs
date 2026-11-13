@@ -9,6 +9,7 @@ use super::piirto::{
 };
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
+use crate::yhteinen::tulokset::PARHAITA;
 
 const LAJI_X: i32 = 48;
 const LAJI_Y: i32 = 54;
@@ -21,8 +22,9 @@ const SOLU_ASKEL_Y: i32 = 240;
 const TAKAISIN: &str = "pasianssi.nappi_takaisin";
 const LAPAISTY: u32 = 0x1C7A48;
 const LISTA_Y: i32 = 54;
-const SUMMA_Y: i32 = 216;
-const OHJE_Y: i32 = 306;
+const SUMMA_Y: i32 =
+    LISTA_Y + PARHAAT_OTSIKKO + PARHAITA as i32 * parhaiden_askel(OTSIKKO, Some(TULOS)) + 6;
+const OHJE_Y: i32 = SUMMA_Y + 90;
 
 fn lajin_x(x: i32) -> i32 {
     // Rivi on sama kuin alkuruudulla, mutta se alkaa pelilaudan vasemmasta laidasta.
@@ -117,6 +119,7 @@ impl Piirtaja<'_> {
             LISTA_Y,
             leveys,
             OTSIKKO,
+            Some(TULOS),
             &otsikko,
             peli.haastetaulu.nakyva(),
         );

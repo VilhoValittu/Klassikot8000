@@ -33,7 +33,8 @@ fn kaikki_pohjat_mahtuvat_alueelle() {
             assert_eq!(y % U, 0);
         }
     }
-    assert!(SIVU_PARHAAT_Y + PARHAAT_OTSIKKO + 3 * PARHAAT_RIVI < RUUDUN_KORKEUS as i32 - 30);
+    let askel = parhaiden_askel(TULOS, Some(PVM));
+    assert!(SIVU_PARHAAT_Y + PARHAAT_OTSIKKO + 3 * askel < RUUDUN_KORKEUS as i32 - 30);
     assert!(SIVU_MERKKEJA as i32 * MERKKI <= SIVU_L - 36);
 }
 

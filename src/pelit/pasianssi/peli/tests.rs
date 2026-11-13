@@ -270,6 +270,7 @@ fn listalle_yltamaton_summa_sailyy_mutta_ei_kysy_nimea() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 600_000,
+            aika: None,
         };
         3
     ]);
@@ -288,6 +289,7 @@ fn laji_vaihtuu_alkuruudulla_ja_jokaisella_on_oma_listansa() {
     peli.taulut[Variantti::Spider as usize].parhaat = vec![Tulos {
         nimi: "S".to_string(),
         pisteet: 5,
+        aika: None,
     }];
     assert!(peli.nakyva_lista().is_empty());
     peli.kasittele(Syote::Nuoli(1, 0));
@@ -515,6 +517,7 @@ fn listalle_yltamaton_voitto_ja_keskeytys_eivat_kysy_nimea() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 100_000,
+            aika: None,
         };
         3
     ]);

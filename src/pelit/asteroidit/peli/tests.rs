@@ -143,6 +143,7 @@ fn listalle_yltamaton_tulos_ei_kysy_nimea_ja_uusi_peli_alkaa_alusta() {
         .map(|_| Tulos {
             nimi: "A".to_string(),
             pisteet: 1000,
+            aika: None,
         })
         .collect::<Vec<_>>();
     let mut peli = paattyva(40);
@@ -218,6 +219,7 @@ fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 1000,
+            aika: None,
         };
         3
     ]);

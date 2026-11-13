@@ -4,6 +4,7 @@ use std::sync::LazyLock;
 use super::fontti;
 use super::kieli::kaanna;
 use super::osoitin::{self, Tila};
+use super::paivays::pvm;
 use super::paletti::ramppi;
 use super::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
 use super::tulokset::{PARHAITA, Tulos};
@@ -249,8 +250,31 @@ pub const TULOS: (i32, i32, i32) = (12, 18, 18);
 pub const PARHAAT_RIVI: i32 = 26;
 /// Listan otsikon ja ensimmäisen rivin väli.
 pub const PARHAAT_OTSIKKO: i32 = 30;
-// Alkuruudulla lista on maiseman vasemmassa laidassa, pyörivän mallin vieressä.
-const ALKU_PARHAAT: (i32, i32, i32, i32) = (36, 204, 318, 126);
+/// Päivämäärä nimen alla `TULOS`-kokoisessa listassa.
+pub const PVM: (i32, i32, i32) = (12, 14, 15);
+const PVM_YLA: i32 = 6;
+const PVM_ALA: i32 = 9;
+// Alkuruudulla lista on maiseman vasemmassa laidassa, pyörivän mallin vieressä. Laatikon
+// alareuna pysyy maiseman sisällä, joten päivämäärien vaatima korkeus kasvaa ylöspäin.
+const ALKU_PARHAAT_L: i32 = 318;
+const ALKU_PARHAAT_K: i32 =
+    2 * 9 + PARHAAT_OTSIKKO + PARHAITA as i32 * parhaiden_askel(TULOS, Some(PVM)) - PVM_ALA;
+const ALKU_PARHAAT: (i32, i32, i32, i32) =
+    (36, 330 - ALKU_PARHAAT_K, ALKU_PARHAAT_L, ALKU_PARHAAT_K);
+
+/// Listan rivien väli: päivämäärä vie nimen alta oman rivinsä.
+pub const fn parhaiden_askel(koko: (i32, i32, i32), pvm: Option<(i32, i32, i32)>) -> i32 {
+    match pvm {
+        Some(pvm) => isojen_korkeus(koko) + PVM_YLA + isojen_korkeus(pvm) + PVM_ALA,
+        None => PARHAAT_RIVI,
+    }
+}
+
+/// Isojen kirjainten todellinen korkeus: `suurteksti` pyöristää koon fontin pikseleiksi.
+const fn isojen_korkeus(koko: (i32, i32, i32)) -> i32 {
+    let pikseli = (2 * koko.1 + 7) / 14;
+    7 * if pikseli > 1 { pikseli } else { 1 }
+}
 const NIMI_OTSIKKO: &str = "yhteinen.nimi_otsikko";
 pub const NIMI_OHJE: &str = "yhteinen.nimi_ohje";
 pub const TAUKO: &str = "yhteinen.tauko";
@@ -1013,17 +1037,20 @@ impl Piirtaja<'_> {
     }
 
     /// Sijoitus ja nimi vasemmalla, pisteet oikeassa laidassa. Tyhjä paikka näkyy viivana.
+    /// `pvm` on päivämäärän koko nimen alla; ahtaissa sivupalkeissa se jätetään pois.
+    #[allow(clippy::too_many_arguments)]
     pub fn parhaat_lista(
         &mut self,
         x: i32,
         y: i32,
         leveys: i32,
         koko: (i32, i32, i32),
+        pvm: Option<(i32, i32, i32)>,
         otsikko: &str,
         parhaat: &[Tulos],
     ) {
         self.teksti(x, y, otsikko, KELTAINEN);
-        self.parhaat_rivit(x, y + PARHAAT_OTSIKKO, leveys, koko, parhaat);
+        self.parhaat_rivit(x, y + PARHAAT_OTSIKKO, leveys, koko, pvm, parhaat);
     }
 
     /// Listan rivit ilman otsikkoa, ensimmäinen kohdassa `y`.
@@ -1033,19 +1060,34 @@ impl Piirtaja<'_> {
         y: i32,
         leveys: i32,
         koko: (i32, i32, i32),
+        pvm_koko: Option<(i32, i32, i32)>,
         parhaat: &[Tulos],
     ) {
+        let askel = parhaiden_askel(koko, pvm_koko);
         for i in 0..PARHAITA {
-            let rivi_y = y + i as i32 * PARHAAT_RIVI;
+            let rivi_y = y + i as i32 * askel;
             let tulos = parhaat.get(i);
             let nimi = tulos.map_or("-", |t| t.nimi.as_str());
             let vasen = format!("{} {nimi}", i + 1);
             self.suurteksti(x, rivi_y, &vasen, koko, VALKOINEN, false);
-            if let Some(tulos) = tulos {
-                let pisteet = tulos.pisteet.to_string();
-                let pituus = pisteet.chars().count() as i32 * koko.2;
-                let oikea = x + leveys - pituus;
-                self.suurteksti(oikea, rivi_y, &pisteet, koko, KELTAINEN, false);
+            let Some(tulos) = tulos else {
+                continue;
+            };
+            let pisteet = tulos.pisteet.to_string();
+            let pituus = pisteet.chars().count() as i32 * koko.2;
+            let oikea = x + leveys - pituus;
+            self.suurteksti(oikea, rivi_y, &pisteet, koko, KELTAINEN, false);
+            // Vanhoissa tuloksissa ei ole aikaa, joten niiden kohta jää tyhjäksi.
+            if let (Some(pvm_koko), Some(aika)) = (pvm_koko, tulos.aika) {
+                let pvm_y = rivi_y + isojen_korkeus(koko) + PVM_YLA;
+                self.suurteksti(
+                    x + 2 * koko.2,
+                    pvm_y,
+                    &pvm(aika),
+                    pvm_koko,
+                    LAVENTELI,
+                    false,
+                );
             }
         }
     }
@@ -1053,7 +1095,7 @@ impl Piirtaja<'_> {
     pub fn parhaat_alkuruudulla(&mut self, otsikko: &str, parhaat: &[Tulos]) {
         let (x, y, l, k) = ALKU_PARHAAT;
         self.ikkuna(x, y, l, k);
-        self.parhaat_lista(x + 12, y + 9, l - 24, TULOS, otsikko, parhaat);
+        self.parhaat_lista(x + 12, y + 9, l - 24, TULOS, Some(PVM), otsikko, parhaat);
     }
 
     /// Paneelin sisältö tauolla: otsikko, jatkamisen ohje ja paluu valikkoon. Esc pysäyttää

@@ -451,7 +451,10 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_kirjaa_pisteet() {
     let tulos = Tulos {
         nimi: "AME".to_string(),
         pisteet,
+        aika: peli.taulu.parhaat.first().and_then(|t| t.aika),
     };
+    // Kirjattu tulos saa tämän hetken.
+    assert!(tulos.aika.is_some());
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
     assert_eq!(peli.taulu.lahetys, vec![tulos]);
     assert!(peli.uusi_tulos);
@@ -464,6 +467,7 @@ fn listalle_yltamaton_voitto_ja_tappio_eivat_kysy_nimea() {
         Tulos {
             nimi: "X".to_string(),
             pisteet: 999,
+            aika: None,
         };
         3
     ];

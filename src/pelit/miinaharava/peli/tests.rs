@@ -30,7 +30,10 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_lahtee_nettiin() {
     let tulos = Tulos {
         nimi: "V".to_string(),
         pisteet,
+        aika: peli.taulu.parhaat.first().and_then(|t| t.aika),
     };
+    // Kirjattu tulos saa tämän hetken.
+    assert!(tulos.aika.is_some());
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
     assert_eq!(peli.taulu.lahetys, vec![tulos]);
     assert!(peli.uusi_tulos);
@@ -41,6 +44,7 @@ fn listalle_yltava_voitto_kysyy_nimen_ja_lahtee_nettiin() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 5000,
+            aika: None,
         };
         3
     ];
@@ -168,6 +172,7 @@ fn voitto_kirjaa_parhaan_ajan_vain_jos_se_paranee() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 100_000,
+            aika: None,
         };
         3
     ];

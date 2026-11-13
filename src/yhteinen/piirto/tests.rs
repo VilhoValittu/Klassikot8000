@@ -23,6 +23,15 @@ pub fn alkuohje_mahtuu(osat: &[&str], rivit: &[&str], raja_y: i32) {
 const KAIKKI_RIVIT: [bool; RUUDUN_KORKEUS] = [true; RUUDUN_KORKEUS];
 
 #[test]
+fn alkuruudun_lista_mahtuu_otsikon_ja_ohjeen_valiin() {
+    let (_, y, _, k) = ALKU_PARHAAT;
+    const { assert!(ALKU_PARHAAT.1 > 45 + SUURI.1 + 12) };
+    assert!(y + k < OHJE_Y - 12);
+    // Päivämäärä mahtuu nimen alle laatikon sisään.
+    assert!(2 * TULOS.2 + 10 * PVM.2 <= ALKU_PARHAAT_L - 24);
+}
+
+#[test]
 fn nimi_ikkunan_tekstit_mahtuvat_kummallakin_kielella() {
     crate::yhteinen::kieli::kaikilla_kielilla(|| {
         let tila = NIMI_IKKUNA_L - 36;

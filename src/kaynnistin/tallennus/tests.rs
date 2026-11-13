@@ -15,6 +15,7 @@ fn tulos(nimi: &str, pisteet: u32) -> Tulos {
     Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     }
 }
 
@@ -61,8 +62,17 @@ fn kokonainen() -> Tallennus {
         if avaimet(peli).0.is_some() {
             lista.paras = pisteet;
         }
-        lista.parhaat = vec![tulos("VÄINÖ", pisteet), tulos("A1", 3)];
-        lista.jono = vec![tulos("NIMETÖN", pisteet + 1)];
+        // Vanhoista tallennuksista luetuilla tuloksilla ei ole aikaa.
+        let vaino = Tulos {
+            aika: Some(1_763_000_000 + i as u64),
+            ..tulos("VÄINÖ", pisteet)
+        };
+        let nimeton = Tulos {
+            aika: Some(1_763_000_100),
+            ..tulos("NIMETÖN", pisteet + 1)
+        };
+        lista.parhaat = vec![vaino, tulos("A1", 3)];
+        lista.jono = vec![nimeton];
     }
     t
 }

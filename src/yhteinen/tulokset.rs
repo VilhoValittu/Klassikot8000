@@ -1,6 +1,7 @@
 //! Parhaiden tulosten lista ja nimimerkin kirjoitus.
 
 use super::kieli::kaanna;
+use super::paivays::{SUURIN_AIKA, nyt};
 use super::syote::Syote;
 
 pub const PARHAITA: usize = 3;
@@ -13,6 +14,8 @@ const SUURIN_PISTEMAARA: u32 = 1_000_000_000;
 pub struct Tulos {
     pub nimi: String,
     pub pisteet: u32,
+    /// Tuloksen hetki Unix-sekunteina. Vanhoissa tallennuksissa ja vanhalta palvelimelta `None`.
+    pub aika: Option<u64>,
 }
 
 /// Top-lista, jolla on oma rivinsä tallennuksessa ja oma tunnuksensa nettipalvelimella.
@@ -90,20 +93,39 @@ impl Nettipeli {
     }
 }
 
-/// Lukee rivin muodossa "pisteet NIMI". Tallennustiedosto ja nettilista käyttävät samaa muotoa.
+/// Lukee rivin muodossa "pisteet NIMI" tai "pisteet NIMI aika". Tallennustiedosto ja nettilista
+/// käyttävät samaa muotoa.
 pub fn tulos_tekstista(teksti: &str) -> Option<Tulos> {
-    let (pisteet, nimi) = teksti.split_once(' ')?;
-    let pituus = nimi.chars().count();
-    let kelpaa = (1..=NIMEN_PITUUS).contains(&pituus)
-        && nimi.chars().all(|m| m.is_uppercase() || m.is_ascii_digit());
-    let pisteet = pisteet
+    let mut osat = teksti.split(' ');
+    let pisteet = osat
+        .next()?
         .parse()
         .ok()
         .filter(|&p| p > 0 && p <= SUURIN_PISTEMAARA)?;
-    kelpaa.then(|| Tulos {
+    let nimi = osat.next().filter(|nimi| nimi_kelpaa(nimi))?;
+    let aika = match osat.next() {
+        Some(aika) => Some(aika.parse().ok().filter(|&a| a <= SUURIN_AIKA)?),
+        None => None,
+    };
+    osat.next().is_none().then(|| Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika,
     })
+}
+
+/// Tulos samassa muodossa, jonka `tulos_tekstista` lukee.
+pub fn tulos_tekstiksi(tulos: &Tulos) -> String {
+    match tulos.aika {
+        Some(aika) => format!("{} {} {aika}", tulos.pisteet, tulos.nimi),
+        None => format!("{} {}", tulos.pisteet, tulos.nimi),
+    }
+}
+
+/// Nimimerkissä on 1-`NIMEN_PITUUS` isoa kirjainta tai numeroa.
+pub fn nimi_kelpaa(nimi: &str) -> bool {
+    (1..=NIMEN_PITUUS).contains(&nimi.chars().count())
+        && nimi.chars().all(|m| m.is_uppercase() || m.is_ascii_digit())
 }
 
 pub fn lista_tekstista(teksti: &str) -> Vec<Tulos> {
@@ -171,11 +193,14 @@ impl Tulostaulu {
         self.lisaa(Tulos {
             nimi: ota_nimi(nimi),
             pisteet,
+            aika: None,
         });
     }
 
-    /// Lisää tuloksen omalle listalle, nettilistalle ja lähtemään.
-    pub fn lisaa(&mut self, tulos: Tulos) {
+    /// Lisää tuloksen omalle listalle, nettilistalle ja lähtemään. Tulos ilman aikaa saa
+    /// tämän hetken.
+    pub fn lisaa(&mut self, mut tulos: Tulos) {
+        tulos.aika.get_or_insert_with(nyt);
         let lisaa = if self.peli.yksi_per_nimi() {
             paivita_nimen_tulos
         } else {

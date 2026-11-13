@@ -61,7 +61,7 @@ fn ohjeiden_leveys() -> i32 {
 /// Top 3 -laatikon sisällön korkeus otsikosta oman parhaan riviin.
 fn listan_korkeus(laji: bool) -> i32 {
     (1 + laji as i32) * LAATIKON_OTSIKKO
-        + PARHAITA as i32 * PARHAAT_RIVI
+        + PARHAITA as i32 * parhaiden_askel(LISTA_KOKO, Some(LISTA_KOKO))
         + OMA_VALI
         + P
         + 2 * OMA_VALI

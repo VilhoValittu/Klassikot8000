@@ -32,6 +32,9 @@ pub const VERSIO: &str = env!("CARGO_PKG_VERSION");
 const AIKARAJA: Duration = Duration::from_secs(8);
 const KELVOTON_PYYNTO: u16 = 400;
 const ALLEKIRJOITUS: &str = "x-allekirjoitus";
+// Pyytää listan rivit päivämäärineen. Ilman tätä palvelin vastaa vanhoille versioille vanhassa
+// muodossa, jota ne osaavat lukea.
+const AJAT: &str = "aika=1";
 
 /// Nettilistan allekirjoitusavain. Sama avain on palvelimella salaisuutena.
 pub type Avain = [u8; 32];
@@ -113,7 +116,9 @@ fn kasittele(agentti: &Agent, osoite: &str, avain: Option<&Avain>, pyynto: Pyynt
     match pyynto {
         Pyynto::Hae(peli) => {
             let tunnus = peli.tunnus();
-            let vastaus = agentti.get(format!("{osoite}/top3?peli={tunnus}")).call();
+            let vastaus = agentti
+                .get(format!("{osoite}/top3?peli={tunnus}&{AJAT}"))
+                .call();
             lue_lista(vastaus)
                 .map(|lista| Vastaus::Lista(peli, lista))
                 .into_iter()
@@ -127,7 +132,7 @@ fn kasittele(agentti: &Agent, osoite: &str, avain: Option<&Avain>, pyynto: Pyynt
             let tunnus = peli.tunnus();
             let runko = format!("{} {}", tulos.pisteet, tulos.nimi);
             let vastaus = agentti
-                .post(format!("{osoite}/tulos?peli={tunnus}"))
+                .post(format!("{osoite}/tulos?peli={tunnus}&{AJAT}"))
                 .content_type("text/plain; charset=utf-8")
                 .header(ALLEKIRJOITUS, allekirjoita(avain, tunnus, &runko))
                 .send(runko);

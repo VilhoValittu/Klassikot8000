@@ -926,6 +926,7 @@ impl Piirtaja<'_> {
             SIVU_PARHAAT_Y,
             SIVU_L - 36,
             TULOS,
+            Some(PVM),
             otsikko,
             peli.taulu.nakyva(),
         );

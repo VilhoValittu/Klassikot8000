@@ -11,7 +11,7 @@ use crate::yhteinen::loppunapit::{self, Loppunappi};
 use crate::yhteinen::pelinakyma::Pelinakyma;
 use crate::yhteinen::piirto::{Kehys, VILKKU_MS};
 use crate::yhteinen::syote::{Syote, Yleinen, yleinen};
-use crate::yhteinen::tulokset::{Nettipeli, Tulos, Tulostaulu, nimi_valmis, tulos_tekstista};
+use crate::yhteinen::tulokset::{Nettipeli, Tulos, Tulostaulu, nimi_kelpaa, nimi_valmis};
 
 /// Noppien pyörimisen kesto heitossa.
 pub const HEITTO_MS: u32 = 450;
@@ -56,7 +56,7 @@ pub fn oletuspaikat() -> Vec<Istuin> {
 
 /// Nimi kelpaa samoin ehdoin kuin top-listan rivillä.
 fn kelpaava_nimi(nimi: &str) -> Option<String> {
-    tulos_tekstista(&format!("1 {nimi}")).map(|tulos| tulos.nimi)
+    nimi_kelpaa(nimi).then(|| nimi.to_string())
 }
 
 /// Paikat tallennuksen riveistä "paikka laji [nimi]". Ensimmäinen paikka on aina ihmisen.
@@ -707,6 +707,7 @@ impl Jatsi {
                 self.taulu.lisaa(Tulos {
                     nimi: self.nimet[pelaaja].clone(),
                     pisteet: tulos,
+                    aika: None,
                 });
             }
         }

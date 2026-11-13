@@ -455,6 +455,7 @@ impl Piirtaja<'_> {
             PARHAAT_Y,
             PARHAAT_L,
             TULOS,
+            None,
             listan_otsikko(peli.taulu.netti.is_some()),
             peli.taulu.nakyva(),
         );

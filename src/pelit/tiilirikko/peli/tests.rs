@@ -106,6 +106,7 @@ fn viimeisen_pallon_menetys_paattaa_pelin_ja_paras_sailyy_uudessa() {
         .map(|_| Tulos {
             nimi: "A".to_string(),
             pisteet: 40,
+            aika: None,
         })
         .collect();
     peli.edista(ASKEL_MS);
@@ -170,6 +171,7 @@ fn nettilista_ratkaisee_nimen_kysymisen_kun_se_on_tiedossa() {
             .map(|_| Tulos {
                 nimi: "A".to_string(),
                 pisteet,
+                aika: None,
             })
             .collect::<Vec<_>>()
     };
@@ -302,6 +304,7 @@ fn listalle_yltamaton_tulos_poistuu_heti_ja_sulkeminen_kirjaa_oletusnimella() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 1000,
+            aika: None,
         };
         3
     ]);

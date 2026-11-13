@@ -128,6 +128,22 @@ test("tasapisteissä vanhempi tulos pysyy edellä", async (t) => {
   assert.equal((await hae(env, "/top3?peli=luvut")).teksti, "100 EKA\n100 TOKA\n100 KOLMAS\n");
 });
 
+test("aika=1 lisää riveille tuloksen hetken sekunteina", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_763_000_000_999 });
+  const env = ymparisto();
+  await laheta(env, "luvut", "100 EKA");
+  const vastaus = await hae(env, "/tulos?peli=luvut&aika=1", {
+    method: "POST",
+    body: "50 TOKA",
+    headers: { "x-allekirjoitus": allekirjoita("luvut", "50 TOKA") },
+  });
+  const odotettu = "100 EKA 1763000000\n50 TOKA 1763000000\n";
+  assert.deepEqual(vastaus, { status: 200, teksti: odotettu });
+  assert.equal((await hae(env, "/top3?peli=luvut&aika=1")).teksti, odotettu);
+  // Vanhat versiot eivät pyydä aikoja eivätkä osaisi lukea niitä.
+  assert.equal((await hae(env, "/top3?peli=luvut")).teksti, "100 EKA\n50 TOKA\n");
+});
+
 test("sama tulos uudelleen lähetettynä ei tee kaksoiskappaletta", async () => {
   const env = ymparisto();
   await laheta(env, "luvut", "100 A");

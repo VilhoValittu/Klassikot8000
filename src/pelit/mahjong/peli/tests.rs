@@ -108,7 +108,10 @@ fn voitto_kysyy_nimen_ja_kirjaa_tuloksen() {
     let tulos = Tulos {
         nimi: "Ä".to_string(),
         pisteet,
+        aika: peli.taulu.parhaat.first().and_then(|t| t.aika),
     };
+    // Kirjattu tulos saa tämän hetken.
+    assert!(tulos.aika.is_some());
     assert_eq!(peli.taulu.parhaat, std::slice::from_ref(&tulos));
     assert_eq!(peli.taulu.lahetys, vec![tulos]);
     peli.edista(JUHLA_MS);

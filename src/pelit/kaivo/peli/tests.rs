@@ -195,6 +195,7 @@ fn listalle_yltamaton_tulos_ei_kysy_nimea_ja_uusi_peli_alkaa_alusta() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 1000,
+            aika: None,
         };
         3
     ]);

@@ -127,6 +127,7 @@ fn kaikki_vaiheet_piirtyvat_kaatumatta_tehosteiden_aikana() {
         crate::yhteinen::tulokset::Tulos {
             nimi: "AMIRAALI".to_string(),
             pisteet: SUURIN_TULOS,
+            aika: None,
         };
         3
     ];

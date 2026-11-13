@@ -117,7 +117,7 @@ pub const MALLIN_KASVU_MS: u32 = 200;
 const MALLIN_ALKUKOKO: f32 = 0.6;
 
 // Tilastot ja top 3 omissa laatikoissaan meren päällä, oikeaan laitaan tasattuina.
-const LAATIKKO_K: i32 = 248;
+const LAATIKKO_K: i32 = 288;
 const LAATIKKO_Y: i32 = LISTAN_ALA - LAATIKKO_K;
 const LAATIKKO_SISENNYS: i32 = 24;
 const LAATIKKO_VALI: i32 = 24;
@@ -665,8 +665,8 @@ impl Piirtaja<'_> {
             self.pieni(x, y, laji, LAVENTELI);
             y += LAATIKON_OTSIKKO;
         }
-        self.parhaat_rivit(x, y, leveys, LISTA_KOKO, parhaat);
-        y += PARHAITA as i32 * PARHAAT_RIVI + OMA_VALI;
+        self.parhaat_rivit(x, y, leveys, LISTA_KOKO, Some(LISTA_KOKO), parhaat);
+        y += PARHAITA as i32 * parhaiden_askel(LISTA_KOKO, Some(LISTA_KOKO)) + OMA_VALI;
         self.k.laatikko(x, y, leveys, P, HIMMEA_REUNA);
         y += P + 2 * OMA_VALI;
         self.pieni(x, y, kaanna(OMA_PARAS), LAVENTELI);

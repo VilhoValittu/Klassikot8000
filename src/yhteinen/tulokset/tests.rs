@@ -5,6 +5,7 @@ fn parhaat_pysyvat_jarjestyksessa_ja_tasapisteilla_vanhempi_sailyy() {
     let tulos = |nimi: &str, pisteet| Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     };
     let mut parhaat = Vec::new();
     assert!(!mahtuu_parhaisiin(&parhaat, 0));
@@ -27,10 +28,24 @@ fn lista_luetaan_tekstista_ja_kelvottomat_rivit_ohitetaan() {
 }
 
 #[test]
+fn rivin_aika_luetaan_ja_kirjoitetaan() {
+    let tulos = tulos_tekstista("9 VÄINÖ 1763000000").expect("rivi kelpaa");
+    assert_eq!(tulos.aika, Some(1_763_000_000));
+    assert_eq!(tulos_tekstiksi(&tulos), "9 VÄINÖ 1763000000");
+    let vanha = tulos_tekstista("9 VÄINÖ").expect("vanha rivi kelpaa");
+    assert_eq!(vanha.aika, None);
+    assert_eq!(tulos_tekstiksi(&vanha), "9 VÄINÖ");
+    for kelvoton in ["9 A x", "9 A -1", "9 A 1 2", "9 A ", "9 A 999999999999999"] {
+        assert_eq!(tulos_tekstista(kelvoton), None, "{kelvoton}");
+    }
+}
+
+#[test]
 fn saman_nimen_tulos_korvataan() {
     let tulos = |nimi: &str, pisteet| Tulos {
         nimi: nimi.to_string(),
         pisteet,
+        aika: None,
     };
     let mut lista = vec![tulos("A", 300), tulos("B", 200), tulos("C", 100)];
     paivita_nimen_tulos(&mut lista, tulos("C", 400));
@@ -59,9 +74,13 @@ fn taulu_kirjaa_tuloksen_kaikille_listoille_ja_lahtemaan() {
     assert!(taulu.nakyva().is_empty());
     nimi.push('B');
     taulu.kirjaa(&mut nimi, 40);
+    // Kirjattu tulos saa tämän hetken.
+    let aika = taulu.parhaat[1].aika;
+    assert!(aika.is_some_and(|aika| aika > 1_700_000_000));
     let b = Tulos {
         nimi: "B".to_string(),
         pisteet: 40,
+        aika,
     };
     assert_eq!(taulu.parhaat.len(), 2);
     assert_eq!(taulu.nakyva(), std::slice::from_ref(&b));
@@ -69,6 +88,7 @@ fn taulu_kirjaa_tuloksen_kaikille_listoille_ja_lahtemaan() {
     let a = Tulos {
         nimi: "A".to_string(),
         pisteet: 50,
+        aika: taulu.parhaat[0].aika,
     };
     assert_eq!(taulu.lahetys, vec![a, b]);
 

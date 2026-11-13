@@ -212,6 +212,7 @@ fn listalle_yltamaton_loppu_ja_uusi_peli() {
         Tulos {
             nimi: "A".to_string(),
             pisteet: 1000,
+            aika: None,
         };
         3
     ]);
