@@ -35,6 +35,8 @@ pub mod pyramidi;
 pub mod silmukka;
 #[path = "pelit/pasianssi/spider/logiikka.rs"]
 pub mod spider;
+#[path = "pelit/suora/logiikka.rs"]
+pub mod suora;
 #[path = "pelit/tiilirikko/logiikka.rs"]
 pub mod tiilirikko;
 

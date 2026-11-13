@@ -156,6 +156,8 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 13);
     k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 14);
+    k.kasittele(Syote::Nuoli(1, 0));
     assert_eq!(k.valittu, 0);
     k.kasittele(Syote::Numero(1));
     assert_eq!(k.valittu, 0);
@@ -249,9 +251,16 @@ fn jokainen_peli_valitaan_ja_kaynnistetaan_korttinsa_kautta() {
     assert_eq!(k.otsikko(), "Jatsi");
     k.kasittele(Syote::Peru);
 
-    // Lista on vierinyt neljä alas, joten yhdeksäs näkyvä on kolmastoista peli.
+    k.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(k.valittu, 14);
+    k.kasittele(Syote::Ammu);
+    assert!(matches!(k.peli, Some(Kaynnissa::Suora(_))));
+    assert_eq!(k.otsikko(), "5 suora");
+    k.kasittele(Syote::Peru);
+
+    // Lista on vierinyt viisi alas, joten yhdeksäs näkyvä on neljästoista peli.
     k.kasittele(Syote::Numero(9));
-    assert_eq!(k.valittu, 12);
+    assert_eq!(k.valittu, 13);
 }
 
 #[test]
@@ -1528,6 +1537,8 @@ fn nakymat_piirtyvat_kaatumatta() {
         Laji::Holdem,
         Laji::Majakka,
         Laji::Kaivo,
+        Laji::Jatsi,
+        Laji::Suora,
     ] {
         k.kaynnista(laji);
         k.edista(100);

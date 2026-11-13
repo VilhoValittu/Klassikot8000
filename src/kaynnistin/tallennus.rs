@@ -16,6 +16,7 @@ use klassikot8000::mahjong;
 use klassikot8000::majakka;
 use klassikot8000::miinaharava;
 use klassikot8000::pasianssi::{self, SUURIN_TULOS, Variantti};
+use klassikot8000::suora;
 
 use crate::pelit::jatsi::peli::{self as jatsi_peli, Istuin, Kesken as JatsiKesken};
 use crate::pelit::laivanupotus::peli::Tilasto;
@@ -56,6 +57,7 @@ pub struct Asetukset {
     pub majakka: majakka::Vaikeus,
     pub kaivo: kaivo::Vaikeus,
     pub jatsi: jatsi::Vaikeus,
+    pub suora: suora::Vaikeus,
 }
 
 impl Default for Asetukset {
@@ -70,6 +72,7 @@ impl Default for Asetukset {
             majakka: majakka::Vaikeus::Normaali,
             kaivo: kaivo::Vaikeus::Normaali,
             jatsi: jatsi::Vaikeus::Normaali,
+            suora: suora::Vaikeus::Normaali,
         }
     }
 }
@@ -120,6 +123,7 @@ fn avaimet(peli: Nettipeli) -> (Option<&'static str>, &'static str, &'static str
         Nettipeli::Majakka => (Some("majakka"), "majakkatop", "majakkajono"),
         Nettipeli::Kaivo => (Some("kaivo"), "kaivotop", "kaivojono"),
         Nettipeli::Jatsi => (Some("jatsiparas"), "jatsitop", "jatsijono"),
+        Nettipeli::Suora => (Some("suoraparas"), "suoratop", "suorajono"),
     }
 }
 
@@ -201,7 +205,7 @@ impl Tallennus {
         let a = &self.asetukset;
         let mut teksti = format!(
             "{OTSAKE}\nhiljaa {}\nkieli {}\nvalittu {}\nlaivataso {}\npasianssitaso {}\n\
-             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\njatsitaso {}\n",
+             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\njatsitaso {}\nsuorataso {}\n",
             self.hiljaa as u8,
             self.kieli.koodi(),
             a.valittu,
@@ -216,6 +220,7 @@ impl Tallennus {
             numero(&majakka::Vaikeus::KAIKKI, &a.majakka),
             numero(&kaivo::Vaikeus::KAIKKI, &a.kaivo),
             numero(&jatsi::Vaikeus::KAIKKI, &a.jatsi),
+            numero(&suora::Vaikeus::KAIKKI, &a.suora),
         );
         for peli in Nettipeli::KAIKKI {
             let (paras, top, jono) = avaimet(peli);
@@ -310,6 +315,9 @@ impl Tallennus {
                 }
                 "jatsitaso" => {
                     a.jatsi = valinta(&jatsi::Vaikeus::KAIKKI, arvo).unwrap_or(a.jatsi);
+                }
+                "suorataso" => {
+                    a.suora = valinta(&suora::Vaikeus::KAIKKI, arvo).unwrap_or(a.suora);
                 }
                 "jatsipaikka" => jatsipaikat.push(arvo),
                 "jatsivuoro" => jatsivuoro = Some(arvo),

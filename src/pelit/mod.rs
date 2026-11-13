@@ -13,4 +13,5 @@ pub mod miinaharava;
 pub mod palikka;
 pub mod pasianssi;
 pub mod silmukka;
+pub mod suora;
 pub mod tiilirikko;

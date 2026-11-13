@@ -2,7 +2,7 @@
 
 **Suomeksi** | [English](README.md)
 
-Tylsää? Neljätoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
+Tylsää? Viisitoista vanhan liiton peliä yhdessä pienessä ikkunassa, SNES- ja Mega Drive -henkisessä 16-bittisessä asussa. Ei tiliä, ei mainoksia, ei opeteltavaa. Avaa, valitse peli ja anna ajan kulua.
 
 Pyörii vaikka perunalla. AB:n OG ideasta.
 
@@ -116,6 +116,11 @@ Kulta on syvemmällä arvokkaampaa (10–35 pistettä) ja timantti 100 pistettä
 Viisi noppaa, kolme heittoa vuorossa ja 15 riviä täytettävänä pohjoismaisin säännöin: ylhäällä ykkösistä kuutosiin, ja 63 pistettä niistä tuo 50 pisteen bonuksen. Alla ovat pari, kaksi paria, kolme ja neljä samaa, pieni (1–5) ja suuri (2–6) suora, täyskäsi, sattuma ja jatsi. Lukitse noppia heittojen välissä ja kirjaa joka vuorolla yksi rivi; rivi, johon nopat eivät käy, jää nollaksi, joten viivaa viisaasti. Pöytä katetaan alkuruudulla: enintään neljä pelaajaa, kukin ihminen tai kone, joten voit pelata konetta vastaan, kavereiden kanssa samalla koneella tai yksin. Taso on koneiden taito: helppo on ahne, normaali pelaa järkevästi ja vaikea punnitsee jokaisen lukituksen todennäköisyyksillä. Jokaisen ihmisen summa menee top-listalle hänen omalla nimellään, ja voitto koneista kertoo sen tasolla (normaali kahdella, vaikea kolmella). Kesken jäänyt peli odottaa seuraavaa kertaa.
 
 *Välilyönti tai Heitä-nappi heittää, 1–5 tai klikkaus lukitsee nopan, nuolet valitsevat rivin ja K tai klikkaus kirjaa sen. Viivaus vaatii toisen painalluksen. Alkuruudulla nuolet valitsevat paikan ja pelaajan, ja N nimeää ihmisen. Kun kone pelaa, välilyönti pelaa sen vuoron heti loppuun.*
+### 5 suora
+
+Ruutupaperin klassikko 15x15-laudalla: sinä olet risti ja aloitat, kone on nolla, ja ensimmäinen viiden suora vaakaan, pystyyn tai vinoon voittaa (pidempikin suora käy). Täyteen laudattu peli päättyy tasan. Helppo kone tekee välillä virheitä, normaali torjuu uhat ja hyökkää, ja vaikea etsii pakottavia nelos- ja kolmossarjoja ja varoo jättämästä sinulle sellaista. Voitto tuo pisteitä sitä enemmän, mitä vähemmillä omilla siirroilla se syntyy, ja taso kertoo ne (normaali kahdella, vaikea kolmella). Sivuikkunat laskevat istunnon voitot.
+
+*Klikkaus merkitsee ruudun, tai nuolet siirtävät kursoria ja välilyönti merkitsee.*
 
 ## Hyvä tietää
 

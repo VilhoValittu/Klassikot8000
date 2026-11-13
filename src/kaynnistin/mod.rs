@@ -34,6 +34,8 @@ use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
 use crate::pelit::pasianssi::piirto::{korttipinot, lajin_nimi};
 use crate::pelit::silmukka::peli::Silmukka;
 use crate::pelit::silmukka::piirto::ouroboros;
+use crate::pelit::suora::peli::Suora;
+use crate::pelit::suora::piirto::suoramalli;
 use crate::pelit::tiilirikko::peli::Tiilirikko;
 use crate::pelit::tiilirikko::piirto::tiilimuuri;
 use crate::yhteinen::aanet::Aani;
@@ -178,6 +180,7 @@ pelit! {
     Majakka(Majakka, "peli.majakka", "valikko.majakka", majakkamalli, |_| Nettipeli::Majakka),
     Kaivo(Kaivo, "peli.kaivo", "valikko.kaivo", kaivosmalli, |_| Nettipeli::Kaivo),
     Jatsi(Jatsi, "peli.jatsi", "valikko.jatsi", noppamalli, |_| Nettipeli::Jatsi),
+    Suora(Suora, "peli.suora", "valikko.suora", suoramalli, |_| Nettipeli::Suora),
 }
 
 /// Pelin valinta ja käynnissä oleva peli. Asetukset säilyvät, kun peli vaihtuu.

@@ -17,6 +17,7 @@ use klassikot8000::majakka::{Laiva, MAJAKKA, Meri, etaisyys, suunta_majakalta};
 use klassikot8000::miinaharava;
 use klassikot8000::pasianssi::{self, KUNINGAS, Kortti, Maa, Variantti};
 use klassikot8000::silmukka::{self, Otus};
+use klassikot8000::suora;
 use klassikot8000::tiilirikko::{self, Tiilipeli};
 
 use crate::kaynnistin::netti::{Netti, Pyynto, Vastaus, tulosavain};
@@ -35,6 +36,7 @@ use crate::pelit::miinaharava::peli::Miinaharava;
 use crate::pelit::palikka::peli::{self as palikka_peli, Palikkapeli};
 use crate::pelit::pasianssi::peli::{self as pasianssi_peli, Pasianssi};
 use crate::pelit::silmukka::peli::Silmukka;
+use crate::pelit::suora::peli::{self as suora_peli, KONE_VIIVE_MS, Suora};
 use crate::pelit::tiilirikko::peli::Tiilirikko;
 use crate::yhteinen::aanet::{self, Mikseri, NAYTETAAJUUS};
 use crate::yhteinen::kieli::{self, Kieli};
@@ -203,6 +205,7 @@ pub fn lue_liput() -> Result<Liput, String> {
                     "majakka" => Laji::Majakka,
                     "kaivo" => Laji::Kaivo,
                     "jatsi" => Laji::Jatsi,
+                    "suora" => Laji::Suora,
                     _ => return Err(format!("--game: {arvo}")),
                 });
             }
@@ -392,6 +395,7 @@ fn valmistele(peli: &mut Kaynnissa, liput: &Liput) {
         Kaynnissa::Majakka(peli) => valmistele_majakka(peli, liput),
         Kaynnissa::Kaivo(peli) => valmistele_kaivo(peli, liput),
         Kaynnissa::Jatsi(peli) => valmistele_jatsi(peli, liput),
+        Kaynnissa::Suora(peli) => valmistele_suora(peli, liput),
     }
 }
 
@@ -683,6 +687,44 @@ fn valmistele_jatsi(peli: &mut Jatsi, liput: &Liput) {
             }
             peli.edista(HEITTO_MS);
         }
+    }
+}
+
+/// `--keys` alkuruudulla tai pelissä (`^v<>` nuolet, välilyönti merkitsee, numerot valitsevat
+/// tason), ja `--plays <n>` tekee n omaa siirtoa vaikean koneen päätöksin; kone vastaa joka kerta.
+fn valmistele_suora(peli: &mut Suora, liput: &Liput) {
+    if let Some(vaikeus) = liput.vaikeus {
+        let taso = suora::Vaikeus::KAIKKI
+            .into_iter()
+            .find(|taso| taso.nimi() == vaikeus.nimi());
+        peli.vaikeus = taso.unwrap_or(peli.vaikeus);
+    }
+    for merkki in liput.napit.as_deref().unwrap_or_default().chars() {
+        peli.kasittele(match merkki {
+            ' ' => Syote::Ammu,
+            '^' => Syote::Nuoli(-1, 0),
+            'v' => Syote::Nuoli(1, 0),
+            '<' => Syote::Nuoli(0, -1),
+            '>' => Syote::Nuoli(0, 1),
+            '0'..='9' => Syote::Numero(merkki as u8 - b'0'),
+            _ => Syote::Kirjain(merkki.to_ascii_uppercase()),
+        });
+        peli.edista(KONE_VIIVE_MS);
+    }
+    let Some(siirtoja) = liput.pelatut else {
+        return;
+    };
+    if peli.vaihe == suora_peli::Vaihe::Alku {
+        peli.kasittele(Syote::Ammu);
+    }
+    let mut arpa = Arpa::new(liput.siemen.unwrap_or(1));
+    for _ in 0..siirtoja {
+        let Some(ruutu) = suora::koneen_siirto(suora::Vaikeus::Vaikea, &peli.lauta, &mut arpa)
+        else {
+            break;
+        };
+        peli.merkitse(ruutu);
+        peli.edista(KONE_VIIVE_MS);
     }
 }
 

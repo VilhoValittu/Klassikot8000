@@ -5,7 +5,8 @@
 // tasapuolisena. Miinaharavan huippu on sekunnissa voitettu vaikea kenttä (999 * 3).
 // Laivanupotuksen huippu on vaikean tason voitto 17 laukauksella ((101 - 17) * 3). Mahjonggin
 // raja ylittää laskennallisen huipun: jokainen pari täydellä ketjulla ja voitto heti (25 800).
-// Jatsin huippu on täysi pöytäkirja (374) vaikean tason voittokertoimella (* 3).
+// Jatsin huippu on täysi pöytäkirja (374) vaikean tason voittokertoimella (* 3). 5 suoran huippu
+// on vaikean tason voitto viidellä siirrolla ((114 - 5) * 3).
 export const PELIT = {
   luvut: 4000000,
   tiilirikko: 1000000,
@@ -24,6 +25,7 @@ export const PELIT = {
   majakka: 1000000,
   kaivo: 1000000,
   jatsi: 1122,
+  suora: 327,
 };
 
 export const YKSI_PER_NIMI = new Set(["haasteet"]);
