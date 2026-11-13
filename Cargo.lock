@@ -398,7 +398,7 @@ dependencies = [
 
 [[package]]
 name = "klassikot8000"
-version = "0.5.8"
+version = "0.5.9"
 dependencies = [
  "minifb",
  "native-tls",
