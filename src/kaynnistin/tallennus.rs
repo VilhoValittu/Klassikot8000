@@ -22,6 +22,7 @@ use crate::pelit::jatsi::peli::{self as jatsi_peli, Istuin, Kesken as JatsiKeske
 use crate::pelit::laivanupotus::peli::Tilasto;
 use crate::pelit::luvut::peli::Kesken;
 use crate::pelit::pasianssi::peli::Haastepisteet;
+use crate::pelit::suora::peli::Vastus as SuoraVastus;
 use crate::virheloki;
 use crate::yhteinen::kieli::Kieli;
 use crate::yhteinen::tulokset::{
@@ -58,6 +59,7 @@ pub struct Asetukset {
     pub kaivo: kaivo::Vaikeus,
     pub jatsi: jatsi::Vaikeus,
     pub suora: suora::Vaikeus,
+    pub suoravastus: SuoraVastus,
 }
 
 impl Default for Asetukset {
@@ -73,6 +75,7 @@ impl Default for Asetukset {
             kaivo: kaivo::Vaikeus::Normaali,
             jatsi: jatsi::Vaikeus::Normaali,
             suora: suora::Vaikeus::Normaali,
+            suoravastus: SuoraVastus::Kone,
         }
     }
 }
@@ -205,7 +208,7 @@ impl Tallennus {
         let a = &self.asetukset;
         let mut teksti = format!(
             "{OTSAKE}\nhiljaa {}\nkieli {}\nvalittu {}\nlaivataso {}\npasianssitaso {}\n\
-             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\njatsitaso {}\nsuorataso {}\n",
+             pasianssilaji {}\nmiinataso {}\nmiinaajat {},{},{}\nmahjongtaso {}\nmajakkataso {}\nkaivotaso {}\njatsitaso {}\nsuorataso {}\nsuoravastus {}\n",
             self.hiljaa as u8,
             self.kieli.koodi(),
             a.valittu,
@@ -221,6 +224,7 @@ impl Tallennus {
             numero(&kaivo::Vaikeus::KAIKKI, &a.kaivo),
             numero(&jatsi::Vaikeus::KAIKKI, &a.jatsi),
             numero(&suora::Vaikeus::KAIKKI, &a.suora),
+            numero(&SuoraVastus::KAIKKI, &a.suoravastus),
         );
         for peli in Nettipeli::KAIKKI {
             let (paras, top, jono) = avaimet(peli);
@@ -318,6 +322,9 @@ impl Tallennus {
                 }
                 "suorataso" => {
                     a.suora = valinta(&suora::Vaikeus::KAIKKI, arvo).unwrap_or(a.suora);
+                }
+                "suoravastus" => {
+                    a.suoravastus = valinta(&SuoraVastus::KAIKKI, arvo).unwrap_or(a.suoravastus);
                 }
                 "jatsipaikka" => jatsipaikat.push(arvo),
                 "jatsivuoro" => jatsivuoro = Some(arvo),

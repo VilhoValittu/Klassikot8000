@@ -15,8 +15,19 @@ use crate::yhteinen::tulokset::{Nettipeli, Tulostaulu, nimi_valmis};
 pub const KONE_VIIVE_MS: u32 = 450;
 const LOPPU_VIIVE_MS: u32 = 300;
 
-/// Pelaaja on aina risti ja aloittaa, kone on nolla.
+/// Konetta vastaan pelaaja on aina risti ja aloittaa, kone on nolla.
 pub const PELAAJA: Merkki = Merkki::Risti;
+
+/// Konetta vastaan vai kaksi ihmistä samalla koneella vuorotellen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Vastus {
+    Kone,
+    Kaksin,
+}
+
+impl Vastus {
+    pub const KAIKKI: [Vastus; 2] = [Vastus::Kone, Vastus::Kaksin];
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Vaihe {
@@ -31,6 +42,7 @@ pub enum Vaihe {
 
 pub struct Suora {
     pub vaihe: Vaihe,
+    pub vastus: Vastus,
     pub vaikeus: Vaikeus,
     pub lauta: Lauta,
     pub taulu: Tulostaulu,
@@ -45,8 +57,10 @@ pub struct Suora {
     pub hiiren_ruutu: Option<Paikka>,
     /// Koneen siirron hetki, kun kone on vuorossa.
     pub kone_ms: Option<u32>,
-    /// Tämän istunnon voitot: pelaaja, kone.
+    /// Tämän istunnon voitot: risti (pelaaja), nolla (kone). Nollautuu, kun vastus vaihtuu.
     pub ottelu: (u32, u32),
+    /// Kaksinpelin aloitetut pelit: aloittaja vaihtuu joka pelissä.
+    kaksinpeleja: u32,
     /// Pyyntö palata käynnistimeen.
     pub lopeta: bool,
     pub aanet: Aanet,
@@ -65,6 +79,7 @@ impl Suora {
     pub fn new(siemen: u64) -> Self {
         Self {
             vaihe: Vaihe::Alku,
+            vastus: Vastus::Kone,
             vaikeus: Vaikeus::Normaali,
             lauta: Lauta::new(),
             taulu: Tulostaulu::new(Nettipeli::Suora),
@@ -76,6 +91,7 @@ impl Suora {
             hiiren_ruutu: None,
             kone_ms: None,
             ottelu: (0, 0),
+            kaksinpeleja: 0,
             lopeta: false,
             aanet: Aanet::default(),
             kello_ms: 0,
@@ -90,8 +106,12 @@ impl Suora {
             .then_some((self.kello_ms / VILKKU_MS, self.lauta.siirrot.len() as u32))
     }
 
+    /// Konetta vastaan pelaajan siirrot, kaksinpelissä molempien yhteensä.
     pub fn omat_siirrot(&self) -> u32 {
-        self.lauta.siirtoja(PELAAJA)
+        match self.vastus {
+            Vastus::Kone => self.lauta.siirtoja(PELAAJA),
+            Vastus::Kaksin => self.lauta.siirrot.len() as u32,
+        }
     }
 
     /// Voiton pisteet top-listalle.
@@ -100,7 +120,15 @@ impl Suora {
     }
 
     pub fn kone_vuorossa(&self) -> bool {
-        self.vaihe == Vaihe::Pelissa && self.lauta.vuoro != PELAAJA
+        self.vastus == Vastus::Kone && self.vaihe == Vaihe::Pelissa && self.lauta.vuoro != PELAAJA
+    }
+
+    /// Kaksinpelin vuoroviesti.
+    fn vuoroviesti(&self) -> &'static str {
+        match self.lauta.vuoro {
+            Merkki::Risti => "suora.vuoro_risti",
+            Merkki::Nolla => "suora.vuoro_nolla",
+        }
     }
 
     /// Kirjaa nimeä odottavan voiton.
@@ -123,13 +151,28 @@ impl Suora {
     }
 
     pub fn aloita(&mut self) {
-        self.lauta = Lauta::new();
+        self.lauta = match self.vastus {
+            Vastus::Kone => Lauta::new(),
+            Vastus::Kaksin => {
+                let aloittaja = if self.kaksinpeleja.is_multiple_of(2) {
+                    Merkki::Risti
+                } else {
+                    Merkki::Nolla
+                };
+                self.kaksinpeleja += 1;
+                Lauta::aloittaen(aloittaja)
+            }
+        };
         self.vaihe = Vaihe::Pelissa;
         self.kursori = (KOKO / 2, KOKO / 2);
         self.kursori_nakyy = false;
         self.hiiren_ruutu = None;
         self.kone_ms = None;
-        self.viesti = kaanna("suora.aloita").to_string();
+        self.viesti = match self.vastus {
+            Vastus::Kone => kaanna("suora.aloita"),
+            Vastus::Kaksin => kaanna(self.vuoroviesti()),
+        }
+        .to_string();
         self.aanet.soita(Aani::Alku);
     }
 
@@ -162,6 +205,18 @@ impl Suora {
     }
 
     fn kasittele_alku(&mut self, syote: Syote) {
+        let vastus = match syote {
+            Syote::Nuoli(pysty, 0) if pysty != 0 => Some(match self.vastus {
+                Vastus::Kone => Vastus::Kaksin,
+                Vastus::Kaksin => Vastus::Kone,
+            }),
+            Syote::Klikkaus(x, y) => piirto::vastus_pisteesta(x, y),
+            _ => None,
+        };
+        if let Some(vastus) = vastus {
+            self.valitse_vastus(vastus);
+            return;
+        }
         let tasot = Vaikeus::KAIKKI;
         let valittu = match syote {
             Syote::Numero(numero) => (numero as usize)
@@ -171,13 +226,25 @@ impl Suora {
                 let uusi = tason_indeksi(self.vaikeus).saturating_add_signed(muutos as isize);
                 Some(tasot[uusi.min(tasot.len() - 1)])
             }
-            Syote::Klikkaus(x, y) => piirto::vaikeus_pisteesta(x, y),
+            // Kaksinpelissä tasorivi on piilossa, joten sen paikka ei valitse tasoa.
+            Syote::Klikkaus(x, y) if self.vastus == Vastus::Kone => piirto::vaikeus_pisteesta(x, y),
             _ => None,
         };
+        // Tason valinta tarkoittaa konetta vastaan pelaamista.
         if let Some(vaikeus) = valittu {
             self.vaikeus = vaikeus;
+            self.valitse_vastus(Vastus::Kone);
         } else if matches!(syote, Syote::Ammu | Syote::Klikkaus(..)) {
             self.aloita();
+        }
+    }
+
+    /// Voittolaskuri koskee yhtä vastusta, joten se nollautuu vastuksen vaihtuessa.
+    pub fn valitse_vastus(&mut self, vastus: Vastus) {
+        if vastus != self.vastus {
+            self.vastus = vastus;
+            self.ottelu = (0, 0);
+            self.kaksinpeleja = 0;
         }
     }
 
@@ -213,16 +280,26 @@ impl Suora {
         }
     }
 
-    /// Pelaajan risti ruutuun. Koneen vuorolla tai varattuun ruutuun ei voi merkitä.
+    /// Vuorossa olevan ihmisen merkki ruutuun. Koneen vuorolla tai varattuun ruutuun ei voi
+    /// merkitä.
     pub fn merkitse(&mut self, ruutu: Paikka) {
         if self.kone_vuorossa() || self.vaihe != Vaihe::Pelissa {
             return;
         }
+        let merkki = self.lauta.vuoro;
         match self.lauta.aseta(ruutu) {
             None => self.aanet.soita(Aani::Virhe),
             Some(tila) => {
-                self.aanet.soita(Aani::Pomppu);
-                self.viesti = kaanna("suora.kone_miettii").to_string();
+                // Risti ja nolla kuulostavat eri ääniltä, myös kaksinpelissä.
+                self.aanet.soita(match merkki {
+                    Merkki::Risti => Aani::Pomppu,
+                    Merkki::Nolla => Aani::Tiili,
+                });
+                self.viesti = match self.vastus {
+                    Vastus::Kone => kaanna("suora.kone_miettii"),
+                    Vastus::Kaksin => kaanna(self.vuoroviesti()),
+                }
+                .to_string();
                 self.siirron_jalkeen(tila);
             }
         }
@@ -249,6 +326,7 @@ impl Suora {
                     self.kone_ms = Some(self.kello_ms + KONE_VIIVE_MS);
                 }
             }
+            Tila::Voitto(merkki) if self.vastus == Vastus::Kaksin => self.kaksinvoitto(merkki),
             Tila::Voitto(merkki) if merkki == PELAAJA => self.voita(),
             Tila::Voitto(_) => {
                 self.ottelu.1 += 1;
@@ -264,6 +342,20 @@ impl Suora {
                 self.aanet.soita_viiveella(Aani::EiSiirtoja, LOPPU_VIIVE_MS);
             }
         }
+    }
+
+    /// Kaksinpelin voitto: ei pisteitä listalle, koska voittoa ei voi kirjata kenenkään nimiin.
+    fn kaksinvoitto(&mut self, merkki: Merkki) {
+        let (voitot, viesti) = match merkki {
+            Merkki::Risti => (&mut self.ottelu.0, "suora.risti_sai"),
+            Merkki::Nolla => (&mut self.ottelu.1, "suora.nolla_sai"),
+        };
+        *voitot += 1;
+        self.vaihe = Vaihe::Voitto;
+        self.viesti = kaanna(viesti).to_string();
+        self.aanet.soita_viiveella(Aani::Voitto, LOPPU_VIIVE_MS);
+        self.aanet
+            .soita_viiveella(Aani::Voitit, LOPPU_VIIVE_MS + PUHE_VIIVE_MS);
     }
 
     fn voita(&mut self) {
@@ -299,10 +391,12 @@ impl Suora {
 impl Pelinakyma for Suora {
     fn lue_tallennuksesta(&mut self, tallennus: &Tallennus) {
         self.vaikeus = tallennus.asetukset.suora;
+        self.vastus = tallennus.asetukset.suoravastus;
     }
 
     fn kirjaa_asetukset(&self, asetukset: &mut Asetukset) {
         asetukset.suora = self.vaikeus;
+        asetukset.suoravastus = self.vastus;
     }
 
     fn kasittele(&mut self, syote: Syote) {

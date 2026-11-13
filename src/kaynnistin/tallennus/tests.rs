@@ -34,6 +34,7 @@ fn kokonainen() -> Tallennus {
             kaivo: kaivo::Vaikeus::Vaikea,
             jatsi: jatsi::Vaikeus::Helppo,
             suora: suora::Vaikeus::Vaikea,
+            suoravastus: crate::pelit::suora::peli::Vastus::Kaksin,
         },
         kesken: Some(KESKEN),
         haastenimi: "HAASTAJA".to_string(),

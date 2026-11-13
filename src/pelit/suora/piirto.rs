@@ -1,8 +1,8 @@
 //! 5 suoran näkymät: ruutupaperilauta keskellä, pelaajat sivuilla ja viestit alhaalla.
 
-use klassikot8000::suora::{KOKO, Merkki, Paikka, Vaikeus};
+use klassikot8000::suora::{KOKO, Merkki, Paikka, Tila, Vaikeus};
 
-use super::peli::{PELAAJA, Suora, Vaihe};
+use super::peli::{PELAAJA, Suora, Vaihe, Vastus};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4, tummenna};
@@ -68,8 +68,17 @@ const OHJE: &str = "suora.ohje";
 const TILASTON_Y: i32 = PANEELI_RIVI_Y + 30;
 const TILASTON_ASKEL: i32 = 300;
 
-// Alkuruudun tasovalinta samoilla mitoilla kuin miinaharavassa.
+// Alkuruudun tasovalinta samoilla mitoilla kuin miinaharavassa, vastuksen valinta sen yllä.
 const TASO_Y: i32 = ALOITUS_Y - NAPPI_K - 6;
+const VASTUS_Y: i32 = TASO_Y - NAPPI_K - 6;
+const VASTUKSET: [(Vastus, &str, i32); 2] = [
+    (Vastus::Kone, "suora.vastus_kone", TASO_X),
+    (
+        Vastus::Kaksin,
+        "suora.vastus_kaksin",
+        TASO_X + 15 * MERKKI + 24 + TASO_VALI,
+    ),
+];
 const TASO_X: i32 = 48 + 6 * MERKKI;
 const TASO_VALI: i32 = 12;
 const TASOT: [(Vaikeus, &str, i32); 3] = [
@@ -92,18 +101,28 @@ const ALKU_OSAT: [&str; 4] = [
     "suora.ohje_1",
     "suora.ohje_2",
 ];
-const ALKU_RIVIT: [&str; 4] = [
-    "suora.nappain_hiiri",
-    "suora.nappain_nuolet",
+const ALKU_RIVIT: [&str; 3] = [
+    "suora.nappain",
     "yhteinen.aanet_kytkin",
     "yhteinen.takaisin",
 ];
 
-fn kuvaus(vaikeus: Vaikeus) -> &'static str {
-    match vaikeus {
-        Vaikeus::Helppo => "suora.kuvaus_1",
-        Vaikeus::Normaali => "suora.kuvaus_2",
-        Vaikeus::Vaikea => "suora.kuvaus_3",
+fn kuvaus(vastus: Vastus, vaikeus: Vaikeus) -> &'static str {
+    match (vastus, vaikeus) {
+        (Vastus::Kaksin, _) => "suora.kuvaus_kaksin",
+        (Vastus::Kone, Vaikeus::Helppo) => "suora.kuvaus_1",
+        (Vastus::Kone, Vaikeus::Normaali) => "suora.kuvaus_2",
+        (Vastus::Kone, Vaikeus::Vaikea) => "suora.kuvaus_3",
+    }
+}
+
+/// Sivuikkunan nimi: konetta vastaan sinä ja kone, kaksinpelissä merkkien nimet.
+fn pelaajan_nimi(vastus: Vastus, merkki: Merkki) -> &'static str {
+    match (vastus, merkki) {
+        (Vastus::Kone, Merkki::Risti) => "suora.sina",
+        (Vastus::Kone, Merkki::Nolla) => "suora.kone",
+        (Vastus::Kaksin, Merkki::Risti) => "suora.risti",
+        (Vastus::Kaksin, Merkki::Nolla) => "suora.nolla",
     }
 }
 
@@ -133,6 +152,10 @@ pub fn ruutu_pisteesta(x: i32, y: i32) -> Option<Paikka> {
 
 pub fn vaikeus_pisteesta(x: i32, y: i32) -> Option<Vaikeus> {
     rivin_nappi(&TASOT, TASO_Y, x, y)
+}
+
+pub fn vastus_pisteesta(x: i32, y: i32) -> Option<Vastus> {
+    rivin_nappi(&VASTUKSET, VASTUS_Y, x, y)
 }
 
 /// Palkki maanpinnan suuntaisena: janasta `a`-`b` leveyden verran kumpaankin sivuun.
@@ -215,17 +238,29 @@ impl Piirtaja<'_> {
         let otsikko = listan_otsikko(peli.taulu.netti.is_some());
         self.parhaat_alkuruudulla(otsikko, peli.taulu.nakyva());
         let y = self.alkuohje(&ALKU_OSAT, &ALKU_RIVIT) + RIVIN_KORKEUS / 2;
-        self.teksti(48, y, kaanna(kuvaus(peli.vaikeus)), KELTAINEN);
+        let teksti = kaanna(kuvaus(peli.vastus, peli.vaikeus));
+        self.teksti(48, y, teksti, KELTAINEN);
 
-        self.teksti(48, TASO_Y + 3, kaanna("yhteinen.taso"), KELTAINEN);
-        for (taso, teksti, x) in TASOT {
-            if taso == peli.vaikeus {
-                self.nappi(x, TASO_Y, teksti, WB_ORANSSI, MUSTA);
-            } else {
-                self.nappi(x, TASO_Y, teksti, VALKOINEN, WB_SININEN);
+        self.teksti(48, VASTUS_Y + 3, kaanna("suora.peli_rivi"), KELTAINEN);
+        for (vastus, teksti, x) in VASTUKSET {
+            self.valintanappi(x, VASTUS_Y, teksti, vastus == peli.vastus);
+        }
+        // Kaksinpelissä ei ole konetta, joten tasoa ei valita.
+        if peli.vastus == Vastus::Kone {
+            self.teksti(48, TASO_Y + 3, kaanna("yhteinen.taso"), KELTAINEN);
+            for (taso, teksti, x) in TASOT {
+                self.valintanappi(x, TASO_Y, teksti, taso == peli.vaikeus);
             }
         }
         self.aloituskehote(ALOITUS);
+    }
+
+    fn valintanappi(&mut self, x: i32, y: i32, teksti: &str, valittu: bool) {
+        if valittu {
+            self.nappi(x, y, teksti, WB_ORANSSI, MUSTA);
+        } else {
+            self.nappi(x, y, teksti, VALKOINEN, WB_SININEN);
+        }
     }
 
     fn suoran_nakyma(&mut self, peli: &Suora) {
@@ -318,7 +353,7 @@ impl Piirtaja<'_> {
         if vuorossa {
             self.valintakehys(x, SIVU_Y, SIVU_L, SIVU_K, KELTAINEN);
         }
-        let nimi = kaanna(if oma { "suora.sina" } else { "suora.kone" });
+        let nimi = kaanna(pelaajan_nimi(peli.vastus, merkki));
         let vari = if vuorossa { KELTAINEN } else { LAVENTELI };
         let keski = x + SIVU_L / 2;
         let leveys = |teksti: &str| teksti.chars().count() as i32 * MERKKI;
@@ -349,11 +384,16 @@ impl Piirtaja<'_> {
             0 => "-".to_string(),
             paras => paras.to_string(),
         };
-        let tilasto = [
-            format!("{} {}", kaanna("yhteinen.siirrot"), peli.omat_siirrot()),
-            format!("{} {paras}", kaanna("yhteinen.paras")),
-            kaanna(tason_nimi(peli.vaikeus)).to_uppercase(),
-        ];
+        let siirrot = format!("{} {}", kaanna("yhteinen.siirrot"), peli.omat_siirrot());
+        // Kaksinpelillä ei ole tasoa eikä ennätystä.
+        let tilasto = match peli.vastus {
+            Vastus::Kone => vec![
+                siirrot,
+                format!("{} {paras}", kaanna("yhteinen.paras")),
+                kaanna(tason_nimi(peli.vaikeus)).to_uppercase(),
+            ],
+            Vastus::Kaksin => vec![siirrot, kaanna("suora.vastus_kaksin").to_uppercase()],
+        };
         for (i, teksti) in tilasto.iter().enumerate() {
             let x = TEKSTI_X + i as i32 * TILASTON_ASKEL;
             self.suurteksti(x, TILASTON_Y, teksti, OTSIKKO, KELTAINEN, false);
@@ -361,7 +401,12 @@ impl Piirtaja<'_> {
 
         let alarivi = PANEELI_RIVI_Y + (PANEELI_RIVEJA as i32 - 1) * RIVIN_KORKEUS;
         let otsikko_y = alarivi - RIVIN_KORKEUS - 12;
+        let kaksin = peli.vastus == Vastus::Kaksin;
         let otsikko = match peli.vaihe {
+            Vaihe::Voitto if kaksin => Some(match peli.lauta.tila {
+                Tila::Voitto(Merkki::Nolla) => "suora.nolla_voitti",
+                _ => "suora.risti_voitti",
+            }),
             Vaihe::Voitto => Some("yhteinen.voitit"),
             Vaihe::Tappio => Some("suora.tappio"),
             Vaihe::Tasapeli => Some("suora.tasapeli"),
@@ -379,4 +424,4 @@ impl Piirtaja<'_> {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-pub use tests::{ruudun_keskipiste, vaikeuden_keskipiste};
+pub use tests::{ruudun_keskipiste, vaikeuden_keskipiste, vastuksen_keskipiste};

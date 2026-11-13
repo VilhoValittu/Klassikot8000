@@ -181,3 +181,118 @@ fn kuva_on_paikallaan_kunnes_vilkku_tai_siirto_muuttaa_sita() {
     peli.edista(VILKKU_MS);
     assert_ne!(peli.kuvan_askel(), alku);
 }
+
+fn kaksinpelissa() -> Suora {
+    let mut peli = Suora::new(1);
+    let (x, y) = piirto::vastuksen_keskipiste(Vastus::Kaksin);
+    peli.kasittele(Syote::Klikkaus(x, y));
+    assert_eq!(peli.vastus, Vastus::Kaksin);
+    assert_eq!(peli.vaihe, Vaihe::Alku);
+    peli.kasittele(Syote::Ammu);
+    assert_eq!(peli.vaihe, Vaihe::Pelissa);
+    peli.aanet.jono.clear();
+    peli
+}
+
+#[test]
+fn vastus_valitaan_alussa_nuolella_tai_klikkaamalla_ja_tallentuu() {
+    let mut peli = Suora::new(1);
+    assert_eq!(peli.vastus, Vastus::Kone);
+    peli.kasittele(Syote::Nuoli(1, 0));
+    assert_eq!(peli.vastus, Vastus::Kaksin);
+    peli.kasittele(Syote::Nuoli(-1, 0));
+    assert_eq!(peli.vastus, Vastus::Kone);
+    let (x, y) = piirto::vastuksen_keskipiste(Vastus::Kaksin);
+    peli.kasittele(Syote::Klikkaus(x, y));
+    assert_eq!(peli.vastus, Vastus::Kaksin);
+    // Piilossa olevan tasorivin paikka ei valitse tasoa eikä vaihda vastusta.
+    let (x, y) = piirto::vaikeuden_keskipiste(Vaikeus::Vaikea);
+    peli.kasittele(Syote::Klikkaus(x, y));
+    assert_eq!(peli.vaikeus, Vaikeus::Normaali);
+    assert_eq!(peli.vaihe, Vaihe::Pelissa);
+    peli.kasittele(Syote::Peru);
+
+    // Tason numero tarkoittaa konetta vastaan pelaamista.
+    let mut peli = Suora::new(1);
+    peli.valitse_vastus(Vastus::Kaksin);
+    peli.kasittele(Syote::Numero(3));
+    assert_eq!((peli.vastus, peli.vaikeus), (Vastus::Kone, Vaikeus::Vaikea));
+
+    peli.valitse_vastus(Vastus::Kaksin);
+    let mut asetukset = Asetukset::default();
+    Pelinakyma::kirjaa_asetukset(&peli, &mut asetukset);
+    assert_eq!(asetukset.suoravastus, Vastus::Kaksin);
+    let mut uusi = Suora::new(2);
+    let mut tallennus = Tallennus::default();
+    tallennus.asetukset = asetukset;
+    Pelinakyma::lue_tallennuksesta(&mut uusi, &tallennus);
+    assert_eq!(uusi.vastus, Vastus::Kaksin);
+}
+
+#[test]
+fn kaksinpelissa_vuorot_vaihtuvat_ilman_konetta() {
+    let mut peli = kaksinpelissa();
+    assert_eq!(peli.lauta.vuoro, Merkki::Risti);
+    assert_eq!(peli.viesti, kaanna("suora.vuoro_risti"));
+    klikkaa(&mut peli, (7, 7));
+    assert!(!peli.kone_vuorossa());
+    assert_eq!(peli.viesti, kaanna("suora.vuoro_nolla"));
+    assert_eq!(peli.aanet.jono, [(Aani::Pomppu, 0)]);
+    // Kone ei siirrä, vaikka aikaa kuluu.
+    peli.edista(10 * KONE_VIIVE_MS);
+    assert_eq!(peli.lauta.siirrot.len(), 1);
+    klikkaa(&mut peli, (7, 8));
+    assert_eq!(peli.lauta.ruutu((7, 8)), Some(Merkki::Nolla));
+    assert_eq!(peli.aanet.jono.last(), Some(&(Aani::Tiili, 0)));
+    assert_eq!(peli.omat_siirrot(), 2);
+    // Varattu ruutu piippaa, ja vuoro pysyy ristillä.
+    klikkaa(&mut peli, (7, 8));
+    assert_eq!(peli.aanet.jono.last(), Some(&(Aani::Virhe, 0)));
+    assert_eq!(peli.lauta.vuoro, Merkki::Risti);
+}
+
+#[test]
+fn kaksinpelin_voitto_lasketaan_merkille_eika_mene_listalle() {
+    let mut peli = kaksinpelissa();
+    peli.lauta = Lauta::merkeista(
+        &[(0, 0), (0, 2), (0, 4), (0, 6)],
+        &[(5, 5), (6, 6), (7, 7), (8, 8)],
+    );
+    peli.lauta.vuoro = Merkki::Nolla;
+    klikkaa(&mut peli, (9, 9));
+    assert_eq!(peli.vaihe, Vaihe::Voitto);
+    assert_eq!(peli.ottelu, (0, 1));
+    assert_eq!(peli.viesti, kaanna("suora.nolla_sai"));
+    assert!(peli.taulu.lahetys.is_empty());
+    assert!(peli.taulu.parhaat.is_empty());
+    assert_eq!(peli.taulu.paras, 0);
+    assert!(!peli.uusi_tulos);
+    assert!(peli.aanet.jono.contains(&(Aani::Voitto, LOPPU_VIIVE_MS)));
+
+    // Uusi peli: nyt nolla aloittaa, ja laskuri säilyy.
+    peli.kasittele(Syote::Kirjain('K'));
+    assert_eq!(peli.lauta.vuoro, Merkki::Nolla);
+    assert_eq!(peli.viesti, kaanna("suora.vuoro_nolla"));
+    assert_eq!(peli.ottelu, (0, 1));
+    peli.kasittele(Syote::Kirjain('E'));
+    assert!(!peli.lopeta, "kesken olevasta pelistä E ei poistu");
+    peli.lauta = Lauta::merkeista(
+        &[(3, 3), (3, 4), (3, 5), (3, 6)],
+        &[(9, 0), (9, 2), (9, 4), (9, 6)],
+    );
+    peli.lauta.vuoro = Merkki::Risti;
+    klikkaa(&mut peli, (3, 7));
+    assert_eq!(peli.ottelu, (1, 1));
+    peli.kasittele(Syote::Kirjain('K'));
+    assert_eq!(peli.lauta.vuoro, Merkki::Risti);
+}
+
+#[test]
+fn vastuksen_vaihto_nollaa_laskurin() {
+    let mut peli = Suora::new(1);
+    peli.ottelu = (3, 2);
+    peli.valitse_vastus(Vastus::Kone);
+    assert_eq!(peli.ottelu, (3, 2));
+    peli.valitse_vastus(Vastus::Kaksin);
+    assert_eq!(peli.ottelu, (0, 0));
+}

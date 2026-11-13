@@ -57,6 +57,18 @@ fn nelja_ei_voita_mutta_kuusi_voittaa() {
 }
 
 #[test]
+fn nolla_voi_aloittaa_ja_kone_pelaa_silloin_nollana() {
+    let mut lauta = Lauta::aloittaen(Merkki::Nolla);
+    assert_eq!(lauta.vuoro, Merkki::Nolla);
+    assert_eq!(lauta.aseta((7, 7)), Some(Tila::Kesken));
+    assert_eq!(lauta.ruutu((7, 7)), Some(Merkki::Nolla));
+    assert_eq!(lauta.vuoro, Merkki::Risti);
+    let lauta = Lauta::aloittaen(Merkki::Nolla);
+    let p = koneen_siirto(Vaikeus::Normaali, &lauta, &mut Arpa::new(1));
+    assert_eq!(p, Some((KOKO / 2, KOKO / 2)));
+}
+
+#[test]
 fn varattuun_tai_laudan_ulkopuolelle_ei_voi_merkita() {
     let mut lauta = Lauta::new();
     assert_eq!(lauta.aseta((7, 7)), Some(Tila::Kesken));

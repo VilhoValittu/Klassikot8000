@@ -118,9 +118,9 @@ Viisi noppaa, kolme heittoa vuorossa ja 15 riviä täytettävänä pohjoismaisin
 *Välilyönti tai Heitä-nappi heittää, 1–5 tai klikkaus lukitsee nopan, nuolet valitsevat rivin ja K tai klikkaus kirjaa sen. Viivaus vaatii toisen painalluksen. Alkuruudulla nuolet valitsevat paikan ja pelaajan, ja N nimeää ihmisen. Kun kone pelaa, välilyönti pelaa sen vuoron heti loppuun.*
 ### 5 suora
 
-Ruutupaperin klassikko 15x15-laudalla: sinä olet risti ja aloitat, kone on nolla, ja ensimmäinen viiden suora vaakaan, pystyyn tai vinoon voittaa (pidempikin suora käy). Täyteen laudattu peli päättyy tasan. Helppo kone tekee välillä virheitä, normaali torjuu uhat ja hyökkää, ja vaikea etsii pakottavia nelos- ja kolmossarjoja ja varoo jättämästä sinulle sellaista. Voitto tuo pisteitä sitä enemmän, mitä vähemmillä omilla siirroilla se syntyy, ja taso kertoo ne (normaali kahdella, vaikea kolmella). Sivuikkunat laskevat istunnon voitot.
+Ruutupaperin klassikko 15x15-laudalla konetta tai kaveria vastaan. Ensimmäinen viiden suora vaakaan, pystyyn tai vinoon voittaa (pidempikin suora käy). Täyteen laudattu peli päättyy tasan. Konetta vastaan olet risti ja aloitat. Helppo kone tekee välillä virheitä, normaali torjuu uhat ja hyökkää, ja vaikea etsii pakottavia nelos- ja kolmossarjoja ja varoo jättämästä sinulle sellaista. Voitto tuo pisteitä sitä enemmän, mitä vähemmillä omilla siirroilla se syntyy, ja taso kertoo ne (normaali kahdella, vaikea kolmella). Kaksinpelissä kaksi ihmistä pelaa vuorotellen samalla koneella, aloittaja vaihtuu joka pelissä, eikä tulos mene listalle. Sivuikkunat laskevat istunnon voitot.
 
-*Klikkaus merkitsee ruudun, tai nuolet siirtävät kursoria ja välilyönti merkitsee.*
+*Klikkaus merkitsee ruudun, tai nuolet siirtävät kursoria ja välilyönti merkitsee. Alkuruudulla ylös- ja alas-nuoli vaihtavat konepelin ja kaksinpelin, ja 1–3 valitsevat koneen tason.*
 
 ## Hyvä tietää
 

@@ -115,6 +115,15 @@ impl Lauta {
         }
     }
 
+    /// Tyhjä lauta, jolla `aloittaja` tekee ensimmäisen siirron. Kaksinpelissä aloitusvuoro
+    /// vaihtuu pelistä toiseen.
+    pub fn aloittaen(aloittaja: Merkki) -> Self {
+        Self {
+            vuoro: aloittaja,
+            ..Self::new()
+        }
+    }
+
     /// Lauta valmiilla merkeillä, kokeita ja kehityslippuja varten. Vuoro on sillä,
     /// jolla on vähemmän merkkejä (tasan: risti). Voittoa ei tarkisteta.
     pub fn merkeista(ristit: &[Paikka], nollat: &[Paikka]) -> Self {

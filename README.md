@@ -107,9 +107,9 @@ Five dice, up to three rolls a turn and 15 rows to fill, by the Nordic rules: on
 *Space or the Roll button rolls, 1–5 or a click holds a die, arrows pick a row and K or a click scores it. Scratching a row takes a second press. On the intro screen the arrows choose the seat and the player and N names a human. When a computer is playing, space finishes its turn at once.*
 ### Five in a Row
 
-The squared-paper classic on a 15x15 board: you are X and go first, the computer is O, and the first to get five in a row across, down or diagonally wins (a longer line counts too). A full board is a draw. The easy computer slips now and then, normal blocks threats and attacks, and hard hunts forcing lines of fours and threes and avoids leaving you one. A win scores more the fewer moves of your own it takes, times the level (two for normal, three for hard). The side windows keep the session's wins.
+The squared-paper classic on a 15x15 board, against the computer or a friend. The first to get five in a row across, down or diagonally wins (a longer line counts too). A full board is a draw. Against the computer you are X and go first. The easy computer slips now and then, normal blocks threats and attacks, and hard hunts forcing lines of fours and threes and avoids leaving you one. A win scores more the fewer moves of your own it takes, times the level (two for normal, three for hard). In two-player mode two people take turns on one computer, the first move alternates between games, and no score goes on the list. The side windows keep the session's wins.
 
-*A click marks a cell, or the arrows move the cursor and space marks.*
+*A click marks a cell, or the arrows move the cursor and space marks. On the intro screen up and down switch between the computer and two players, and 1–3 pick the computer level.*
 
 ## Good to know
 

@@ -8,6 +8,11 @@ pub fn ruudun_keskipiste(ruutu: Paikka) -> (i32, i32) {
     (x + RUUTU / 2, y + RUUTU / 2)
 }
 
+pub fn vastuksen_keskipiste(vastus: Vastus) -> (i32, i32) {
+    let (_, teksti, x) = VASTUKSET.iter().find(|t| t.0 == vastus).copied().unwrap();
+    (x + napin_leveys(teksti) / 2, VASTUS_Y + NAPPI_K / 2)
+}
+
 pub fn vaikeuden_keskipiste(vaikeus: Vaikeus) -> (i32, i32) {
     let (_, teksti, x) = TASOT.iter().find(|t| t.0 == vaikeus).copied().unwrap();
     (x + napin_leveys(teksti) / 2, TASO_Y + NAPPI_K / 2)
@@ -52,6 +57,16 @@ fn tekstit_mahtuvat_paikoilleen() {
             assert!(x + napin_leveys(teksti) < LEVEYS as i32, "{taso:?}");
             assert_eq!(vaikeus_pisteesta(x, TASO_Y), Some(taso));
         }
+        // Vastusnapit eivät mene päällekkäin, ja kumpikin löytyy.
+        let mut oikea = 0;
+        for (vastus, teksti, x) in VASTUKSET {
+            assert!(x > oikea, "{vastus:?}");
+            oikea = x + napin_leveys(teksti);
+            assert!(oikea < LEVEYS as i32, "{vastus:?}");
+            assert_eq!(vastus_pisteesta(x, VASTUS_Y), Some(vastus));
+        }
+        let otsikko = kaanna("suora.peli_rivi").chars().count() as i32 * MERKKI;
+        assert!(48 + otsikko < TASO_X);
         let mut viestit = vec![
             kaanna(OHJE).to_string(),
             kaanna("suora.aloita").to_string(),
@@ -59,19 +74,31 @@ fn tekstit_mahtuvat_paikoilleen() {
             kaanna("suora.vuorosi").to_string(),
             kaanna("suora.kone_voitti").to_string(),
             kaanna("suora.lauta_taynna").to_string(),
+            kaanna("suora.vuoro_risti").to_string(),
+            kaanna("suora.vuoro_nolla").to_string(),
+            kaanna("suora.risti_sai").to_string(),
+            kaanna("suora.nolla_sai").to_string(),
             muotoile("suora.ennatys", &[&SIIRTOJA_ENINTAAN, &SUURIN_TULOS]),
             muotoile("suora.voitto_viesti", &[&SIIRTOJA_ENINTAAN, &SUURIN_TULOS]),
         ];
-        viestit.extend(Vaikeus::KAIKKI.map(|taso| kaanna(kuvaus(taso)).to_string()));
+        for vastus in Vastus::KAIKKI {
+            viestit.extend(Vaikeus::KAIKKI.map(|taso| kaanna(kuvaus(vastus, taso)).to_string()));
+        }
         for viesti in viestit {
             assert!(viesti.chars().count() <= RIVILLE_MERKKEJA, "{viesti}");
         }
-        for otsikko in ["yhteinen.voitit", "suora.tappio", "suora.tasapeli"] {
+        for otsikko in [
+            "yhteinen.voitit",
+            "suora.tappio",
+            "suora.tasapeli",
+            "suora.risti_voitti",
+            "suora.nolla_voitti",
+        ] {
             let merkkeja = kaanna(otsikko).chars().count() as i32;
             assert!(merkkeja * TULOS.2 < LEVEYS as i32 - TEKSTI_X, "{otsikko}");
         }
         // Nimet mahtuvat sivuikkunaan reunuksineen.
-        for nimi in ["suora.sina", "suora.kone"] {
+        for nimi in ["suora.sina", "suora.kone", "suora.risti", "suora.nolla"] {
             let leveys = kaanna(nimi).chars().count() as i32 * MERKKI;
             assert!(leveys <= SIVU_L - 24, "{nimi}");
         }
@@ -84,15 +111,19 @@ fn tekstit_mahtuvat_paikoilleen() {
                 "{teksti}"
             );
         }
+        let kaksin = kaanna("suora.vastus_kaksin").to_uppercase();
+        assert!(
+            TEKSTI_X + TILASTON_ASKEL + kaksin.chars().count() as i32 * OTSIKKO.2 < LEVEYS as i32
+        );
         for taso in Vaikeus::KAIKKI {
             let nimi = kaanna(tason_nimi(taso));
             let loppu = TEKSTI_X + 2 * TILASTON_ASKEL + nimi.chars().count() as i32 * OTSIKKO.2;
             assert!(loppu < LEVEYS as i32, "{nimi}");
         }
     });
-    // Kuvausrivi tulee näppäinohjeiden jälkeen.
+    // Kuvausrivi tulee näppäinohjeiden jälkeen puolen rivin välillä, jota apu ei laske.
     let rivit: Vec<&str> = ALKU_RIVIT.iter().copied().chain([OHJE]).collect();
-    alkuohje_mahtuu(&ALKU_OSAT, &rivit, TASO_Y);
+    alkuohje_mahtuu(&ALKU_OSAT, &rivit, VASTUS_Y - RIVIN_KORKEUS / 2);
 }
 
 #[test]
@@ -129,6 +160,27 @@ fn jokainen_vaihe_piirtyy_kaatumatta() {
         peli.vaihe = Vaihe::Tasapeli;
         piirra(&peli, &mut kuva);
     }
+}
+
+#[test]
+fn kaksinpeli_piirtyy_alusta_voittoon_kaatumatta() {
+    let mut kuva = vec![0; LEVEYS * KORKEUS];
+    let mut peli = Suora::new(1);
+    peli.valitse_vastus(Vastus::Kaksin);
+    piirra(&peli, &mut kuva);
+    peli.kasittele(Syote::Ammu);
+    peli.merkitse((7, 7));
+    let (x, y) = ruudun_keskipiste((7, 8));
+    peli.kasittele(Syote::Hiiri(x, y));
+    piirra(&peli, &mut kuva);
+    peli.lauta = Lauta::merkeista(
+        &[(0, 0), (0, 2), (0, 4), (0, 6)],
+        &[(5, 5), (6, 6), (7, 7), (8, 8)],
+    );
+    peli.lauta.vuoro = Merkki::Nolla;
+    peli.merkitse((9, 9));
+    assert_eq!(peli.vaihe, Vaihe::Voitto);
+    piirra(&peli, &mut kuva);
 }
 
 #[test]
