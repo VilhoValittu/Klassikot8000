@@ -6,7 +6,7 @@ use klassikot8000::pasianssi::Sarake;
 use klassikot8000::spider::{Jono, Lauta, SARAKKEITA, SARJOJA};
 
 use crate::pelit::pasianssi::peli::{Nappi, Pasianssi, Vaihe};
-use crate::pelit::pasianssi::piirto::{kesto, uuden_napin_teksti};
+use crate::pelit::pasianssi::piirto::{SIVU_RIVI, kesto, uuden_napin_teksti};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::kortit::{KORTTI_K, KORTTI_L};
 use crate::yhteinen::piirto::*;
@@ -176,7 +176,7 @@ impl Piirtaja<'_> {
         let mut y = VIESTI_Y;
         for rivi in rivita(&peli.viesti, VIESTIN_MERKKEJA) {
             self.teksti(TILASTO_X, y, rivi, VALKOINEN);
-            y += RIVIN_KORKEUS;
+            y += SIVU_RIVI;
         }
         for (i, (nappi, teksti)) in NAPIT.into_iter().enumerate() {
             let y = NAPIT_Y + i as i32 * NAPPI_ASKEL;

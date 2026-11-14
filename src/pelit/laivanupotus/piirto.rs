@@ -8,7 +8,7 @@ use klassikot8000::laivanupotus::{
 use super::peli::{Peli, TULOS_VIIVE_MS, Tehoste, Vaihe, laivan_nimi, tason_numero};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, liukuvari};
+use crate::yhteinen::rasteri::{Rasteri, liukuvari, taplassa};
 use crate::yhteinen::vektori::{self, Kangas, sekoita_liuku, tummenna, vaalenna};
 
 const SOLU: i32 = 33;
@@ -17,7 +17,8 @@ const LAUTA_Y: i32 = 99;
 const VASTUSTAJA_X: i32 = 90;
 const OMA_X: i32 = 570;
 const OTSIKKO_Y: i32 = 48;
-const TILASTO_Y: i32 = 441;
+// Laudan kehyksen alle; viides laiva päättyy juuri ennen viestipaneelia.
+const TILASTO_Y: i32 = 435;
 const TILASTO_SISENNYS: i32 = 48;
 const TILASTO_PALKKI_X: i32 = 14 * MERKKI;
 
@@ -33,11 +34,13 @@ const SOLUN_RIVEJA: i32 = SOLU / 3;
 
 static VESI_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
     let n = LAUDAN_RIVEJA as usize;
-    Rasteri::luo(n, n, |x, y| {
-        let t = y as f32 / LAUDAN_RIVEJA as f32;
-        let vari = liukuvari(&[0x1450B0, 0x0C2C80], t, x, y);
-        // Ruudukko on pisteviiva, jotta se ei syö pieniä soluja.
-        if (x % SOLUN_RIVEJA == 0 || y % SOLUN_RIVEJA == 0) && (x + y) % 2 == 0 {
+    Rasteri::tarkka(n, n, 3, |fx, fy| {
+        let t = fy / LAUDAN_RIVEJA as f32;
+        let vari = liukuvari(&[0x1450B0, 0x0C2C80], t);
+        // Ruudukko on pyöreistä pisteistä, jotta se ei syö pieniä soluja.
+        let (x, y) = (fx as i32, fy as i32);
+        let viivalla = x % SOLUN_RIVEJA == 0 || y % SOLUN_RIVEJA == 0;
+        if viivalla && (x + y) % 2 == 0 && taplassa(fx, fy, 0.5) {
             sekoita_liuku(vari, 0xA0C8FF, 0.45)
         } else {
             vari
@@ -247,7 +250,7 @@ impl Piirtaja<'_> {
             &[&laivasto.upotettuja(), &laivasto.laivat().len()],
         );
         self.teksti(x, TILASTO_Y, &otsikko, KELTAINEN);
-        let mut y = TILASTO_Y + RIVIN_KORKEUS + 3;
+        let mut y = TILASTO_Y + RIVIN_KORKEUS;
         for laiva in laivasto.laivat() {
             let upotettu = laivasto.on_upotettu(laiva);
             let (teksti_vari, pala_vari) = if upotettu {

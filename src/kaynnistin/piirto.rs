@@ -99,14 +99,21 @@ static MAISEMA: LazyLock<Rasteri> = LazyLock::new(|| {
         ALAPALKKI_Y as usize / 4,
         HORISONTTI_RIVI,
         MALLI_X / 4,
+        4,
     )
 });
 /// Maisema tummennettuna: listan ja laatikoiden läpikuultava pohja kopioidaan tästä, joten
-/// läpinäkyvyys ei maksa piirrossa mitään.
+/// läpinäkyvyys ei maksa piirrossa mitään. Lasi on konepikseleinä, koska tummennuksen läpi
+/// porrasta ei erota, ja tarkka kopio veisi muistia lähes kahdeksan megatavua.
 static LASI: LazyLock<Rasteri> = LazyLock::new(|| {
-    Rasteri::luo(RUUDUN_LEVEYS / 4, ALAPALKKI_Y as usize / 4, |x, y| {
-        sekoita_liuku(MAISEMA.rivi(y as usize)[x as usize], LASIN_VARI, 0.82)
-    })
+    maisemakuva(
+        RUUDUN_LEVEYS / 4,
+        ALAPALKKI_Y as usize / 4,
+        HORISONTTI_RIVI,
+        MALLI_X / 4,
+        1,
+    )
+    .muunna(|vari| sekoita_liuku(vari, LASIN_VARI, 0.82))
 });
 const LASIN_VARI: u32 = 0x0E0830;
 const MALLI_X: i32 = 1512;

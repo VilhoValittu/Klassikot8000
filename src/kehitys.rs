@@ -47,6 +47,8 @@ use crate::yhteinen::syote::Syote;
 #[derive(Default)]
 pub struct Liput {
     pub siemen: Option<u64>,
+    /// Kuorman mittaus: näin monta 16 ms:n ruutua piirretään ilman ikkunaa.
+    pub mittaus: Option<u32>,
     pub kuvakaappaus: Option<String>,
     pub siirrot: Vec<Ruutu>,
     pub vaikeus: Option<Vaikeus>,
@@ -178,6 +180,7 @@ pub fn lue_liput() -> Result<Liput, String> {
             }
             "--seed" => liput.siemen = Some(luku(&lippu, &arvo)?),
             "--screenshot" => liput.kuvakaappaus = Some(arvo),
+            "--bench" => liput.mittaus = Some(luku(&lippu, &arvo)?),
             "--sounds" => liput.aanet = Some(arvo),
             "--save" => liput.tallennus = Some(arvo),
             "--net" => liput.netti = Some(arvo),
@@ -296,6 +299,37 @@ pub enum Alku {
     Valmis(ExitCode),
 }
 
+/// Piirtää `ruutuja` ruutua 16 ms:n välein ja sovittaa ne tavalliseen 1760x990-ikkunaan,
+/// kuten pääsilmukka tekisi, ja tulostaa keskimääräiset ajat. Jokainen ruutu piirretään,
+/// vaikka näkymä ei muuttuisi, joten luku on yläraja. Tulos on toistettavampi kuin
+/// prosessin kuormitus, koska siihen ei sekoitu ikkunan odotus.
+fn mittaa(kaynnistin: &mut Kaynnistin, kehys: &mut Kehys, ruutuja: u32) -> Alku {
+    use std::time::{Duration, Instant};
+
+    use crate::yhteinen::piirto::{Ikkunakuva, Sovitus};
+    let (l, k) = (1760, 990);
+    let sovitus = Sovitus::new(l, k);
+    let mut ikkunakuva = Ikkunakuva::default();
+    let (mut piirto_aika, mut sovitus_aika) = (Duration::ZERO, Duration::ZERO);
+    for _ in 0..ruutuja {
+        kaynnistin.edista(16);
+        let alku = Instant::now();
+        piirto::piirra(kaynnistin, kehys);
+        let piirretty = Instant::now();
+        ikkunakuva.sovita(&kehys.ruutu, &kehys.muuttuneet, l, k, sovitus);
+        piirto_aika += piirretty - alku;
+        sovitus_aika += piirretty.elapsed();
+    }
+    let ms = |aika: Duration| aika.as_secs_f64() * 1000.0 / ruutuja.max(1) as f64;
+    println!(
+        "piirto {:.3} ms, sovitus {:.3} ms, yhteensä {:.3} ms ruutua kohti",
+        ms(piirto_aika),
+        ms(sovitus_aika),
+        ms(piirto_aika + sovitus_aika)
+    );
+    Alku::Valmis(ExitCode::SUCCESS)
+}
+
 fn lopetus(tulos: io::Result<()>, kohde: &str) -> Alku {
     Alku::Valmis(match tulos {
         Ok(()) => ExitCode::SUCCESS,
@@ -346,6 +380,9 @@ pub fn aloita(kehys: &mut Kehys) -> Alku {
     kaynnistin.ota_aanet();
     if let Some(versio) = &liput.uusi_versio {
         kaynnistin.vastaanota(Vastaus::UusiVersio(versio.clone()));
+    }
+    if let Some(ruutuja) = liput.mittaus {
+        return mittaa(&mut kaynnistin, kehys, ruutuja);
     }
     if let Some(polku) = &liput.kuvakaappaus {
         // Renkaan tehosteet on ajettu jo, eikä niitä saa hypätä yli.

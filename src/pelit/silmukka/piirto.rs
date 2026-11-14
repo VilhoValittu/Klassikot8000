@@ -13,7 +13,7 @@ use super::peli::{
 };
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, ditteroi, kohina};
+use crate::yhteinen::rasteri::{Rasteri, kohina, valisavy};
 use crate::yhteinen::vektori::{Kangas, Tahko, kehapiste, kuutio, tahko4, vaalenna};
 
 const RUUTU: i32 = 24;
@@ -46,17 +46,19 @@ fn niittykuva((yla, ala): (u32, u32)) -> Rasteri {
     let sivu = RUUTU / 3;
     let leveys = KENTTA_L / 3 + 2 * NIITYN_VARA;
     let korkeus = KENTTA_K / 3 + 2 * NIITYN_VARA;
-    Rasteri::luo(leveys as usize, korkeus as usize, move |x, y| {
+    Rasteri::tarkka(leveys as usize, korkeus as usize, 3, move |fx, fy| {
+        let (x, y) = (fx as i32, fy as i32);
         let (kx, ky) = (x - NIITYN_VARA, y - NIITYN_VARA);
         let osuus = (ky.max(0) as f32 / (KENTTA_K / 3) as f32).min(1.0);
-        let pohja = ditteroi(x, y, yla, ala, osuus);
+        let pohja = valisavy(yla, ala, osuus);
         let ruutu = (kx.div_euclid(sivu) + ky.div_euclid(sivu)).rem_euclid(2) == 0;
         let vari = if ruutu {
             sekoita(pohja, VALKOINEN, RUUDUN_VAALENNUS)
         } else {
             pohja
         };
-        match kohina(x / 2, y) {
+        // Heinätuppaat ovat ruudun pikselin korkuisia viiruja.
+        match kohina((fx * 1.5) as i32, (fy * 3.0) as i32) {
             n if n > 0.985 => sekoita(vari, MATO_A, 0.35),
             n if n > 0.96 => sekoita(vari, MATO_A, 0.15),
             _ => vari,

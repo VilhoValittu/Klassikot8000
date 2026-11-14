@@ -7,7 +7,7 @@ use klassikot8000::asteroidit::{self, Alus, Kivi, Lautanen, Piste};
 use super::peli::{Asteroidit, RAJAHDYS_MS, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari};
+use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari, taplassa};
 use crate::yhteinen::vektori::{Kangas, Tahko, sekoita_liuku, tahko4, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
@@ -26,23 +26,22 @@ const ALUKSEN_VARI: u32 = 0xE8ECF8;
 /// Avaruus: tumma liuku, violetti kaasusumu ja kolmen kirkkauden tähdet.
 static AVARUUS_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
     let (l, k) = (KENTTA_L / 3, KENTTA_K / 3);
-    Rasteri::luo(l as usize, k as usize, move |x, y| {
-        let (fx, fy) = (x as f32, y as f32);
+    Rasteri::tarkka(l as usize, k as usize, 3, move |fx, fy| {
         let sumu = (fx * 0.021 + fy * 0.013).sin()
             + (fx * 0.009 - fy * 0.027 + 1.3).sin()
             + (fx * 0.047 + fy * 0.031 + 0.7).sin() * 0.5;
         let vari = liukuvari(
             &[0x02030E, 0x0A0830, 0x2C1458, 0x5A1C70],
             (sumu + 0.6) / 3.0,
-            x,
-            y,
         );
-        match kohina(x, y) {
-            n if n > 0.9985 => 0xFFFFFF,
-            n if n > 0.994 => 0xA0B8F0,
-            n if n > 0.98 => sekoita_liuku(vari, 0x8090D0, 0.5),
-            _ => vari,
-        }
+        // Tähti on pyöreä täplä konepikselin keskellä: kirkkaimmat ovat suurimpia.
+        let (tahti, sade) = match kohina(fx as i32, fy as i32) {
+            n if n > 0.9985 => (0xFFFFFF, 0.55),
+            n if n > 0.994 => (0xA0B8F0, 0.45),
+            n if n > 0.98 => (sekoita_liuku(vari, 0x8090D0, 0.5), 0.4),
+            _ => return vari,
+        };
+        if taplassa(fx, fy, sade) { tahti } else { vari }
     })
 });
 const SUOJAN_VILKKU_MS: u32 = 120;

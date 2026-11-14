@@ -44,7 +44,7 @@ const HEITTO_L: i32 = SIVU_L - 36;
 const HEITTO_K: i32 = 48;
 const VIESTI_Y: i32 = HEITTO_Y + HEITTO_K + 24;
 const VIESTIN_RIVEJA: usize = 5;
-const VIESTI_K: i32 = VIESTIN_RIVEJA as i32 * RIVIN_KORKEUS + 18;
+const VIESTI_K: i32 = VIESTIN_RIVEJA as i32 * RUUDUN_RIVI + 18;
 const OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
 const NAPIT_Y: i32 = RUUDUN_KORKEUS as i32 - 36 - 2 * NAPPI_ASKEL;
 const LOPPUNAPIT: [(Loppunappi, &str); 2] = [
@@ -529,7 +529,7 @@ impl Piirtaja<'_> {
             .take(VIESTIN_RIVEJA)
         {
             self.teksti(SIVU_TEKSTI_X, y, rivi, vari);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
         let ohjeet: &[&str] = if ihmisen_vuoro {
             &["jatsi.ohje_heitto", "jatsi.ohje_kirjaus"]
@@ -540,9 +540,9 @@ impl Piirtaja<'_> {
         for avain in ohjeet {
             for rivi in rivita(kaanna(avain), SIVU_MERKKEJA) {
                 self.teksti(SIVU_TEKSTI_X, y, rivi, HUTI);
-                y += RIVIN_KORKEUS;
+                y += RUUDUN_RIVI;
             }
-            y += RIVIN_KORKEUS / 2;
+            y += RUUDUN_RIVI / 2;
         }
         self.teksti(SIVU_TEKSTI_X, y, kaanna("yhteinen.takaisin"), HUTI);
     }
@@ -553,13 +553,13 @@ impl Piirtaja<'_> {
         self.suurteksti(SIVU_TEKSTI_X, y, &otsikko, OTSIKKO, KELTAINEN, true);
         y += 36;
         self.teksti(SIVU_TEKSTI_X, y, kaanna("jatsi.listalle"), HUTI);
-        y += RIVIN_KORKEUS;
+        y += RUUDUN_RIVI;
         for &(pelaaja, pisteet) in peli.tulokset.iter().take(VIESTIN_RIVEJA - 2) {
             self.teksti(SIVU_TEKSTI_X, y, &peli.nimet[pelaaja], VALKOINEN);
             let teksti = pisteet.to_string();
             let x = SIVU_X + SIVU_L - 18 - teksti.chars().count() as i32 * MERKKI;
             self.teksti(x, y, &teksti, KELTAINEN);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
         let parhaat_y = OHJE_Y;
         let otsikko = listan_otsikko(peli.taulu.netti.is_some());

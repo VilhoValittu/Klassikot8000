@@ -10,7 +10,7 @@ use klassikot8000::tiilirikko::{
 use super::peli::{KIPINA_MS, Tiilirikko, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, liukuvari};
+use crate::yhteinen::rasteri::{Rasteri, liukuvari, taplassa};
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, sekoita_liuku, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
@@ -39,14 +39,15 @@ const SUPERTIILI: u32 = 0x302850;
 static KENTTA_KUVA: LazyLock<Rasteri> = LazyLock::new(|| {
     const LEVY: i32 = 20;
     let (l, k) = (KENTTA_L / 3, KENTTA_K / 3);
-    Rasteri::luo(l as usize, k as usize, move |x, y| {
-        let vari = liukuvari(&[0x101C60, 0x0A1040, 0x060828], y as f32 / k as f32, x, y);
-        let (lx, ly) = (x % LEVY, y % LEVY);
+    Rasteri::tarkka(l as usize, k as usize, 3, move |x, y| {
+        let vari = liukuvari(&[0x101C60, 0x0A1040, 0x060828], y / k as f32);
+        let (lx, ly) = ((x as i32) % LEVY, (y as i32) % LEVY);
+        let niitti = |n: i32| n == 3 || n == LEVY - 3;
         if lx == 0 || ly == 0 {
             sekoita_liuku(vari, 0x000000, 0.45)
         } else if lx == 1 || ly == 1 {
             sekoita_liuku(vari, 0x4060C0, 0.18)
-        } else if (lx == 3 || lx == LEVY - 3) && (ly == 3 || ly == LEVY - 3) {
+        } else if niitti(lx) && niitti(ly) && taplassa(x, y, 0.6) {
             sekoita_liuku(vari, 0x6080E0, 0.5)
         } else {
             vari

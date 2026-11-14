@@ -10,8 +10,10 @@ use crate::yhteinen::piirto::*;
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4, tummenna, vaalenna};
 
 // Lauta keskitetään otsikkopalkin ja paneelin väliin.
-const ALUE_Y: i32 = 48;
-const ALUE_K: i32 = PANEELI_Y - 6 - ALUE_Y;
+// Suurin lauta on 540 pikseliä: alue alkaa heti otsikkopalkin alta ja päättyy
+// konepikselin päähän viestipaneelista.
+const ALUE_Y: i32 = 42;
+const ALUE_K: i32 = PANEELI_Y - 3 - ALUE_Y;
 
 const SULJETTU: u32 = 0x6878A0;
 const LIPUN_KUVA: [&str; 11] = [

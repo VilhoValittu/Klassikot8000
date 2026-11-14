@@ -10,7 +10,8 @@ use crate::yhteinen::vektori::{Kangas, Tahko, tahko4};
 const RUUTU: i32 = 68;
 const LAUDAN_SIVU: i32 = RUUTU * SIVU as i32;
 const RUUDUT_X: i32 = 30;
-const RUUDUT_Y: i32 = 48;
+// Lauta alkaa 3 px muita kenttiä ylempää, jotta sen alareuna jää viestipaneelin yläpuolelle.
+const RUUDUT_Y: i32 = 45;
 const SARAKE_X: i32 = RUUDUT_X + LAUDAN_SIVU + 30;
 const TILASTON_ASKEL: i32 = 87;
 const EDISTYS_Y: i32 = RUUDUT_Y + 3 * TILASTON_ASKEL;

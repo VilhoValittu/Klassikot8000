@@ -45,7 +45,7 @@ fn sivun_tekstit_mahtuvat_kaikilla_kielilla() {
     kaikilla_kielilla(|| {
         let ohje = rivita(kaanna("pasianssi.haaste_ohje"), SIVU_MERKKEJA).len() as i32;
         // Ohjeen ja näppäinrivien jälkeen on vielä tilaa takaisin-napille.
-        assert!(OHJE_Y + (ohje + 3) * RIVIN_KORKEUS <= NAPIT_Y);
+        assert!(OHJE_Y + (ohje + 3) * SIVU_RIVI <= NAPIT_Y);
         for avain in [
             "pasianssi.haaste_nappaimet_1",
             "pasianssi.haaste_nappaimet_2",

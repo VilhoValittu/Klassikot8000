@@ -45,9 +45,9 @@ const RAHAT_Y: i32 = 54;
 const BLINDIT_Y: i32 = RAHAT_Y + TILASTO_ASKEL;
 const TILASTO_ASKEL: i32 = 66;
 const VIESTI_Y: i32 = RAHAT_Y + 2 * TILASTO_ASKEL + 6;
-const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
+const VIESTI_K: i32 = 4 * RUUDUN_RIVI + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
-const NAPIT_Y: i32 = SIVU_OHJE_Y + 2 * RIVIN_KORKEUS + 18;
+const NAPIT_Y: i32 = SIVU_OHJE_Y + 2 * RUUDUN_RIVI + 18;
 // Maksun ja korotuksen teksti vaihtuu, joten kaikki napit ovat saman levyisiä.
 const NAPIN_L: i32 = SIVU_L - 36;
 
@@ -465,7 +465,7 @@ impl Piirtaja<'_> {
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
 
         let napisto = peli.napisto();
@@ -477,7 +477,7 @@ impl Piirtaja<'_> {
         let mut y = SIVU_OHJE_Y;
         for rivi in ohjeet {
             self.teksti(SIVU_TEKSTI_X, y, kaanna(rivi), HUTI);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
 
         if peli.vaihe == Vaihe::Nimi {

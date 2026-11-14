@@ -27,10 +27,11 @@ pub(super) const SIVU_L: i32 = RUUDUN_LEVEYS as i32 - 24 - SIVU_X;
 pub(super) const SIVU_TEKSTI_X: i32 = SIVU_X + 18;
 pub(super) const SIVU_MERKKEJA: usize = 22;
 const TILASTO_ASKEL: i32 = 66;
+pub(super) const SIVU_RIVI: i32 = RUUDUN_RIVI;
 const VIESTI_Y: i32 = YLARIVI_Y + 5 * TILASTO_ASKEL + 6;
-const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
+const VIESTI_K: i32 = 4 * SIVU_RIVI + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
-pub(super) const NAPIT_Y: i32 = SIVU_OHJE_Y + 7 * RIVIN_KORKEUS + 18;
+pub(super) const NAPIT_Y: i32 = SIVU_OHJE_Y + 6 * SIVU_RIVI + 18;
 
 const SIVU_OHJEET: [&str; 6] = [
     "pasianssi.sivu_hiiri",
@@ -573,13 +574,13 @@ impl Piirtaja<'_> {
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
-            y += RIVIN_KORKEUS;
+            y += SIVU_RIVI;
         }
 
         let mut y = SIVU_OHJE_Y;
         for rivi in ohjeet {
             self.teksti(SIVU_TEKSTI_X, y, kaanna(rivi), HUTI);
-            y += RIVIN_KORKEUS;
+            y += SIVU_RIVI;
         }
 
         for (i, &(nappi, teksti)) in napit.iter().enumerate() {

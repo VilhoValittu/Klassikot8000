@@ -24,9 +24,9 @@ const TILASTO_Y: i32 = 60;
 const TILASTO_ASKEL: i32 = 36;
 const TILASTOJA: usize = 6;
 const VIESTI_Y: i32 = TILASTO_Y + TILASTOJA as i32 * TILASTO_ASKEL + 12;
-const VIESTI_K: i32 = 4 * RIVIN_KORKEUS + 18;
+const VIESTI_K: i32 = 4 * RUUDUN_RIVI + 18;
 const SIVU_OHJE_Y: i32 = VIESTI_Y + VIESTI_K + 18;
-const NAPIT_Y: i32 = SIVU_OHJE_Y + SIVU_OHJEET.len() as i32 * RIVIN_KORKEUS + 18;
+const NAPIT_Y: i32 = SIVU_OHJE_Y + SIVU_OHJEET.len() as i32 * RUUDUN_RIVI + 18;
 const SIVU_PARHAAT_Y: i32 = NAPIT_Y + NAPIT.len() as i32 * NAPPI_ASKEL + 18;
 
 // Lauta keskitetään otsikkopalkin ja sivupaneelin väliin.
@@ -898,13 +898,13 @@ impl Piirtaja<'_> {
         let mut y = VIESTI_Y + 9;
         for rivi in rivita(&peli.viesti, SIVU_MERKKEJA).into_iter().take(4) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
 
         let mut y = SIVU_OHJE_Y;
         for rivi in SIVU_OHJEET {
             self.teksti(SIVU_TEKSTI_X, y, kaanna(rivi), HUTI);
-            y += RIVIN_KORKEUS;
+            y += RUUDUN_RIVI;
         }
 
         let pelissa = peli.vaihe == Vaihe::Pelissa;
@@ -979,7 +979,7 @@ impl Piirtaja<'_> {
         let mut ry = y + 66;
         for rivi in &rivit {
             self.teksti(tx, ry, rivi, VALKOINEN);
-            ry += RIVIN_KORKEUS;
+            ry += RUUDUN_RIVI;
         }
         let yhteensa = muotoile("mahjong.yhteensa", &[&lauta.pisteet]);
         self.suurteksti(tx, y + LOPPU_K - 84, &yhteensa, OTSIKKO, KELTAINEN, true);

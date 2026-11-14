@@ -12,7 +12,7 @@ use klassikot8000::kaivo::{
 use super::peli::{Kaivo, TEHOSTE_MS, Tehoste, Tehostelaji, VIESTEJA, Vaihe};
 use crate::yhteinen::kieli::{kaanna, muotoile};
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
+use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari, valisavy};
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, sekoita_liuku, tahko4, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
@@ -198,12 +198,7 @@ fn syvyys(rivi: i32) -> f32 {
 }
 
 fn maan_vari(rivi: i32, gx: i32, gy: i32) -> u32 {
-    let pohja = liukuvari(
-        &[0xA46C3C, 0x8A523A, 0x6C3E42, 0x563254],
-        syvyys(rivi),
-        gx,
-        gy,
-    );
+    let pohja = liukuvari(&[0xA46C3C, 0x8A523A, 0x6C3E42, 0x563254], syvyys(rivi));
     let k = kohina(gx, gy);
     if k > 0.93 {
         vaalenna(pohja, 0.22)
@@ -216,7 +211,7 @@ fn maan_vari(rivi: i32, gx: i32, gy: i32) -> u32 {
 
 /// Tunnelin takaseinä: maata tummempi ja kylmempi, jotta onkalo erottuu valossa.
 fn seinan_vari(rivi: i32, gx: i32, gy: i32) -> u32 {
-    let pohja = liukuvari(&[0x6A4440, 0x5A3A44, 0x4A324E], syvyys(rivi), gx, gy);
+    let pohja = liukuvari(&[0x6A4440, 0x5A3A44, 0x4A324E], syvyys(rivi));
     // Vaakasuorat kerrosraidat ja irtokivet.
     let raita = gy + (kohina(gx / 4, rivi + 90) * 2.0) as i32;
     if raita.rem_euclid(5) == 0 {
@@ -234,13 +229,13 @@ fn taivaan_vari(gx: i32, gy: i32) -> u32 {
     let lahi = 16.5 + 1.8 * (fx * 0.09 + 1.0).sin() + 1.2 * (fx * 0.23).sin();
     let kauka = 12.5 + 2.5 * (fx * 0.05).sin() + 1.5 * (fx * 0.13 + 2.0).sin();
     if fy > lahi {
-        ditteroi(gx, gy, 0x1E1438, 0x261A44, kohina(gx, gy))
+        valisavy(0x1E1438, 0x261A44, kohina(gx, gy))
     } else if fy > kauka {
-        ditteroi(gx, gy, 0x3A2660, 0x44306C, kohina(gx, gy))
+        valisavy(0x3A2660, 0x44306C, kohina(gx, gy))
     } else if gy < 9 && kohina(gx, gy + 500) > 0.975 {
         0xE8E0FF
     } else {
-        liukuvari(&[0x18104A, 0x3C2470, 0x8C3C78, 0xE07A5A], t, gx, gy)
+        liukuvari(&[0x18104A, 0x3C2470, 0x8C3C78, 0xE07A5A], t)
     }
 }
 
@@ -266,7 +261,7 @@ fn materiaali(solu: Solu, rivi: i32, (px, py): (i32, i32), (gx, gy): (i32, i32))
         Solu::Tyhja => return None,
         Solu::Maa => maa(),
         Solu::Savi => {
-            let pohja = liukuvari(&[0xC4683E, 0x9C4838], syvyys(rivi), gx, gy);
+            let pohja = liukuvari(&[0xC4683E, 0x9C4838], syvyys(rivi));
             let raita = gy + (kohina(gx / 5, rivi) * 3.0) as i32;
             if raita.rem_euclid(4) == 0 {
                 tummenna(pohja, 0.2)
@@ -281,7 +276,7 @@ fn materiaali(solu: Solu, rivi: i32, (px, py): (i32, i32), (gx, gy): (i32, i32))
             } else if k < 0.06 {
                 0xA88850
             } else {
-                ditteroi(gx, gy, 0xE6C888, 0xD0AC6C, k)
+                valisavy(0xE6C888, 0xD0AC6C, k)
             }
         }
         Solu::Kivi => {
@@ -294,14 +289,14 @@ fn materiaali(solu: Solu, rivi: i32, (px, py): (i32, i32), (gx, gy): (i32, i32))
                 0x3A3048
             } else {
                 let valo = (0.5 - (dx + dy) / 11.0).clamp(0.0, 1.0);
-                liukuvari(&[0x5C5470, 0x948CA8, 0xD0C8DC], valo, gx, gy)
+                liukuvari(&[0x5C5470, 0x948CA8, 0xD0C8DC], valo)
             }
         }
         Solu::Kallio => {
             if px == 0 || py == 0 || kohina(gx / 2 + 50, gy / 2) > 0.9 {
                 0x30304E
             } else {
-                ditteroi(gx, gy, 0x54587E, 0x484C70, kohina(gx, gy))
+                valisavy(0x54587E, 0x484C70, kohina(gx, gy))
             }
         }
         Solu::Kulta => {
@@ -385,7 +380,7 @@ fn reunat(
     let rivi = gy / SOLU_P;
     let pinnalla = rivi == MAA_ALKAA && naapuri(0, -1) == Solu::Tyhja && solu != Solu::Kallio;
     if pinnalla && (py < 2 || (py == 2 && kohina(gx, gy) > 0.5)) {
-        return ditteroi(gx, gy, 0x3C8A3C, 0x58B048, kohina(gx + 7, gy));
+        return valisavy(0x3C8A3C, 0x58B048, kohina(gx + 7, gy));
     }
     if py == 0 && avoin(naapuri(0, -1)) {
         return vaalenna(vari, 0.28);
@@ -483,11 +478,15 @@ impl Lamppu {
 
     /// Valon osuus konepikselissä 0..1.
     fn osuus(&self, gx: i32, gy: i32) -> f32 {
-        if (gy as usize) < VALOISA_RAJA {
+        self.osuus_kohdassa(gx as f32 + 0.5, gy as f32 + 0.5)
+    }
+
+    /// Valon määrä pisteessä konepikseleinä.
+    fn osuus_kohdassa(&self, x: f32, y: f32) -> f32 {
+        if (y as usize) < VALOISA_RAJA {
             return 1.0;
         }
-        let (dx, dy) = (gx as f32 + 0.5 - self.x, gy as f32 + 0.5 - self.y);
-        let d = dx.hypot(dy);
+        let d = (x - self.x).hypot(y - self.y);
         ((self.sade - d) / (self.sade - self.sisa)).clamp(0.0, 1.0)
     }
 }
@@ -636,31 +635,25 @@ impl Piirtaja<'_> {
         self.kaivon_paneeli(peli);
     }
 
-    /// Joka konepikseli valitaan valon ja pimeän kuvista lampun etäisyyden mukaan.
+    /// Joka konepikseli valitaan valon ja pimeän kuvista lampun etäisyyden mukaan. Lampun
+    /// piirin rivit lasketaan `valaistu_alue`lla, jolloin valon reuna on sileä; muut rivit
+    /// kopioidaan suoraan.
     fn kaivon_kentta(&mut self, kuva: &Kaivoskuva, lamppu: Lamppu) {
-        let mut rivi = [0; RUUTUJA_L];
-        for y in 0..RUUTUJA_K {
-            let (valo, pimea) = (kuva.valo.rivi(y), kuva.pimea.rivi(y));
-            let dy = y as f32 + 0.5 - lamppu.y;
-            let lahde: &[u32] = if y < VALOISA_RAJA {
-                valo
-            } else if dy.abs() >= lamppu.sade {
-                pimea
+        let ylin = (lamppu.y - lamppu.sade).floor().max(VALOISA_RAJA as f32) as usize;
+        let alin = ((lamppu.y + lamppu.sade).ceil().max(0.0) as usize + 1).min(RUUTUJA_K);
+        let (ylin, alin) = (ylin.min(alin), alin);
+        for y in (0..ylin).chain(alin..RUUTUJA_K) {
+            let lahde = if y < VALOISA_RAJA {
+                kuva.valo.rivi(y)
             } else {
-                for (x, kohde) in rivi.iter_mut().enumerate() {
-                    let osuus = lamppu.osuus(x as i32, y as i32);
-                    *kohde = if osuus >= 1.0 {
-                        valo[x]
-                    } else if osuus <= 0.0 {
-                        pimea[x]
-                    } else {
-                        ditteroi(x as i32, y as i32, pimea[x], valo[x], osuus)
-                    };
-                }
-                &rivi
+                kuva.pimea.rivi(y)
             };
             self.k.karkea_rivi(KENTTA_X, KENTTA_Y + y as i32 * P, lahde);
         }
+        let varit = |x: usize, y: usize| (kuva.pimea.rivi(y)[x], kuva.valo.rivi(y)[x]);
+        let osuus = |x: f32, y: f32| lamppu.osuus_kohdassa(x, y);
+        self.k
+            .valaistu_alue((KENTTA_X, KENTTA_Y), RUUTUJA_L, ylin..alin, osuus, varit);
     }
 
     /// Pimeässä kulta ja timantit välähtelevät, joten ahne kaivaja tietää, minne kaivaa.
@@ -735,7 +728,7 @@ impl Piirtaja<'_> {
                         vari = tummenna(vari, 0.4);
                     }
                     let osuus = lamppu.osuus(gx, gy);
-                    let vari = ditteroi(gx, gy, pimenna(vari), vari, osuus);
+                    let vari = valisavy(pimenna(vari), vari, osuus);
                     let (sx, sy) = kentalle(gx, gy);
                     self.k.laatikko(sx, sy, P, P, vari);
                 }

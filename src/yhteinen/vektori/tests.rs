@@ -19,12 +19,20 @@ fn viiva_ulottuu_paasta_paahan_ja_kuvan_ulkopuoli_ohitetaan() {
 }
 
 #[test]
-fn viiva_pysyy_konepikselin_ruudukossa() {
+fn viiva_on_konepikselin_paksuinen_ja_vino_reuna_pehmea() {
     let mut kuva = tyhja();
-    Kangas::new(&mut kuva).viiva((10, 10), (10, 10), 1);
-    assert_eq!(pikseli(&kuva, 9, 9), 1);
-    assert_eq!(pikseli(&kuva, 11, 11), 1);
-    assert_eq!(pikseli(&kuva, 12, 12), 0);
+    Kangas::new(&mut kuva).viiva((10, 10), (40, 10), 0xFFFFFF);
+    // Vaakaviiva on tasan kolme pikseliä paksu, joten sen reunat ovat terävät.
+    for y in 9..12 {
+        assert_eq!(pikseli(&kuva, 20, y), 0xFFFFFF);
+    }
+    assert_eq!(pikseli(&kuva, 20, 8), 0);
+    assert_eq!(pikseli(&kuva, 20, 12), 0);
+
+    let mut kuva = tyhja();
+    Kangas::new(&mut kuva).viiva((10, 10), (40, 25), 0xFFFFFF);
+    let valisavyja = kuva.iter().filter(|&&v| v != 0 && v != 0xFFFFFF).count();
+    assert!(valisavyja > 30, "{valisavyja}");
 }
 
 #[test]
@@ -43,14 +51,38 @@ fn monikulmio_kuvan_reunan_yli_ei_kaada() {
 }
 
 #[test]
-fn ruudutettu_monikulmio_vuorottelee_kahta_varia() {
+fn monikulmion_vino_reuna_saa_valisavyn() {
     let mut kuva = tyhja();
-    let nelio = [(0, 0), (30, 0), (30, 30), (0, 30)];
-    Kangas::new(&mut kuva).ruudutettu_monikulmio(&nelio, 1, 2);
-    assert_eq!(pikseli(&kuva, 0, 0), 1);
-    assert_eq!(pikseli(&kuva, 3, 0), 2);
-    assert_eq!(pikseli(&kuva, 0, 3), 2);
-    assert_eq!(pikseli(&kuva, 3, 3), 1);
+    Kangas::new(&mut kuva).monikulmio(&[(0, 0), (30, 0), (0, 30)], 0xFFFFFF);
+    assert_eq!(pikseli(&kuva, 5, 5), 0xFFFFFF);
+    // Lävistäjällä oleva pikseli on puoliksi kolmion sisällä.
+    let puolikas = pikseli(&kuva, 15, 14);
+    assert!(puolikas != 0 && puolikas != 0xFFFFFF, "{puolikas:06X}");
+    assert_eq!(pikseli(&kuva, 20, 20), 0);
+}
+
+#[test]
+fn kiekko_ja_ympyra_pehmenevat_reunoilta() {
+    let mut kuva = tyhja();
+    let mut k = Kangas::new(&mut kuva);
+    k.kiekko((100, 100), 20, 0xFFFFFF);
+    k.ympyra((300, 100), 20.0, 0xFFFFFF);
+    assert_eq!(pikseli(&kuva, 100, 100), 0xFFFFFF);
+    assert_eq!(pikseli(&kuva, 100, 125), 0);
+    assert!((0..LEVEYS).any(|x| {
+        let v = pikseli(&kuva, x, 100);
+        v != 0 && v != 0xFFFFFF
+    }));
+    // Kehä on ontto.
+    assert_eq!(pikseli(&kuva, 300, 100), 0);
+    assert_eq!(pikseli(&kuva, 320, 100), 0xFFFFFF);
+}
+
+#[test]
+fn sekoitus_kokonaisluvuin_osuu_paihin() {
+    assert_eq!(sekoita_alfa(0x123456, 0xABCDEF, 0), 0x123456);
+    assert_eq!(sekoita_alfa(0x123456, 0xABCDEF, 255), 0xABCDEF);
+    assert_eq!(sekoita_alfa(0x000000, 0xFFFFFF, 128), 0x808080);
 }
 
 #[test]
@@ -70,6 +102,18 @@ fn varjostus_ei_ylita_kanavaa() {
 }
 
 #[test]
+fn tarkka_rivi_leikkautuu_reunoilla() {
+    let mut kuva = tyhja();
+    let mut k = Kangas::new(&mut kuva);
+    k.tarkka_rivi(-1, 0, &[1, 2, 3]);
+    k.tarkka_rivi(LEVEYS as i32 - 2, 1, &[4, 5, 6]);
+    k.tarkka_rivi(0, -1, &[9]);
+    k.tarkka_rivi(0, KORKEUS as i32, &[9]);
+    assert_eq!(&kuva[..3], &[2, 3, 0]);
+    assert_eq!(&kuva[2 * LEVEYS - 2..2 * LEVEYS], &[4, 5]);
+}
+
+#[test]
 fn karkea_rivi_venyy_konepikseleiksi_ja_leikkautuu_reunoilla() {
     let mut kuva = tyhja();
     let mut k = Kangas::new(&mut kuva);
@@ -84,25 +128,30 @@ fn karkea_rivi_venyy_konepikseleiksi_ja_leikkautuu_reunoilla() {
 }
 
 #[test]
-fn liuku_alkaa_ylavarista_ja_lahestyy_alavaria() {
+fn liuku_alkaa_ylavarista_ja_paattyy_alavariin() {
     let mut kuva = tyhja();
     Kangas::new(&mut kuva).liukulaatikko(0, 0, 30, 60, 0x000000, 0xF0F0F0);
     assert_eq!(pikseli(&kuva, 0, 0), 0);
-    assert!(pikseli(&kuva, 0, 59) > 0x800000);
+    assert_eq!(pikseli(&kuva, 0, 59), 0xF0F0F0);
+    assert!(pikseli(&kuva, 0, 30) > pikseli(&kuva, 0, 29));
     assert_eq!(pikseli(&kuva, 30, 0), 0);
 }
 
 #[test]
-fn sprite_ohittaa_lapinakyvat_merkit() {
+fn sprite_ohittaa_lapinakyvat_merkit_ja_yhdistaa_vinon_portaan() {
     let mut kuva = tyhja();
-    let vari = |m| (m == b'#').then_some(5);
+    let vari = |m| (m == b'#').then_some(0xFFFFFF);
     Kangas::new(&mut kuva).sprite((6, 6), &[".#", "#."], 3, vari);
+    // Ruutujen keskukset: tyhjä jää tyhjäksi, täysi täydeksi.
+    assert_eq!(pikseli(&kuva, 10, 7), 0xFFFFFF);
+    assert_eq!(pikseli(&kuva, 7, 10), 0xFFFFFF);
     assert_eq!(pikseli(&kuva, 6, 6), 0);
-    assert_eq!(pikseli(&kuva, 9, 6), 5);
-    assert_eq!(pikseli(&kuva, 6, 9), 5);
+    // Vino porras täyttyy osin tyhjän ruudun kulmasta.
+    let kulma = pikseli(&kuva, 8, 8);
+    assert!(kulma != 0, "{kulma:06X}");
 }
 
-fn suorakulmio(vasen: f32, yla: f32, oikea: f32, ala: f32, a: u32, b: u32) -> Ruututahko {
+fn suorakulmio(vasen: f32, yla: f32, oikea: f32, ala: f32, vari: u32) -> Ruututahko {
     Ruututahko {
         pisteet: [
             (vasen, yla),
@@ -112,29 +161,22 @@ fn suorakulmio(vasen: f32, yla: f32, oikea: f32, ala: f32, a: u32, b: u32) -> Ru
             (vasen, ala),
         ],
         maara: 4,
-        a,
-        b,
+        vari,
     }
 }
 
 #[test]
-fn mallin_reuna_pehmenee_mutta_sisus_ja_ditterointi_sailyvat() {
+fn mallin_reuna_pehmenee_mutta_sisus_sailyy() {
     let mut kuva = tyhja();
-    let tahko = suorakulmio(9.0, 9.0, 40.5, 39.0, 0xFF0000, 0x0000FF);
+    let tahko = suorakulmio(9.0, 9.0, 40.5, 39.0, 0xFF0000);
     piirra_naytteina(&mut Kangas::new(&mut kuva), &[tahko]);
-    // Konepikseli on 3: sisuksen ruudutus vuorottelee konepikseleittäin.
     assert_eq!(pikseli(&kuva, 18, 18), 0xFF0000);
-    assert_eq!(pikseli(&kuva, 21, 18), 0x0000FF);
-    assert_eq!(pikseli(&kuva, 20, 20), 0xFF0000);
-    // Konepikseli 39..42 on puoliksi tahkoa: väri on tahkon ja taustan välissä.
+    assert_eq!(pikseli(&kuva, 39, 18), 0xFF0000);
+    // Pikseli 40 on puoliksi tahkoa: väri on tahkon ja taustan välissä.
     let reuna = pikseli(&kuva, 40, 18);
-    assert!(
-        reuna != 0 && reuna != 0xFF0000 && reuna != 0x0000FF,
-        "{reuna:06X}"
-    );
-    assert_eq!(pikseli(&kuva, 41, 18), reuna);
+    assert!(reuna != 0 && reuna != 0xFF0000, "{reuna:06X}");
     // Tahkon ulkopuoli ei muutu.
-    assert_eq!(pikseli(&kuva, 45, 18), 0);
+    assert_eq!(pikseli(&kuva, 41, 18), 0);
     assert_eq!(pikseli(&kuva, 18, 45), 0);
 }
 
@@ -143,8 +185,8 @@ fn vierekkaisten_tahkojen_saumasta_ei_nay_taustaa() {
     let mut kuva = tyhja();
     let vari = 0x80C040;
     let tahkot = [
-        suorakulmio(9.0, 9.0, 25.5, 39.0, vari, vari),
-        suorakulmio(25.5, 9.0, 42.0, 39.0, vari, vari),
+        suorakulmio(9.0, 9.0, 25.5, 39.0, vari),
+        suorakulmio(25.5, 9.0, 42.0, 39.0, vari),
     ];
     piirra_naytteina(&mut Kangas::new(&mut kuva), &tahkot);
     for x in 9..42 {

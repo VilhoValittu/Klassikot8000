@@ -12,7 +12,11 @@ pub fn alkuohje_mahtuu(osat: &[&str], rivit: &[&str], raja_y: i32) {
             .map(|osa| rivita(kaanna(osa), ALKU_MERKKEJA).len())
             .sum();
         let korkeus = (osarivit + rivit.len()) as i32 * RIVIN_KORKEUS + RIVIN_KORKEUS / 2;
-        assert!(OHJE_Y + korkeus <= raja_y, "{osat:?}");
+        assert!(
+            OHJE_Y + korkeus <= raja_y,
+            "{osat:?}: {} > {raja_y}",
+            OHJE_Y + korkeus
+        );
         for rivi in rivit.iter().chain(&[ALOITUS]) {
             let teksti = kaanna(rivi);
             assert!(teksti.chars().count() <= ALKU_MERKKEJA, "{teksti}");

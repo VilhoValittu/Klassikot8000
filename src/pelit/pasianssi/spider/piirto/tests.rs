@@ -22,7 +22,7 @@ fn kaikki_mahtuu_ruudulle_ja_pitkakin_sarake_tiivistyy() {
     assert!(VALMIIT_X + (SARJOJA as i32 - 1) * VALMIS_ASKEL + KORTTI_L < PANEELI_X);
     const { assert!(PANEELI_YLA + PANEELI_KORKEUS <= TAULU_Y) };
     assert!(NAPIT_Y + NAPIT.len() as i32 * NAPPI_ASKEL <= PANEELI_YLA + PANEELI_KORKEUS);
-    assert!(VIESTI_Y + VIESTIN_RIVEJA as i32 * RIVIN_KORKEUS <= PANEELI_YLA + PANEELI_KORKEUS);
+    assert!(VIESTI_Y + VIESTIN_RIVEJA as i32 * SIVU_RIVI <= PANEELI_YLA + PANEELI_KORKEUS);
 
     for (piilossa, nakyvia) in [(0, 1), (5, 13), (5, 40), (0, 104), (5, 99)] {
         let tiedot = Sarake {

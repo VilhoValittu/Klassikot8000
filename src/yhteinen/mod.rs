@@ -9,6 +9,7 @@ pub mod loppunapit;
 pub mod osoitin;
 pub mod paivays;
 pub mod paletti;
+pub mod pehmennys;
 pub mod pelinakyma;
 pub mod piirto;
 pub mod rasteri;

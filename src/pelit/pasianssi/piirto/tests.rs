@@ -34,7 +34,7 @@ pub fn napin_keskipiste_listasta(napit: &[(Nappi, &str)], nappi: Nappi) -> (i32,
 pub fn sivu_mahtuu(ohjeet: &[&str], napit: &[(Nappi, &str)]) {
     use crate::yhteinen::kieli::kaikilla_kielilla;
     let tila = SIVU_L - 36;
-    assert!(SIVU_OHJE_Y + ohjeet.len() as i32 * RIVIN_KORKEUS <= NAPIT_Y);
+    assert!(SIVU_OHJE_Y + ohjeet.len() as i32 * SIVU_RIVI <= NAPIT_Y);
     assert!(NAPIT_Y + napit.len() as i32 * NAPPI_ASKEL < RUUDUN_KORKEUS as i32);
     kaikilla_kielilla(|| {
         for avain in ohjeet {

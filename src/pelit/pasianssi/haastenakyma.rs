@@ -5,7 +5,7 @@ use klassikot8000::pasianssi::Variantti;
 
 use super::peli::{HAASTERIVILLA, Pasianssi};
 use super::piirto::{
-    NAPIT_Y, SIVU_L, SIVU_MERKKEJA, SIVU_TEKSTI_X, SIVU_X, VARIANTIT, vaikeuden_nimi,
+    NAPIT_Y, SIVU_L, SIVU_MERKKEJA, SIVU_RIVI, SIVU_TEKSTI_X, SIVU_X, VARIANTIT, vaikeuden_nimi,
 };
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
@@ -144,15 +144,15 @@ impl Piirtaja<'_> {
         let mut y = OHJE_Y;
         for rivi in rivita(kaanna("pasianssi.haaste_ohje"), SIVU_MERKKEJA) {
             self.teksti(SIVU_TEKSTI_X, y, rivi, VALKOINEN);
-            y += RIVIN_KORKEUS;
+            y += SIVU_RIVI;
         }
-        y += RIVIN_KORKEUS;
+        y += SIVU_RIVI;
         for avain in [
             "pasianssi.haaste_nappaimet_1",
             "pasianssi.haaste_nappaimet_2",
         ] {
             self.teksti(SIVU_TEKSTI_X, y, kaanna(avain), HUTI);
-            y += RIVIN_KORKEUS;
+            y += SIVU_RIVI;
         }
         self.nappi(SIVU_TEKSTI_X, NAPIT_Y, TAKAISIN, VALKOINEN, WB_SININEN);
     }

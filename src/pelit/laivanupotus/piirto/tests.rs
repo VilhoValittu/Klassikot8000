@@ -133,3 +133,13 @@ fn kaikki_vaiheet_piirtyvat_kaatumatta_tehosteiden_aikana() {
     ];
     piirra(&peli, &mut kuva);
 }
+
+/// Uponneiden lista mahtuu laudan kehyksen ja viestipaneelin väliin väljin rivein.
+#[test]
+fn laivalista_mahtuu_laudan_ja_paneelin_valiin() {
+    use klassikot8000::laivanupotus::LAIVAT;
+    const { assert!(TILASTO_Y > LAUTA_Y + LAUDAN_KOKO + 3) };
+    // Viimeisen rivin yläreuna; merkki on 24 pikseliä korkea.
+    let viimeinen = TILASTO_Y + LAIVAT.len() as i32 * RIVIN_KORKEUS;
+    assert!(viimeinen + 24 <= PANEELI_Y);
+}

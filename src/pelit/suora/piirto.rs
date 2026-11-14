@@ -10,8 +10,10 @@ use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, tahko4, tummenna};
 /// Ruudun sivu: viiva vie ylä- ja vasemmasta reunasta konepikselin.
 const RUUTU: i32 = 36;
 const LAUTA: i32 = RUUTU * KOKO as i32;
-const ALUE_Y: i32 = 48;
-const ALUE_K: i32 = PANEELI_Y - 6 - ALUE_Y;
+// Suurin lauta on 540 pikseliä: alue alkaa heti otsikkopalkin alta ja päättyy
+// konepikselin päähän viestipaneelista.
+const ALUE_Y: i32 = 42;
+const ALUE_K: i32 = PANEELI_Y - 3 - ALUE_Y;
 const ORIGO: (i32, i32) = (
     (LEVEYS as i32 - LAUTA) / 2,
     ALUE_Y + (ALUE_K - LAUTA) / 6 * 3,

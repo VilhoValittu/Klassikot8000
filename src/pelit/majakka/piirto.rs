@@ -12,7 +12,7 @@ use klassikot8000::majakka::{
 use super::peli::{Majakka, TEHOSTE_MS, Tehoste, Tehostelaji, VIESTEJA, Vaihe};
 use crate::yhteinen::kieli::kaanna;
 use crate::yhteinen::piirto::*;
-use crate::yhteinen::rasteri::{Rasteri, ditteroi, kohina, liukuvari};
+use crate::yhteinen::rasteri::{Rasteri, kohina, liukuvari, valisavy};
 use crate::yhteinen::vektori::{Kangas, Tahko, kuutio, sekoita_liuku, tahko4, tummenna, vaalenna};
 
 pub const KENTTA_X: i32 = 30;
@@ -241,10 +241,10 @@ fn vesi(x: i32, y: i32, valo: Valo) -> u32 {
     let (fx, fy) = (x as f32 * P as f32, y as f32 * P as f32);
     let t = fy / majakka::KORKEUS;
     let pohja = match valo {
-        Valo::Yo => liukuvari(&[0x050A26, 0x08103A, 0x0A1644], t, x, y),
-        Valo::Keila => liukuvari(&[0x2A5AA8, 0x3068B8, 0x3A74C4], t, x, y),
+        Valo::Yo => liukuvari(&[0x050A26, 0x08103A, 0x0A1644], t),
+        Valo::Keila => liukuvari(&[0x2A5AA8, 0x3068B8, 0x3A74C4], t),
         // Aamun taivas heijastuu kaukaiseen mereen.
-        Valo::Paiva => liukuvari(&[0xB06898, 0x6A70C0, 0x4A70C0, 0x3A68B8], t, x, y),
+        Valo::Paiva => liukuvari(&[0xB06898, 0x6A70C0, 0x4A70C0, 0x3A68B8], t),
     };
     let aalto = (fx * 0.045 + fy * 0.12).sin() + 0.6 * (fx * 0.11 - fy * 0.05 + 1.0).sin();
     if aalto > 1.25 {
@@ -277,7 +277,7 @@ fn maaston_vari(maasto: Maasto, x: i32, y: i32, valo: Valo, vaikeus: Vaikeus) ->
                 Valo::Keila => (0x3C6A34, 0x4A7A3C),
                 Valo::Paiva => (0x5A8A48, 0x6C9C54),
             };
-            ditteroi(x, y, a, b, kohina(y, x))
+            valisavy(a, b, kohina(y, x))
         }
         Maasto::Katto => kolme(0x140C1C, 0x8C3C30, 0xA84838),
         Maasto::Seina => kolme(0x161428, 0xC8B8A0, 0xE0D0B8),
@@ -285,11 +285,11 @@ fn maaston_vari(maasto: Maasto, x: i32, y: i32, valo: Valo, vaikeus: Vaikeus) ->
         Maasto::Kari(savy) => {
             let osuus = (savy + 1.0) / 2.0;
             match (valo, vaikeus) {
-                (Valo::Yo, Vaikeus::Helppo) => liukuvari(&[0x10122C, 0x24243E], osuus, x, y),
+                (Valo::Yo, Vaikeus::Helppo) => liukuvari(&[0x10122C, 0x24243E], osuus),
                 // Pimeässä karikko on meren värinen: vain vaahto paljastaa sen.
                 (Valo::Yo, _) => vesi(x, y, valo),
-                (Valo::Keila, _) => liukuvari(&[0x3A2E40, 0x7A6A5A, 0xB4A48E], osuus, x, y),
-                (Valo::Paiva, _) => liukuvari(&[0x4C3C50, 0x8C7868, 0xC8B8A0], osuus, x, y),
+                (Valo::Keila, _) => liukuvari(&[0x3A2E40, 0x7A6A5A, 0xB4A48E], osuus),
+                (Valo::Paiva, _) => liukuvari(&[0x4C3C50, 0x8C7868, 0xC8B8A0], osuus),
             }
         }
         Maasto::Vaahto(tiheys) => {
@@ -299,7 +299,7 @@ fn maaston_vari(maasto: Maasto, x: i32, y: i32, valo: Valo, vaikeus: Vaikeus) ->
                 (Valo::Yo, Vaikeus::Vaikea) => (0x1C2858, 0.4),
                 _ => (0xE8F4FF, 1.0),
             };
-            ditteroi(x, y, vesi(x, y, valo), vaahto, tiheys * kerroin)
+            valisavy(vesi(x, y, valo), vaahto, tiheys * kerroin)
         }
     }
 }
@@ -485,34 +485,30 @@ impl Piirtaja<'_> {
         self.majakan_paneeli(peli);
     }
 
-    /// Joka konepikseli valitaan yön, keilan ja päivän kuvista.
+    /// Joka konepikseli valitaan yön, keilan ja päivän kuvista. Keilan reuna lasketaan
+    /// ruudun pikseleittäin (`valaistu_alue`), joten se ei porrastu.
     fn majakan_meri(&mut self, meri: &Meri, kuva: &Merikuva) {
         let valoisuus = meri.valoisuus();
         let keila = Keilanalue::new(meri);
-        let mut rivi = [0; RUUTUJA_L];
-        for y in 0..RUUTUJA_K {
-            let (yo, valo, paiva) = (kuva.yo.rivi(y), kuva.keila.rivi(y), kuva.paiva.rivi(y));
-            let keski_y = (y as i32 * P) as f32 + P as f32 / 2.0;
-            for (x, kohde) in rivi.iter_mut().enumerate() {
-                let (xi, yi) = (x as i32, y as i32);
-                let mut vari = if valoisuus <= 0.0 {
-                    yo[x]
-                } else if valoisuus >= 1.0 {
-                    paiva[x]
-                } else {
-                    ditteroi(xi, yi, yo[x], paiva[x], valoisuus)
-                };
-                if valoisuus < 1.0 {
-                    let keski_x = (xi * P) as f32 + P as f32 / 2.0;
-                    let osuus = keila.osuus(keski_x, keski_y);
-                    if osuus > 0.0 {
-                        vari = ditteroi(xi, yi, vari, valo[x], osuus);
-                    }
-                }
-                *kohde = vari;
+        let pohja = |x: usize, y: usize| {
+            if valoisuus <= 0.0 {
+                kuva.yo.rivi(y)[x]
+            } else if valoisuus >= 1.0 {
+                kuva.paiva.rivi(y)[x]
+            } else {
+                valisavy(kuva.yo.rivi(y)[x], kuva.paiva.rivi(y)[x], valoisuus)
             }
-            self.k.karkea_rivi(KENTTA_X, KENTTA_Y + y as i32 * P, &rivi);
-        }
+        };
+        let osuus = |x: f32, y: f32| {
+            if valoisuus >= 1.0 {
+                0.0
+            } else {
+                keila.osuus(x * P as f32, y * P as f32)
+            }
+        };
+        let varit = |x: usize, y: usize| (pohja(x, y), kuva.keila.rivi(y)[x]);
+        self.k
+            .valaistu_alue((KENTTA_X, KENTTA_Y), RUUTUJA_L, 0..RUUTUJA_K, osuus, varit);
     }
 
     /// Pimeässä karikon paljastaa vain välähtelevä vaahto. Kuvio vaihtuu harvakseltaan,

@@ -72,7 +72,7 @@ fn poytakirja_ja_sivupaneeli_mahtuvat_ruudulle() {
     }
     const { assert!(KIRJA_Y + KIRJAN_K + 12 < RUUDUN_KORKEUS as i32) };
     assert!(nopan_x(NOPPIA - 1) + NOPPA < SIVU_X + SIVU_L);
-    const { assert!(OHJE_Y + 8 * RIVIN_KORKEUS < NAPIT_Y) };
+    const { assert!(OHJE_Y + 8 * RUUDUN_RIVI < NAPIT_Y) };
     const { assert!(OHJE_Y + PARHAAT_OTSIKKO + 3 * parhaiden_askel(TULOS, Some(PVM)) < NAPIT_Y) };
     assert_eq!(
         rivin_y(Rivi::Jatsi) + RIVI_K,
